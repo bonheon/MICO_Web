@@ -1,0 +1,540 @@
+{% extends 'setup_mico/base.html' %}
+{% block title %}| 학습값{% endblock %}
+{% block nav_learning %}active{% endblock %}
+
+{% block breadcrumb %}
+<li class="breadcrumb-item">Learning</li>
+<li class="breadcrumb-item active">학습값</li>
+{% endblock %}
+
+{% block content %}
+<style>
+  .selector-panel {
+    display: grid;
+    grid-template-columns: 1fr 1fr 1fr;
+    gap: 1rem;
+    margin-bottom: 1.25rem;
+  }
+  .selector-card {
+    background: #fff;
+    border: 2px solid #e4e7ed;
+    border-radius: 12px;
+    padding: 1rem 1.25rem;
+    position: relative;
+    transition: border-color 0.15s;
+  }
+  .selector-card.selected { border-color: #4f8ef7; }
+  .step-badge {
+    position: absolute;
+    top: -10px; left: 14px;
+    font-size: 0.65rem;
+    font-weight: 700;
+    padding: 2px 8px;
+    border-radius: 999px;
+    letter-spacing: 0.05em;
+    color: #fff;
+  }
+  .selector-card label {
+    font-size: 0.72rem;
+    font-weight: 600;
+    color: #8993a8;
+    text-transform: uppercase;
+    letter-spacing: 0.06em;
+    display: block;
+    margin-bottom: 0.5rem;
+  }
+  .selector-card select {
+    width: 100%;
+    border: 1px solid #e4e7ed;
+    border-radius: 8px;
+    padding: 0.45rem 0.75rem;
+    font-size: 0.83rem;
+    color: #344054;
+    background: #f8f9fc;
+    outline: none;
+    cursor: pointer;
+  }
+  .selector-card select:focus { border-color: #4f8ef7; background: #fff; }
+  .selector-card select:disabled { opacity: 0.4; cursor: not-allowed; }
+
+  .algo-tabs { display: flex; gap: 0.5rem; margin-bottom: 1rem; }
+  .algo-tab {
+    padding: 0.5rem 1.25rem;
+    border-radius: 8px;
+    border: 1px solid #e4e7ed;
+    background: #fff;
+    font-size: 0.83rem;
+    font-weight: 500;
+    color: #8993a8;
+    cursor: pointer;
+    transition: all 0.15s;
+  }
+  .algo-tab:hover { border-color: #4f8ef7; color: #4f8ef7; }
+  .algo-tab.active { background: #4f8ef7; border-color: #4f8ef7; color: #fff; font-weight: 600; }
+
+  .content-card {
+    background: #fff;
+    border: 1px solid #e4e7ed;
+    border-radius: 12px;
+    overflow: hidden;
+  }
+  .content-header {
+    padding: 1rem 1.5rem;
+    border-bottom: 1px solid #e4e7ed;
+    display: flex;
+    align-items: center;
+    gap: 0.75rem;
+  }
+  .content-title { font-size: 0.875rem; font-weight: 600; color: #1e2640; }
+  .content-sub   { font-size: 0.75rem; color: #8993a8; margin-top: 1px; }
+
+  .info-bar {
+    display: flex;
+    align-items: center;
+    gap: 0.5rem;
+    flex-wrap: wrap;
+    padding: 0.6rem 1.5rem;
+    background: #f8f9fc;
+    border-bottom: 1px solid #e4e7ed;
+    font-size: 0.78rem;
+  }
+  .chip {
+    border-radius: 999px;
+    padding: 0.2em 0.75em;
+    font-weight: 500;
+    font-size: 0.75rem;
+  }
+
+  .empty-state {
+    padding: 5rem 1.5rem;
+    text-align: center;
+    color: #8993a8;
+  }
+  .empty-state i { font-size: 2.2rem; display: block; margin-bottom: 0.75rem; color: #c8d0e0; }
+  .empty-state .em-title { font-size: 0.9rem; font-weight: 600; color: #344054; margin-bottom: 0.3rem; }
+  .empty-state .em-sub   { font-size: 0.8rem; }
+
+  .chart-area { padding: 1.25rem 1.5rem; }
+  .chart-row { display: grid; gap: 1rem; }
+  .chart-box {
+    background: #f8f9fc;
+    border: 1px solid #e4e7ed;
+    border-radius: 10px;
+    padding: 1rem 1.25rem;
+  }
+  .chart-box-title {
+    font-size: 0.78rem;
+    font-weight: 600;
+    color: #344054;
+    margin-bottom: 0.75rem;
+    display: flex;
+    align-items: center;
+    gap: 0.5rem;
+  }
+  .chart-box-title .dot {
+    width: 8px; height: 8px;
+    border-radius: 50%;
+  }
+</style>
+
+<!-- Selector -->
+<div class="selector-panel">
+  <div class="selector-card" id="card-cat">
+    <span class="step-badge" style="background:#4f8ef7;">STEP 1</span>
+    <label>Category</label>
+    <select id="sel-cat"><option value="">— 선택하세요 —</option></select>
+  </div>
+  <div class="selector-card" id="card-sub">
+    <span class="step-badge" style="background:#22c55e;">STEP 2</span>
+    <label>SubCategory</label>
+    <select id="sel-sub" disabled><option value="">— Category 먼저 선택 —</option></select>
+  </div>
+  <div class="selector-card" id="card-det">
+    <span class="step-badge" style="background:#a855f7;">STEP 3</span>
+    <label>Detail</label>
+    <select id="sel-det" disabled><option value="">— SubCategory 먼저 선택 —</option></select>
+  </div>
+</div>
+
+<!-- Algorithm Tabs -->
+<div class="algo-tabs">
+  <button class="algo-tab active" data-algo="pre_thk">
+    <i class="bi bi-layers me-1"></i> Pre Thickness
+  </button>
+  <button class="algo-tab" data-algo="rr">
+    <i class="bi bi-arrow-repeat me-1"></i> Removal Rate
+  </button>
+  <button class="algo-tab" data-algo="offset">
+    <i class="bi bi-sliders me-1"></i> Offset
+  </button>
+</div>
+
+<!-- Content Card -->
+<div class="content-card">
+  <div class="content-header">
+    <div>
+      <div class="content-title" id="content-title">Pre Thickness 학습값 Trend</div>
+      <div class="content-sub" id="content-sub">항목을 선택하면 학습 Trend가 표시됩니다</div>
+    </div>
+    <div class="ms-auto">
+      <span id="data-status" class="chip" style="background:#f0f2f7; color:#8993a8;">
+        <i class="bi bi-circle me-1"></i> 미선택
+      </span>
+    </div>
+  </div>
+
+  <!-- Info bar -->
+  <div class="info-bar" id="info-bar" style="display:none;">
+    <i class="bi bi-info-circle" style="color:#8993a8;"></i>
+    <span id="info-cat" class="chip" style="background:#eff6ff; color:#4f8ef7;"></span>
+    <i class="bi bi-chevron-right" style="color:#c8d0e0;"></i>
+    <span id="info-sub" class="chip" style="background:#f0fdf4; color:#22c55e;"></span>
+    <i class="bi bi-chevron-right" style="color:#c8d0e0;"></i>
+    <span id="info-det" class="chip" style="background:#fdf4ff; color:#a855f7;"></span>
+  </div>
+
+  <!-- Empty state -->
+  <div class="empty-state" id="empty-state">
+    <i class="bi bi-graph-up"></i>
+    <div class="em-title">학습값 Trend</div>
+    <div class="em-sub">Category → SubCategory → Detail 순서로 선택하면<br>학습 Trend 차트가 표시됩니다</div>
+  </div>
+
+  <!-- Pre Thickness charts -->
+  <div class="chart-area" id="tab-pre_thk" style="display:none;">
+    <div class="chart-row" style="grid-template-columns: 1fr;">
+      <div class="chart-box">
+        <div class="chart-box-title">
+          <span class="dot" style="background:#4f8ef7;"></span>
+          THK 학습값 Trend
+          <span class="badge-pill ms-auto" style="background:#eff6ff; color:#4f8ef7; font-size:0.7rem;">Sample</span>
+        </div>
+        <div style="position:relative; height:220px;">
+          <canvas id="chart-thk"></canvas>
+        </div>
+      </div>
+    </div>
+    <div class="chart-row mt-3" style="grid-template-columns: 1fr 1fr;">
+      <div class="chart-box">
+        <div class="chart-box-title">
+          <span class="dot" style="background:#22c55e;"></span>
+          Pre THK vs Target
+          <span class="badge-pill ms-auto" style="background:#eff6ff; color:#4f8ef7; font-size:0.7rem;">Sample</span>
+        </div>
+        <div style="position:relative; height:180px;">
+          <canvas id="chart-thk-scatter"></canvas>
+        </div>
+      </div>
+      <div class="chart-box">
+        <div class="chart-box-title">
+          <span class="dot" style="background:#f97316;"></span>
+          편차 (Deviation) Trend
+          <span class="badge-pill ms-auto" style="background:#eff6ff; color:#4f8ef7; font-size:0.7rem;">Sample</span>
+        </div>
+        <div style="position:relative; height:180px;">
+          <canvas id="chart-thk-dev"></canvas>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <!-- Removal Rate charts -->
+  <div class="chart-area" id="tab-rr" style="display:none;">
+    <div class="chart-row" style="grid-template-columns: 1fr;">
+      <div class="chart-box">
+        <div class="chart-box-title">
+          <span class="dot" style="background:#a855f7;"></span>
+          Removal Rate 학습값 Trend
+          <span class="badge-pill ms-auto" style="background:#eff6ff; color:#4f8ef7; font-size:0.7rem;">Sample</span>
+        </div>
+        <div style="position:relative; height:220px;">
+          <canvas id="chart-rr"></canvas>
+        </div>
+      </div>
+    </div>
+    <div class="chart-row mt-3" style="grid-template-columns: 1fr 1fr 1fr;">
+      <div class="chart-box">
+        <div class="chart-box-title"><span class="dot" style="background:#4f8ef7;"></span> Pad RR <span class="badge-pill ms-auto" style="background:#eff6ff; color:#4f8ef7; font-size:0.7rem;">Sample</span></div>
+        <div style="position:relative; height:160px;"><canvas id="chart-rr-pad"></canvas></div>
+      </div>
+      <div class="chart-box">
+        <div class="chart-box-title"><span class="dot" style="background:#22c55e;"></span> Disk RR <span class="badge-pill ms-auto" style="background:#eff6ff; color:#4f8ef7; font-size:0.7rem;">Sample</span></div>
+        <div style="position:relative; height:160px;"><canvas id="chart-rr-disk"></canvas></div>
+      </div>
+      <div class="chart-box">
+        <div class="chart-box-title"><span class="dot" style="background:#f97316;"></span> Head RR <span class="badge-pill ms-auto" style="background:#eff6ff; color:#4f8ef7; font-size:0.7rem;">Sample</span></div>
+        <div style="position:relative; height:160px;"><canvas id="chart-rr-head"></canvas></div>
+      </div>
+    </div>
+  </div>
+
+  <!-- Offset charts -->
+  <div class="chart-area" id="tab-offset" style="display:none;">
+    <div class="chart-row" style="grid-template-columns: 1fr;">
+      <div class="chart-box">
+        <div class="chart-box-title">
+          <span class="dot" style="background:#f97316;"></span>
+          Offset 학습값 Trend
+          <span class="badge-pill ms-auto" style="background:#eff6ff; color:#4f8ef7; font-size:0.7rem;">Sample</span>
+        </div>
+        <div style="position:relative; height:220px;">
+          <canvas id="chart-offset"></canvas>
+        </div>
+      </div>
+    </div>
+    <div class="chart-row mt-3" style="grid-template-columns: 1fr 1fr;">
+      <div class="chart-box">
+        <div class="chart-box-title"><span class="dot" style="background:#4f8ef7;"></span> Offset 분포 <span class="badge-pill ms-auto" style="background:#eff6ff; color:#4f8ef7; font-size:0.7rem;">Sample</span></div>
+        <div style="position:relative; height:180px;"><canvas id="chart-offset-dist"></canvas></div>
+      </div>
+      <div class="chart-box">
+        <div class="chart-box-title"><span class="dot" style="background:#22c55e;"></span> 누적 보정값 <span class="badge-pill ms-auto" style="background:#eff6ff; color:#4f8ef7; font-size:0.7rem;">Sample</span></div>
+        <div style="position:relative; height:180px;"><canvas id="chart-offset-cum"></canvas></div>
+      </div>
+    </div>
+  </div>
+
+</div>
+{% endblock %}
+
+{% block scripts %}
+<script>
+const TREE = {{ tree_json|safe }};
+const algoLabels = {
+  pre_thk: 'Pre Thickness 학습값 Trend',
+  rr:      'Removal Rate 학습값 Trend',
+  offset:  'Offset 학습값 Trend',
+};
+let currentAlgo = 'pre_thk';
+let selectedCat = null, selectedSub = null, selectedDet = null;
+let chartsInitialized = false;
+
+// ── Selector ──
+const selCat = document.getElementById('sel-cat');
+const selSub = document.getElementById('sel-sub');
+const selDet = document.getElementById('sel-det');
+
+TREE.forEach(cat => selCat.add(new Option(cat.label, cat.pk)));
+
+selCat.addEventListener('change', function() {
+  selectedCat = TREE.find(c => c.pk == this.value) || null;
+  selectedSub = selectedDet = null;
+  selSub.innerHTML = '<option value="">— 선택하세요 —</option>';
+  selDet.innerHTML = '<option value="">— SubCategory 먼저 선택 —</option>';
+  selSub.disabled = !selectedCat;
+  selDet.disabled = true;
+  document.getElementById('card-cat').classList.toggle('selected', !!selectedCat);
+  document.getElementById('card-sub').classList.remove('selected');
+  document.getElementById('card-det').classList.remove('selected');
+  if (selectedCat) selectedCat.subs.forEach(s => selSub.add(new Option(s.label, s.pk)));
+  updateContent();
+});
+
+selSub.addEventListener('change', function() {
+  selectedSub = selectedCat?.subs.find(s => s.pk == this.value) || null;
+  selectedDet = null;
+  selDet.innerHTML = '<option value="">— 선택하세요 —</option>';
+  selDet.disabled = !selectedSub;
+  document.getElementById('card-sub').classList.toggle('selected', !!selectedSub);
+  document.getElementById('card-det').classList.remove('selected');
+  if (selectedSub) selectedSub.details.forEach(d => selDet.add(new Option(d.label, d.pk)));
+  updateContent();
+});
+
+selDet.addEventListener('change', function() {
+  selectedDet = selectedSub?.details.find(d => d.pk == this.value) || null;
+  document.getElementById('card-det').classList.toggle('selected', !!selectedDet);
+  updateContent();
+});
+
+// ── Tabs ──
+document.querySelectorAll('.algo-tab').forEach(tab => {
+  tab.addEventListener('click', function() {
+    document.querySelectorAll('.algo-tab').forEach(t => t.classList.remove('active'));
+    this.classList.add('active');
+    currentAlgo = this.dataset.algo;
+    updateContent();
+  });
+});
+
+// ── Content ──
+function updateContent() {
+  ['pre_thk','rr','offset'].forEach(a => {
+    document.getElementById('tab-' + a).style.display = (a === currentAlgo && selectedDet) ? '' : 'none';
+  });
+  document.getElementById('content-title').textContent = algoLabels[currentAlgo];
+
+  if (!selectedDet) {
+    document.getElementById('info-bar').style.display = 'none';
+    document.getElementById('empty-state').style.display = '';
+    document.getElementById('content-sub').textContent = '항목을 선택하면 학습 Trend가 표시됩니다';
+    document.getElementById('data-status').innerHTML = '<i class="bi bi-circle me-1"></i> 미선택';
+    document.getElementById('data-status').style.cssText = 'background:#f0f2f7; color:#8993a8;';
+  } else {
+    document.getElementById('info-bar').style.display = '';
+    document.getElementById('empty-state').style.display = 'none';
+    document.getElementById('info-cat').textContent = selectedCat.label;
+    document.getElementById('info-sub').textContent = selectedSub.label;
+    document.getElementById('info-det').textContent = selectedDet.label;
+    document.getElementById('content-sub').textContent = selectedDet.label;
+    document.getElementById('data-status').innerHTML = '<i class="bi bi-check-circle me-1"></i> 선택됨';
+    document.getElementById('data-status').style.cssText = 'background:#f0fdf4; color:#22c55e;';
+
+    if (!chartsInitialized) {
+      initCharts();
+      chartsInitialized = true;
+    }
+  }
+}
+
+// ── Charts ──
+function makeLabels(n) {
+  return Array.from({length: n}, (_, i) => `#${i+1}`);
+}
+function randArr(n, base, range) {
+  return Array.from({length: n}, () => +(base + (Math.random()-0.5)*range*2).toFixed(1));
+}
+const commonOpts = {
+  responsive: true, maintainAspectRatio: false,
+  plugins: { legend: { position: 'bottom', labels: { font: { size: 11 }, boxWidth: 12 } } },
+  scales: {
+    x: { grid: { display: false }, ticks: { font: { size: 10 } } },
+    y: { grid: { color: '#f0f2f7' }, ticks: { font: { size: 10 } } },
+  }
+};
+
+function initCharts() {
+  const N = 20;
+  const labels = makeLabels(N);
+
+  // ── Pre Thickness ──
+  new Chart(document.getElementById('chart-thk'), {
+    type: 'line',
+    data: {
+      labels,
+      datasets: [
+        { label: 'THK 학습값', data: randArr(N, 3000, 80), borderColor: '#4f8ef7', backgroundColor: 'rgba(79,142,247,0.08)', fill: true, tension: 0.35, pointRadius: 3 },
+        { label: 'Target', data: Array(N).fill(3000), borderColor: '#f97316', borderDash: [6,3], pointRadius: 0, tension: 0 },
+      ]
+    },
+    options: { ...commonOpts }
+  });
+
+  new Chart(document.getElementById('chart-thk-scatter'), {
+    type: 'bar',
+    data: {
+      labels: makeLabels(10),
+      datasets: [
+        { label: 'Pre THK', data: randArr(10, 2980, 60), backgroundColor: 'rgba(34,197,94,0.65)', borderRadius: 5 },
+        { label: 'Target', data: Array(10).fill(3000), type: 'line', borderColor: '#4f8ef7', borderDash: [5,3], pointRadius: 0 },
+      ]
+    },
+    options: { ...commonOpts }
+  });
+
+  new Chart(document.getElementById('chart-thk-dev'), {
+    type: 'line',
+    data: {
+      labels,
+      datasets: [
+        { label: '편차', data: randArr(N, 0, 60), borderColor: '#f97316', backgroundColor: 'rgba(249,115,22,0.07)', fill: true, tension: 0.35, pointRadius: 3 },
+        { label: '기준선', data: Array(N).fill(0), borderColor: '#e4e7ed', borderDash: [4,3], pointRadius: 0 },
+      ]
+    },
+    options: { ...commonOpts }
+  });
+
+  // ── Removal Rate ──
+  new Chart(document.getElementById('chart-rr'), {
+    type: 'line',
+    data: {
+      labels,
+      datasets: [
+        { label: 'Pad RR', data: randArr(N, 2800, 120), borderColor: '#4f8ef7', backgroundColor: 'rgba(79,142,247,0.07)', fill: false, tension: 0.35, pointRadius: 3 },
+        { label: 'Disk RR', data: randArr(N, 2600, 100), borderColor: '#22c55e', backgroundColor: 'rgba(34,197,94,0.07)', fill: false, tension: 0.35, pointRadius: 3 },
+        { label: 'Head RR', data: randArr(N, 2900, 150), borderColor: '#f97316', backgroundColor: 'rgba(249,115,22,0.07)', fill: false, tension: 0.35, pointRadius: 3 },
+      ]
+    },
+    options: { ...commonOpts }
+  });
+
+  ['pad','disk','head'].forEach((type, i) => {
+    const colors = ['#4f8ef7','#22c55e','#f97316'];
+    const bases  = [2800, 2600, 2900];
+    new Chart(document.getElementById('chart-rr-' + type), {
+      type: 'line',
+      data: {
+        labels: makeLabels(N),
+        datasets: [{ label: type.toUpperCase() + ' RR', data: randArr(N, bases[i], 100), borderColor: colors[i], backgroundColor: colors[i]+'18', fill: true, tension: 0.4, pointRadius: 2 }]
+      },
+      options: {
+        responsive: true, maintainAspectRatio: false,
+        plugins: { legend: { display: false } },
+        scales: {
+          x: { grid: { display: false }, ticks: { font: { size: 9 } } },
+          y: { grid: { color: '#f0f2f7' }, ticks: { font: { size: 9 } } },
+        }
+      }
+    });
+  });
+
+  // ── Offset ──
+  new Chart(document.getElementById('chart-offset'), {
+    type: 'line',
+    data: {
+      labels,
+      datasets: [
+        { label: 'Offset 값', data: randArr(N, 0, 30), borderColor: '#f97316', backgroundColor: 'rgba(249,115,22,0.08)', fill: true, tension: 0.35, pointRadius: 3 },
+        { label: '기준선', data: Array(N).fill(0), borderColor: '#e4e7ed', borderDash: [5,3], pointRadius: 0 },
+      ]
+    },
+    options: { ...commonOpts }
+  });
+
+  new Chart(document.getElementById('chart-offset-dist'), {
+    type: 'bar',
+    data: {
+      labels: ['-30~-20','−20~-10','−10~0','0~10','10~20','20~30'],
+      datasets: [{
+        label: '빈도',
+        data: [2, 4, 7, 6, 4, 2],
+        backgroundColor: 'rgba(79,142,247,0.65)',
+        borderRadius: 5,
+      }]
+    },
+    options: {
+      responsive: true, maintainAspectRatio: false,
+      plugins: { legend: { display: false } },
+      scales: {
+        x: { grid: { display: false }, ticks: { font: { size: 9 } } },
+        y: { grid: { color: '#f0f2f7' }, ticks: { font: { size: 9 } } },
+      }
+    }
+  });
+
+  new Chart(document.getElementById('chart-offset-cum'), {
+    type: 'line',
+    data: {
+      labels,
+      datasets: [{
+        label: '누적 보정값',
+        data: randArr(N, 0, 20).reduce((acc, v, i) => { acc.push((acc[i-1]||0) + v); return acc; }, []),
+        borderColor: '#22c55e',
+        backgroundColor: 'rgba(34,197,94,0.08)',
+        fill: true,
+        tension: 0.3,
+        pointRadius: 2,
+      }]
+    },
+    options: {
+      responsive: true, maintainAspectRatio: false,
+      plugins: { legend: { display: false } },
+      scales: {
+        x: { grid: { display: false }, ticks: { font: { size: 9 } } },
+        y: { grid: { color: '#f0f2f7' }, ticks: { font: { size: 9 } } },
+      }
+    }
+  });
+}
+</script>
+{% endblock %}

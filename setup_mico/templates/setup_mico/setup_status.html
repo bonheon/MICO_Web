@@ -1,0 +1,332 @@
+{% extends 'setup_mico/base.html' %}
+{% block title %}| Set-up 현황{% endblock %}
+{% block nav_status %}active{% endblock %}
+
+{% block breadcrumb %}
+<li class="breadcrumb-item">Configuration</li>
+<li class="breadcrumb-item active">Set-up 현황</li>
+{% endblock %}
+
+{% block content %}
+<style>
+  /* Tree layout */
+  .tree-category {
+    background: #fff;
+    border: 1px solid #e4e7ed;
+    border-radius: 12px;
+    overflow: hidden;
+    margin-bottom: 1rem;
+  }
+  .tree-cat-header {
+    display: flex;
+    align-items: center;
+    gap: 0.75rem;
+    padding: 0.9rem 1.25rem;
+    cursor: pointer;
+    user-select: none;
+    background: #fff;
+    transition: background 0.15s;
+  }
+  .tree-cat-header:hover { background: #f8f9fc; }
+  .tree-cat-header.collapsed-header { border-bottom: none; }
+
+  .cat-icon {
+    width: 36px; height: 36px;
+    border-radius: 9px;
+    background: #eff6ff;
+    color: #4f8ef7;
+    display: flex; align-items: center; justify-content: center;
+    font-size: 1rem;
+    flex-shrink: 0;
+  }
+  .cat-title { font-weight: 700; font-size: 0.92rem; color: #1e2640; }
+  .cat-meta  { font-size: 0.75rem; color: #8993a8; margin-top: 1px; }
+  .cat-counts { margin-left: auto; display: flex; gap: 0.5rem; align-items: center; }
+
+  .tree-body { border-top: 1px solid #e4e7ed; padding: 0.75rem 1.25rem 1rem 1.25rem; }
+
+  /* SubCategory row */
+  .sub-row {
+    display: flex;
+    align-items: flex-start;
+    gap: 0;
+    margin-bottom: 0.5rem;
+  }
+  .sub-row:last-child { margin-bottom: 0; }
+
+  /* Vertical + horizontal connector lines */
+  .connector {
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    width: 28px;
+    flex-shrink: 0;
+    padding-top: 14px;
+  }
+  .connector .v-line {
+    width: 2px;
+    flex: 1;
+    background: #e4e7ed;
+    min-height: 100%;
+  }
+  .connector-h {
+    display: flex;
+    align-items: center;
+    width: 28px;
+    flex-shrink: 0;
+    padding-top: 14px;
+  }
+  .connector-h .h-line {
+    width: 100%;
+    height: 2px;
+    background: #e4e7ed;
+  }
+
+  .sub-block {
+    flex: 1;
+    min-width: 0;
+  }
+  .sub-header {
+    display: flex;
+    align-items: center;
+    gap: 0.6rem;
+    padding: 0.6rem 1rem;
+    background: #f8f9fc;
+    border: 1px solid #e4e7ed;
+    border-radius: 8px;
+    cursor: pointer;
+    user-select: none;
+    transition: background 0.15s;
+  }
+  .sub-header:hover { background: #f0f2f7; }
+  .sub-icon {
+    width: 28px; height: 28px;
+    border-radius: 7px;
+    background: #f0fdf4;
+    color: #22c55e;
+    display: flex; align-items: center; justify-content: center;
+    font-size: 0.82rem;
+    flex-shrink: 0;
+  }
+  .sub-title { font-weight: 600; font-size: 0.83rem; color: #1e2640; }
+  .sub-meta  { font-size: 0.72rem; color: #8993a8; }
+  .sub-chevron { margin-left: auto; font-size: 0.7rem; color: #8993a8; transition: transform 0.2s; }
+  .sub-header[aria-expanded="false"] .sub-chevron { transform: rotate(-90deg); }
+
+  /* Detail table inside sub */
+  .detail-wrap {
+    margin-top: 0.4rem;
+    margin-left: 0.5rem;
+    border: 1px solid #e4e7ed;
+    border-radius: 8px;
+    overflow: hidden;
+  }
+  .detail-table { margin: 0; font-size: 0.78rem; }
+  .detail-table thead th {
+    background: #f8f9fc;
+    font-size: 0.68rem;
+    font-weight: 600;
+    text-transform: uppercase;
+    letter-spacing: 0.04em;
+    color: #8993a8;
+    padding: 0.5rem 0.85rem;
+    border-bottom: 1px solid #e4e7ed;
+    white-space: nowrap;
+  }
+  .detail-table tbody td {
+    padding: 0.5rem 0.85rem;
+    color: #344054;
+    vertical-align: middle;
+    border-color: #f0f2f7;
+  }
+  .detail-table tbody tr:last-child td { border-bottom: none; }
+
+  .empty-details {
+    padding: 0.75rem 1rem;
+    font-size: 0.78rem;
+    color: #8993a8;
+    text-align: center;
+  }
+</style>
+
+<div class="d-flex align-items-center justify-content-between mb-3">
+  <div>
+    <h5 class="fw-bold mb-0" style="color:#1e2640;">Set-up 현황</h5>
+    <small class="text-muted">Category → SubCategory → Detail 종속 구조</small>
+  </div>
+  <div class="d-flex gap-2">
+    <button class="btn btn-sm btn-light" id="expandAll" style="border-radius:8px; font-size:0.8rem;">
+      <i class="bi bi-arrows-expand me-1"></i> 전체 펼치기
+    </button>
+    <button class="btn btn-sm btn-light" id="collapseAll" style="border-radius:8px; font-size:0.8rem;">
+      <i class="bi bi-arrows-collapse me-1"></i> 전체 접기
+    </button>
+  </div>
+</div>
+
+{% if not categories %}
+<div class="table-card text-center text-muted py-5">
+  <i class="bi bi-inbox" style="font-size:1.5rem; display:block; margin-bottom:0.4rem;"></i>
+  등록된 Category가 없습니다
+</div>
+{% endif %}
+
+{% for cat in categories %}
+{% with subs=cat.subcategories.all %}
+<div class="tree-category">
+
+  <!-- Category Header -->
+  <div class="tree-cat-header" data-bs-toggle="collapse" data-bs-target="#cat-{{ cat.pk }}"
+       aria-expanded="true">
+    <div class="cat-icon"><i class="bi bi-layers-half"></i></div>
+    <div>
+      <div class="cat-title">{{ cat.product }}</div>
+      <div class="cat-meta">Oper ID: {{ cat.oper_id }}{% if cat.oper_desc %} · {{ cat.oper_desc|truncatechars:50 }}{% endif %}</div>
+    </div>
+    <div class="cat-counts">
+      <span class="badge-pill" style="background:#eff6ff; color:#4f8ef7;">
+        <i class="bi bi-diagram-3 me-1"></i>SubCategory {{ subs.count }}
+      </span>
+      <span class="badge-pill" style="background:#f0fdf4; color:#22c55e;">
+        <i class="bi bi-list-task me-1"></i>Detail {{ cat.detail_count }}
+      </span>
+      <i class="bi bi-chevron-down" style="font-size:0.75rem; color:#8993a8; transition:transform 0.2s;" id="cat-chevron-{{ cat.pk }}"></i>
+    </div>
+  </div>
+
+  <!-- Category Body (collapsible) -->
+  <div class="collapse show" id="cat-{{ cat.pk }}">
+    <div class="tree-body">
+      {% if subs %}
+        {% for sub in subs %}
+        {% with details=sub.details.all %}
+        <div class="sub-row">
+          <!-- vertical line for non-last items -->
+          <div style="width:16px; flex-shrink:0; position:relative;">
+            <div style="position:absolute; left:7px; top:0; bottom:{% if forloop.last %}50%{% else %}0{% endif %}; width:2px; background:#e4e7ed;"></div>
+            <div style="position:absolute; left:7px; top:14px; width:18px; height:2px; background:#e4e7ed;"></div>
+          </div>
+          <div style="width:10px; flex-shrink:0;"></div>
+
+          <div class="sub-block">
+            <!-- SubCategory Header -->
+            <div class="sub-header" data-bs-toggle="collapse" data-bs-target="#sub-{{ sub.pk }}"
+                 aria-expanded="true">
+              <div class="sub-icon"><i class="bi bi-diagram-2"></i></div>
+              <div>
+                <div class="sub-title">{{ sub.recipe_id }}</div>
+                <div class="sub-meta">FAB: {{ sub.fab }} · Device: {{ sub.device }}{% if sub.maker %} · Maker: {{ sub.maker }}{% endif %}</div>
+              </div>
+              <span class="badge-pill ms-2" style="background:#fdf4ff; color:#a855f7; flex-shrink:0;">
+                Detail {{ details.count }}
+              </span>
+              <i class="bi bi-chevron-down sub-chevron"></i>
+            </div>
+
+            <!-- Detail Table -->
+            <div class="collapse show" id="sub-{{ sub.pk }}">
+              {% if details %}
+              <div class="detail-wrap">
+                <table class="table detail-table">
+                  <thead>
+                    <tr>
+                      <th>APC Para</th>
+                      <th>THK Para</th>
+                      <th class="text-center">Target</th>
+                      <th class="text-center">Pre Target</th>
+                      <th class="text-center">Pre THK Period</th>
+                      <th class="text-center">RR Para</th>
+                      <th class="text-center">Offset Group</th>
+                      <th class="text-center">RR Max</th>
+                      <th class="text-center">RR Period</th>
+                      <th class="text-center">IF RR</th>
+                    </tr>
+                  </thead>
+                  <tbody>
+                    {% for d in details %}
+                    <tr>
+                      <td><span class="fw-semibold">{{ d.apc_para }}</span></td>
+                      <td>{{ d.thk_para }}</td>
+                      <td class="text-center">{{ d.target }}</td>
+                      <td class="text-center">{{ d.pre_target }}</td>
+                      <td class="text-center">{{ d.pre_thk_period }}</td>
+                      <td class="text-center">
+                        {% if d.rr_para %}
+                          <span class="badge-pill" style="background:#fdf4ff; color:#a855f7;">{{ d.rr_para }}</span>
+                        {% else %}—{% endif %}
+                      </td>
+                      <td class="text-center">
+                        {% if d.offset_group %}
+                          <span class="badge-pill" style="background:{% if d.offset_group == 'Y' %}#f0fdf4; color:#22c55e;{% else %}#fff1f2; color:#ef4444;{% endif %}">
+                            {{ d.offset_group }}
+                          </span>
+                        {% else %}—{% endif %}
+                      </td>
+                      <td class="text-center">{{ d.rr_max|default:"—" }}</td>
+                      <td class="text-center">{{ d.rr_period|default:"—" }}</td>
+                      <td class="text-center">{{ d.if_rr|default:"—" }}</td>
+                    </tr>
+                    {% endfor %}
+                  </tbody>
+                </table>
+              </div>
+              {% else %}
+              <div class="empty-details">
+                <i class="bi bi-inbox me-1"></i> 등록된 Detail이 없습니다
+              </div>
+              {% endif %}
+            </div>
+          </div>
+        </div>
+        {% endwith %}
+        {% endfor %}
+      {% else %}
+        <div class="text-muted text-center py-3" style="font-size:0.82rem;">
+          <i class="bi bi-inbox me-1"></i> 등록된 SubCategory가 없습니다
+        </div>
+      {% endif %}
+    </div>
+  </div>
+
+</div>
+{% endwith %}
+{% endfor %}
+
+{% endblock %}
+
+{% block scripts %}
+<script>
+// 전체 펼치기
+document.getElementById('expandAll').addEventListener('click', () => {
+  document.querySelectorAll('.collapse').forEach(el => {
+    bootstrap.Collapse.getOrCreateInstance(el).show();
+  });
+});
+// 전체 접기
+document.getElementById('collapseAll').addEventListener('click', () => {
+  document.querySelectorAll('.collapse').forEach(el => {
+    bootstrap.Collapse.getOrCreateInstance(el).hide();
+  });
+});
+
+// Category chevron 회전
+document.querySelectorAll('[data-bs-target^="#cat-"]').forEach(btn => {
+  const targetId = btn.getAttribute('data-bs-target').replace('#', '');
+  const chevron = document.getElementById('cat-chevron-' + targetId.replace('cat-', ''));
+  const collapseEl = document.getElementById(targetId);
+  if (!collapseEl || !chevron) return;
+  collapseEl.addEventListener('show.bs.collapse', () => chevron.style.transform = 'rotate(0deg)');
+  collapseEl.addEventListener('hide.bs.collapse', () => chevron.style.transform = 'rotate(-90deg)');
+});
+
+// SubCategory chevron 회전
+document.querySelectorAll('[data-bs-target^="#sub-"]').forEach(btn => {
+  const targetId = btn.getAttribute('data-bs-target').replace('#', '');
+  const collapseEl = document.getElementById(targetId);
+  const chevron = btn.querySelector('.sub-chevron');
+  if (!collapseEl || !chevron) return;
+  collapseEl.addEventListener('show.bs.collapse', () => chevron.style.transform = 'rotate(0deg)');
+  collapseEl.addEventListener('hide.bs.collapse', () => chevron.style.transform = 'rotate(-90deg)');
+});
+</script>
+{% endblock %}

@@ -1,0 +1,338 @@
+{% extends 'setup_mico/base.html' %}
+{% block title %}| 산포 개선 현황{% endblock %}
+{% block nav_dispersion %}active{% endblock %}
+
+{% block breadcrumb %}
+<li class="breadcrumb-item">Improvement</li>
+<li class="breadcrumb-item active">산포 개선 현황</li>
+{% endblock %}
+
+{% block content %}
+<style>
+  .filter-card {
+    background: #fff;
+    border: 1px solid #e4e7ed;
+    border-radius: 12px;
+    padding: 1.25rem 1.5rem;
+    margin-bottom: 1.25rem;
+  }
+  .filter-row {
+    display: grid;
+    grid-template-columns: 1fr 1fr 1fr auto;
+    gap: 1rem;
+    align-items: flex-end;
+  }
+  .filter-group label {
+    font-size: 0.72rem; font-weight: 600;
+    text-transform: uppercase; letter-spacing: 0.06em;
+    color: #8993a8; display: block; margin-bottom: 0.4rem;
+  }
+  .filter-group select {
+    width: 100%;
+    border: 1px solid #e4e7ed; border-radius: 8px;
+    padding: 0.5rem 0.85rem; font-size: 0.85rem;
+    color: #344054; background: #f8f9fc;
+    outline: none; cursor: pointer; transition: border-color 0.15s;
+  }
+  .filter-group select:focus { border-color: #4f8ef7; background: #fff; }
+  .filter-group select:disabled { opacity: 0.5; cursor: not-allowed; }
+
+  .chart-card {
+    background: #fff; border: 1px solid #e4e7ed;
+    border-radius: 12px; overflow: hidden;
+  }
+  .chart-header {
+    padding: 0.9rem 1.25rem; border-bottom: 1px solid #e4e7ed;
+    display: flex; align-items: center; justify-content: space-between;
+  }
+  .chart-body { padding: 1.5rem; }
+
+  .stat-row {
+    display: grid; grid-template-columns: repeat(4, 1fr);
+    gap: 1rem; margin-bottom: 1.25rem;
+  }
+  .stat-card {
+    background: #fff; border: 1px solid #e4e7ed;
+    border-radius: 12px; padding: 1rem 1.25rem;
+  }
+  .stat-label { font-size: 0.72rem; font-weight: 600; text-transform: uppercase; letter-spacing: 0.05em; color: #8993a8; margin-bottom: 0.3rem; }
+  .stat-value { font-size: 1.5rem; font-weight: 700; color: #1e2640; }
+  .stat-sub   { font-size: 0.75rem; color: #8993a8; margin-top: 0.1rem; }
+  .stat-badge { font-size: 0.72rem; font-weight: 600; border-radius: 999px; padding: 0.15em 0.6em; }
+
+  .empty-state {
+    padding: 5rem 1.5rem; text-align: center; color: #8993a8;
+  }
+  .empty-state i { font-size: 2.2rem; display: block; margin-bottom: 0.75rem; color: #c8d0e0; }
+  .empty-state .em-title { font-size: 0.9rem; font-weight: 600; color: #344054; margin-bottom: 0.3rem; }
+  .empty-state .em-sub   { font-size: 0.8rem; }
+
+  .notice-banner {
+    display: flex; align-items: flex-start; gap: 0.75rem;
+    background: #fffbeb; border: 1px solid #fde68a;
+    border-radius: 10px; padding: 0.9rem 1.1rem;
+    font-size: 0.82rem; color: #92400e; margin-bottom: 1.25rem;
+  }
+  .notice-banner i { font-size: 1rem; flex-shrink: 0; margin-top: 1px; }
+  .chip { border-radius: 999px; padding: 0.2em 0.75em; font-weight: 500; font-size: 0.75rem; }
+
+  .two-col { display: grid; grid-template-columns: 1fr 1fr; gap: 1rem; margin-top: 1rem; }
+</style>
+
+<div class="d-flex align-items-center justify-content-between mb-3">
+  <div>
+    <h5 class="fw-bold mb-0" style="color:#1e2640;">산포 개선 현황</h5>
+    <small class="text-muted">MICO 적용 전/후 공정별 산포(Sigma) 비교</small>
+  </div>
+</div>
+
+<!-- DB 연동 안내 -->
+<div class="notice-banner">
+  <i class="bi bi-info-circle-fill" style="color:#d97706;"></i>
+  <div>
+    <strong>DB 연동 준비 중</strong><br>
+    현재 사내 DB가 연결되지 않아 샘플 데이터가 표시됩니다.
+    DB 연동 후 필터 조회 시 실제 산포 개선 데이터가 차트에 반영됩니다.
+  </div>
+</div>
+
+<!-- 필터 -->
+<div class="filter-card">
+  <form method="get" action="{% url 'dispersion' %}">
+    <div class="filter-row">
+      <div class="filter-group">
+        <label><i class="bi bi-cpu me-1"></i>Product</label>
+        <select name="product" {% if not product_list %}disabled{% endif %}>
+          <option value="">— 전체 —</option>
+          {% for p in product_list %}
+          <option value="{{ p }}" {% if p == product %}selected{% endif %}>{{ p }}</option>
+          {% empty %}<option value="" disabled>DB 연동 후 사용 가능</option>
+          {% endfor %}
+        </select>
+      </div>
+      <div class="filter-group">
+        <label><i class="bi bi-layers me-1"></i>Device</label>
+        <select name="device" {% if not device_list %}disabled{% endif %}>
+          <option value="">— 전체 —</option>
+          {% for d in device_list %}
+          <option value="{{ d }}" {% if d == device %}selected{% endif %}>{{ d }}</option>
+          {% empty %}<option value="" disabled>DB 연동 후 사용 가능</option>
+          {% endfor %}
+        </select>
+      </div>
+      <div class="filter-group">
+        <label><i class="bi bi-gear me-1"></i>공정 (Oper ID)</label>
+        <select name="process" {% if not process_list %}disabled{% endif %}>
+          <option value="">— 전체 —</option>
+          {% for pr in process_list %}
+          <option value="{{ pr }}" {% if pr == process %}selected{% endif %}>{{ pr }}</option>
+          {% empty %}<option value="" disabled>DB 연동 후 사용 가능</option>
+          {% endfor %}
+        </select>
+      </div>
+      <div>
+        <button type="submit" class="btn btn-primary w-100" style="border-radius:8px; padding:0.5rem 1.25rem;"
+          {% if not product_list and not device_list and not process_list %}disabled{% endif %}>
+          <i class="bi bi-search me-1"></i> 조회
+        </button>
+      </div>
+    </div>
+  </form>
+</div>
+
+{% if queried and chart_json == 'null' %}
+<!-- 샘플 데이터 표시 -->
+
+<!-- 요약 통계 (샘플) -->
+<div class="stat-row">
+  <div class="stat-card">
+    <div class="stat-label">평균 산포 개선율</div>
+    <div class="stat-value" style="color:#22c55e;">—</div>
+    <div class="stat-sub">DB 연동 후 표시</div>
+  </div>
+  <div class="stat-card">
+    <div class="stat-label">적용 전 평균 Sigma</div>
+    <div class="stat-value">—</div>
+    <div class="stat-sub">DB 연동 후 표시</div>
+  </div>
+  <div class="stat-card">
+    <div class="stat-label">적용 후 평균 Sigma</div>
+    <div class="stat-value">—</div>
+    <div class="stat-sub">DB 연동 후 표시</div>
+  </div>
+  <div class="stat-card">
+    <div class="stat-label">분석 공정 수</div>
+    <div class="stat-value">—</div>
+    <div class="stat-sub">DB 연동 후 표시</div>
+  </div>
+</div>
+
+<!-- 전/후 비교 Bar 차트 -->
+<div class="chart-card">
+  <div class="chart-header">
+    <div>
+      <span class="fw-bold" style="font-size:0.875rem; color:#1e2640;">공정별 산포(Sigma) 비교 — MICO 적용 전/후</span>
+      <div style="font-size:0.75rem; color:#8993a8; margin-top:2px;">
+        {% if product %}Product: <strong>{{ product }}</strong>{% endif %}
+        {% if device %}&nbsp;·&nbsp;Device: <strong>{{ device }}</strong>{% endif %}
+        {% if process %}&nbsp;·&nbsp;Oper: <strong>{{ process }}</strong>{% endif %}
+      </div>
+    </div>
+    <span class="chip" style="background:#fff7ed; color:#f97316;">
+      <i class="bi bi-exclamation-circle me-1"></i>Sample
+    </span>
+  </div>
+  <div class="chart-body">
+    <div style="position:relative; height:340px;">
+      <canvas id="chart-sigma-compare"></canvas>
+    </div>
+  </div>
+</div>
+
+<!-- 개선율 + Trend -->
+<div class="two-col">
+  <div class="chart-card">
+    <div class="chart-header">
+      <span class="fw-bold" style="font-size:0.875rem; color:#1e2640;">공정별 산포 개선율 (%)</span>
+      <span class="chip" style="background:#fff7ed; color:#f97316; font-size:0.7rem;">Sample</span>
+    </div>
+    <div class="chart-body">
+      <div style="position:relative; height:260px;">
+        <canvas id="chart-improve-rate"></canvas>
+      </div>
+    </div>
+  </div>
+  <div class="chart-card">
+    <div class="chart-header">
+      <span class="fw-bold" style="font-size:0.875rem; color:#1e2640;">월별 산포 Trend</span>
+      <span class="chip" style="background:#fff7ed; color:#f97316; font-size:0.7rem;">Sample</span>
+    </div>
+    <div class="chart-body">
+      <div style="position:relative; height:260px;">
+        <canvas id="chart-sigma-trend"></canvas>
+      </div>
+    </div>
+  </div>
+</div>
+
+{% elif not queried %}
+<!-- 미조회 -->
+<div class="chart-card">
+  <div class="empty-state">
+    <i class="bi bi-graph-down-arrow"></i>
+    <div class="em-title">조회 조건을 입력하세요</div>
+    <div class="em-sub">Product · Device · 공정을 선택하고 조회 버튼을 누르면<br>산포 개선 현황 차트가 표시됩니다</div>
+  </div>
+</div>
+
+{% else %}
+<!-- DB 연동 후 실제 데이터 영역 -->
+<div class="chart-card">
+  <div class="chart-header">
+    <span class="fw-bold" style="font-size:0.875rem; color:#1e2640;">공정별 산포(Sigma) 비교</span>
+  </div>
+  <div class="chart-body">
+    <div style="position:relative; height:340px;">
+      <canvas id="chart-sigma-real"></canvas>
+    </div>
+  </div>
+</div>
+{% endif %}
+
+{% endblock %}
+
+{% block scripts %}
+<script>
+const commonOpts = (yLabel) => ({
+  responsive: true,
+  maintainAspectRatio: false,
+  plugins: {
+    legend: { position: 'bottom', labels: { font: { size: 11 }, boxWidth: 12 } },
+    tooltip: { callbacks: {
+      label: ctx => ` ${ctx.dataset.label}: ${ctx.parsed.y}${yLabel || ''}`
+    }}
+  },
+  scales: {
+    x: { grid: { display: false }, ticks: { font: { size: 11 } } },
+    y: { grid: { color: '#f0f2f7' }, ticks: { font: { size: 11 } }, beginAtZero: true },
+  },
+});
+
+{% if queried and chart_json == 'null' %}
+/* ── 샘플 차트 ── */
+const PROCS  = ['A908740A','B123456B','C234567C','D345678D','E456789E','F567890F'];
+const MONTHS = ['Jan','Feb','Mar','Apr','May','Jun','Jul','Aug','Sep','Oct','Nov','Dec'];
+
+function rand(n, base, range) {
+  return Array.from({length: n}, () => +(base + (Math.random()-0.5)*range*2).toFixed(1));
+}
+
+// 전/후 비교 grouped bar
+const before = rand(PROCS.length, 180, 40);
+const after  = before.map(v => +(v * (0.55 + Math.random() * 0.2)).toFixed(1));
+
+new Chart(document.getElementById('chart-sigma-compare'), {
+  type: 'bar',
+  data: {
+    labels: PROCS,
+    datasets: [
+      { label: 'MICO 적용 전', data: before, backgroundColor: 'rgba(239,68,68,0.65)',   borderRadius: 4, borderSkipped: false },
+      { label: 'MICO 적용 후', data: after,  backgroundColor: 'rgba(34,197,94,0.75)',   borderRadius: 4, borderSkipped: false },
+    ],
+  },
+  options: commonOpts(' Å'),
+});
+
+// 개선율 가로 bar
+const rates = before.map((b, i) => +(((b - after[i]) / b) * 100).toFixed(1));
+new Chart(document.getElementById('chart-improve-rate'), {
+  type: 'bar',
+  data: {
+    labels: PROCS,
+    datasets: [{
+      label: '개선율',
+      data: rates,
+      backgroundColor: rates.map(r => r >= 0 ? 'rgba(34,197,94,0.75)' : 'rgba(239,68,68,0.65)'),
+      borderRadius: 4,
+      borderSkipped: false,
+    }],
+  },
+  options: {
+    ...commonOpts('%'),
+    indexAxis: 'y',
+    plugins: { legend: { display: false },
+      tooltip: { callbacks: { label: ctx => ` 개선율: ${ctx.parsed.x}%` } }
+    },
+  },
+});
+
+// 월별 Sigma Trend
+new Chart(document.getElementById('chart-sigma-trend'), {
+  type: 'line',
+  data: {
+    labels: MONTHS,
+    datasets: [
+      { label: 'MICO 적용 전', data: rand(12, 185, 15), borderColor: '#ef4444', backgroundColor: 'rgba(239,68,68,0.07)', fill: true, tension: 0.35, pointRadius: 3 },
+      { label: 'MICO 적용 후', data: rand(12, 110, 12), borderColor: '#22c55e', backgroundColor: 'rgba(34,197,94,0.07)', fill: true, tension: 0.35, pointRadius: 3 },
+    ],
+  },
+  options: commonOpts(' Å'),
+});
+
+{% elif chart_json != 'null' %}
+/* ── 실제 DB 데이터 ── */
+const chartData = {{ chart_json|safe }};
+new Chart(document.getElementById('chart-sigma-real'), {
+  type: 'bar',
+  data: {
+    labels: chartData.labels,
+    datasets: [
+      { label: 'MICO 적용 전', data: chartData.before, backgroundColor: 'rgba(239,68,68,0.65)', borderRadius: 4 },
+      { label: 'MICO 적용 후', data: chartData.after,  backgroundColor: 'rgba(34,197,94,0.75)',  borderRadius: 4 },
+    ],
+  },
+  options: commonOpts(' Å'),
+});
+{% endif %}
+</script>
+{% endblock %}

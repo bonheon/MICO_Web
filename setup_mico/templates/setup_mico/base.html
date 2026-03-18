@@ -1,0 +1,314 @@
+<!DOCTYPE html>
+<html lang="ko">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>MICO {% block title %}{% endblock %}</title>
+  <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.2/dist/css/bootstrap.min.css" rel="stylesheet">
+  <link href="https://cdn.jsdelivr.net/npm/bootstrap-icons@1.11.3/font/bootstrap-icons.css" rel="stylesheet">
+  <style>
+    :root {
+      --sidebar-w: 240px;
+      --sidebar-bg: #0f1729;
+      --sidebar-text: #8993a8;
+      --accent: #4f8ef7;
+      --topbar-h: 56px;
+    }
+    * { box-sizing: border-box; }
+    body { background: #f0f2f7; font-family: 'Segoe UI', system-ui, sans-serif; }
+
+    /* ── Sidebar ── */
+    #sidebar {
+      width: var(--sidebar-w);
+      height: 100vh;
+      position: fixed;
+      top: 0; left: 0;
+      background: var(--sidebar-bg);
+      display: flex;
+      flex-direction: column;
+      z-index: 200;
+    }
+    .sb-brand {
+      padding: 1.2rem 1.4rem;
+      border-bottom: 1px solid rgba(255,255,255,0.06);
+    }
+    .sb-brand .logo {
+      font-size: 1.3rem;
+      font-weight: 800;
+      color: #fff;
+      letter-spacing: 0.05em;
+    }
+    .sb-brand .sub {
+      font-size: 0.65rem;
+      color: var(--sidebar-text);
+      letter-spacing: 0.04em;
+    }
+    .sb-nav { flex: 1; padding: 0.75rem 0; overflow-y: auto; }
+    .nav-section {
+      padding: 0.9rem 1.4rem 0.3rem;
+      font-size: 0.63rem;
+      text-transform: uppercase;
+      letter-spacing: 0.1em;
+      color: rgba(137,147,168,0.5);
+    }
+    .sb-link {
+      display: flex;
+      align-items: center;
+      gap: 0.65rem;
+      padding: 0.58rem 1.4rem;
+      color: var(--sidebar-text);
+      text-decoration: none;
+      font-size: 0.845rem;
+      transition: color 0.15s, background 0.15s;
+      border-left: 3px solid transparent;
+    }
+    .sb-link i { font-size: 1rem; width: 1.1rem; flex-shrink: 0; }
+    .sb-link:hover { color: #fff; background: rgba(255,255,255,0.04); }
+    .sb-link.active { color: #fff; background: rgba(79,142,247,0.12); border-left-color: var(--accent); }
+    .sb-link .chevron { margin-left: auto; font-size: 0.7rem; transition: transform 0.2s; }
+    .sb-link[aria-expanded="true"] .chevron { transform: rotate(180deg); }
+
+    .sub-link {
+      display: flex;
+      align-items: center;
+      gap: 0.55rem;
+      padding: 0.42rem 1.4rem 0.42rem 3rem;
+      color: var(--sidebar-text);
+      text-decoration: none;
+      font-size: 0.8rem;
+      transition: color 0.15s;
+    }
+    .sub-link:hover, .sub-link.active { color: #c8d0e0; }
+    .sub-link .dot { width: 5px; height: 5px; border-radius: 50%; background: currentColor; flex-shrink: 0; }
+
+    /* ── Main ── */
+    #main { margin-left: var(--sidebar-w); min-height: 100vh; }
+
+    .topbar {
+      height: var(--topbar-h);
+      background: #fff;
+      border-bottom: 1px solid #e4e7ed;
+      display: flex;
+      align-items: center;
+      padding: 0 1.5rem;
+      position: sticky;
+      top: 0;
+      z-index: 100;
+      gap: 1rem;
+    }
+    .topbar .breadcrumb { margin: 0; font-size: 0.82rem; }
+    .topbar .breadcrumb-item a { color: var(--accent); text-decoration: none; }
+    .user-chip {
+      margin-left: auto;
+      display: flex;
+      align-items: center;
+      gap: 0.6rem;
+    }
+    .status-dot { width: 8px; height: 8px; border-radius: 50%; background: #22c55e; }
+    .user-avatar {
+      width: 30px; height: 30px;
+      border-radius: 50%;
+      background: var(--accent);
+      color: #fff;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      font-size: 0.75rem;
+      font-weight: 600;
+    }
+
+    .page-content { padding: 1.5rem; }
+
+    /* ── Cards ── */
+    .card-box {
+      background: #fff;
+      border-radius: 12px;
+      border: 1px solid #e4e7ed;
+      padding: 1.25rem 1.5rem;
+    }
+    .card-box-title {
+      font-size: 0.875rem;
+      font-weight: 600;
+      color: #1e2640;
+      margin-bottom: 0.2rem;
+    }
+    .card-box-sub {
+      font-size: 0.75rem;
+      color: #8993a8;
+    }
+    .stat-icon {
+      width: 46px; height: 46px;
+      border-radius: 10px;
+      display: flex; align-items: center; justify-content: center;
+      font-size: 1.2rem;
+      flex-shrink: 0;
+    }
+    .stat-value { font-size: 1.6rem; font-weight: 700; line-height: 1.1; color: #1e2640; }
+    .stat-label { font-size: 0.75rem; color: #8993a8; }
+
+    /* ── Table ── */
+    .table-card {
+      background: #fff;
+      border-radius: 12px;
+      border: 1px solid #e4e7ed;
+      overflow: hidden;
+    }
+    .table-card-header {
+      padding: 1rem 1.5rem;
+      border-bottom: 1px solid #e4e7ed;
+      display: flex;
+      align-items: center;
+      gap: 0.75rem;
+    }
+    .search-row th { background: #f8f9fc; padding: 0.4rem 0.5rem !important; }
+    .search-row .col-search {
+      font-size: 0.75rem;
+      border-radius: 6px;
+      border: 1px solid #dde1ea;
+      background: #fff;
+      padding: 0.25rem 0.5rem;
+      color: #344054;
+      text-transform: none;
+      letter-spacing: 0;
+      font-weight: 400;
+    }
+    .search-row .col-search:focus {
+      border-color: #4f8ef7;
+      box-shadow: 0 0 0 2px rgba(79,142,247,0.15);
+      outline: none;
+    }
+    .table > thead > tr > th {
+      font-size: 0.75rem;
+      font-weight: 600;
+      text-transform: uppercase;
+      letter-spacing: 0.04em;
+      color: #8993a8;
+      background: #f8f9fc;
+      border-bottom: 1px solid #e4e7ed;
+      padding: 0.7rem 1rem;
+    }
+    .table > tbody > tr > td {
+      font-size: 0.845rem;
+      color: #344054;
+      padding: 0.75rem 1rem;
+      vertical-align: middle;
+    }
+    .table > tbody > tr:hover { background: #f8f9fc; }
+    .badge-pill {
+      display: inline-block;
+      padding: 0.25em 0.65em;
+      border-radius: 999px;
+      font-size: 0.72rem;
+      font-weight: 500;
+    }
+  </style>
+</head>
+<body>
+
+<!-- Sidebar -->
+<nav id="sidebar">
+  <div class="sb-brand">
+    <div class="logo">MICO</div>
+    <div class="sub">Manufacturing Intelligence Control</div>
+  </div>
+  <div class="sb-nav">
+    <div class="nav-section">Main</div>
+    <a href="{% url 'dashboard' %}" class="sb-link {% block nav_dash %}{% endblock %}">
+      <i class="bi bi-speedometer2"></i> Dashboard
+    </a>
+
+    <div class="nav-section">Configuration</div>
+    <a href="{% url 'setup_status' %}" class="sb-link {% block nav_status %}{% endblock %}">
+      <i class="bi bi-diagram-3"></i> Set-up 현황
+    </a>
+    <a href="#setupMenu" class="sb-link {% block nav_setup %}{% endblock %}"
+       data-bs-toggle="collapse" aria-expanded="{% block setup_expanded %}false{% endblock %}">
+      <i class="bi bi-sliders"></i> Set-up
+      <i class="bi bi-chevron-down chevron"></i>
+    </a>
+    <div class="collapse {% block setup_show %}{% endblock %}" id="setupMenu">
+      <a href="{% url 'category_list' %}" class="sub-link {% block nav_cat %}{% endblock %}">
+        <span class="dot"></span> Category
+      </a>
+      <a href="{% url 'subcategory_list' %}" class="sub-link {% block nav_sub %}{% endblock %}">
+        <span class="dot"></span> SubCategory
+      </a>
+      <a href="{% url 'detail_list' %}" class="sub-link {% block nav_det %}{% endblock %}">
+        <span class="dot"></span> Detail
+      </a>
+      <a href="{% url 'recipe_group_list' %}" class="sub-link {% block nav_recipe_group %}{% endblock %}">
+        <span class="dot"></span> Recipe Grouping
+      </a>
+    </div>
+    <a href="{% url 'setup_history' %}" class="sb-link {% block nav_setup_history %}{% endblock %}">
+      <i class="bi bi-journal-text"></i> 변경 이력
+    </a>
+
+    <div class="nav-section">Learning</div>
+    <a href="{% url 'learning_values' %}" class="sb-link {% block nav_learning %}{% endblock %}">
+      <i class="bi bi-activity"></i> 학습값
+    </a>
+    <a href="{% url 'learning_history' %}" class="sb-link {% block nav_learning_history %}{% endblock %}">
+      <i class="bi bi-clock-history"></i> History 조회
+    </a>
+    <a href="{% url 'simulation' %}" class="sb-link {% block nav_simulation %}{% endblock %}">
+      <i class="bi bi-play-circle"></i> Simulation
+    </a>
+
+    <div class="nav-section">Improvement</div>
+    <a href="{% url 'apc_history' %}" class="sb-link {% block nav_apc_history %}{% endblock %}">
+      <i class="bi bi-bar-chart-line"></i> APC 수정건수
+    </a>
+    <a href="{% url 'dispersion' %}" class="sb-link {% block nav_dispersion %}{% endblock %}">
+      <i class="bi bi-graph-down-arrow"></i> 산포 개선 현황
+    </a>
+
+    <div class="nav-section">Support</div>
+    <a href="{% url 'voc_list' %}" class="sb-link {% block nav_voc %}{% endblock %}">
+      <i class="bi bi-chat-left-text"></i> VOC 게시판
+    </a>
+
+    {% if request.user.is_superuser %}
+    <div class="nav-section">Admin</div>
+    <a href="{% url 'access_stats' %}" class="sb-link {% block nav_access_stats %}{% endblock %}">
+      <i class="bi bi-person-lines-fill"></i> 접속 현황
+    </a>
+    {% endif %}
+  </div>
+
+  <!-- Logout -->
+  <div style="padding: 0.75rem 1rem; border-top: 1px solid rgba(255,255,255,0.06);">
+    <form method="post" action="{% url 'logout' %}">
+      {% csrf_token %}
+      <button type="submit" class="sb-link w-100" style="background:none; border:none; text-align:left; cursor:pointer;">
+        <i class="bi bi-box-arrow-left"></i> 로그아웃
+      </button>
+    </form>
+  </div>
+</nav>
+
+<!-- Main -->
+<div id="main">
+  <div class="topbar">
+    <nav aria-label="breadcrumb">
+      <ol class="breadcrumb">
+        {% block breadcrumb %}{% endblock %}
+      </ol>
+    </nav>
+    <div class="user-chip">
+      <div class="status-dot"></div>
+      <span style="font-size:0.8rem;color:#8993a8;">{{ request.user.username }}</span>
+      <div class="user-avatar">{{ request.user.username|slice:":1"|upper }}</div>
+    </div>
+  </div>
+
+  <div class="page-content">
+    {% block content %}{% endblock %}
+  </div>
+</div>
+
+<script src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.2/dist/js/bootstrap.bundle.min.js"></script>
+<script src="https://cdn.jsdelivr.net/npm/chart.js@4.4.2/dist/chart.umd.min.js"></script>
+{% block scripts %}{% endblock %}
+</body>
+</html>

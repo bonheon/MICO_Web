@@ -1,0 +1,367 @@
+{% extends 'setup_mico/base.html' %}
+{% block title %}| Simulation{% endblock %}
+{% block nav_simulation %}active{% endblock %}
+
+{% block breadcrumb %}
+<li class="breadcrumb-item">Learning</li>
+<li class="breadcrumb-item active">Simulation</li>
+{% endblock %}
+
+{% block content %}
+<style>
+  .selector-panel {
+    display: grid;
+    grid-template-columns: 1fr 1fr 1fr 1fr;
+    gap: 1rem;
+    margin-bottom: 1rem;
+  }
+  .selector-card {
+    background: #fff;
+    border: 2px solid #e4e7ed;
+    border-radius: 12px;
+    padding: 1rem 1.25rem;
+    position: relative;
+    transition: border-color 0.15s;
+  }
+  .selector-card.selected { border-color: #4f8ef7; }
+  .step-badge {
+    position: absolute;
+    top: -10px; left: 14px;
+    font-size: 0.65rem;
+    font-weight: 700;
+    padding: 2px 8px;
+    border-radius: 999px;
+    letter-spacing: 0.05em;
+    color: #fff;
+  }
+  .selector-card label {
+    font-size: 0.72rem;
+    font-weight: 600;
+    color: #8993a8;
+    text-transform: uppercase;
+    letter-spacing: 0.06em;
+    display: block;
+    margin-bottom: 0.5rem;
+  }
+  .selector-card select,
+  .selector-card input[type="text"] {
+    width: 100%;
+    border: 1px solid #e4e7ed;
+    border-radius: 8px;
+    padding: 0.45rem 0.75rem;
+    font-size: 0.83rem;
+    color: #344054;
+    background: #f8f9fc;
+    outline: none;
+  }
+  .selector-card select:focus,
+  .selector-card input[type="text"]:focus { border-color: #4f8ef7; background: #fff; }
+  .selector-card select:disabled { opacity: 0.4; cursor: not-allowed; }
+
+  .run-btn-wrap { display: flex; justify-content: flex-end; margin-bottom: 1.25rem; }
+
+  /* Result */
+  .result-section { display: none; }
+  .result-section.visible { display: block; }
+
+  .info-bar {
+    display: flex; align-items: center; gap: 0.5rem; flex-wrap: wrap;
+    padding: 0.6rem 1.5rem;
+    background: #f8f9fc; border-bottom: 1px solid #e4e7ed;
+    font-size: 0.78rem;
+  }
+  .chip {
+    border-radius: 999px; padding: 0.2em 0.75em;
+    font-weight: 500; font-size: 0.75rem;
+  }
+
+  .section-title {
+    font-size: 0.72rem; font-weight: 700;
+    text-transform: uppercase; letter-spacing: 0.06em;
+    color: #8993a8; margin-bottom: 0.75rem;
+  }
+
+  .lv-grid {
+    display: grid;
+    grid-template-columns: repeat(auto-fill, minmax(160px, 1fr));
+    gap: 0.75rem;
+  }
+  .lv-card {
+    background: #f8f9fc;
+    border: 1px solid #e4e7ed;
+    border-radius: 10px;
+    padding: 0.85rem 1rem;
+  }
+  .lv-card .lv-label {
+    font-size: 0.68rem; font-weight: 600;
+    text-transform: uppercase; letter-spacing: 0.05em;
+    color: #8993a8; margin-bottom: 0.3rem;
+  }
+  .lv-card .lv-value {
+    font-size: 1.05rem; font-weight: 700; color: #1e2640;
+    word-break: break-all; overflow-wrap: break-word;
+  }
+  .lv-card .lv-unit {
+    font-size: 0.7rem; color: #8993a8; margin-left: 3px;
+  }
+
+  .notice-banner {
+    display: flex; align-items: flex-start; gap: 0.75rem;
+    background: #fffbeb; border: 1px solid #fde68a;
+    border-radius: 10px; padding: 0.9rem 1.1rem;
+    font-size: 0.82rem; color: #92400e;
+    margin-top: 1.25rem;
+  }
+  .notice-banner i { font-size: 1rem; flex-shrink: 0; margin-top: 1px; }
+
+  .future-placeholder {
+    background: #fff;
+    border: 2px dashed #e4e7ed;
+    border-radius: 12px;
+    padding: 3rem 1.5rem;
+    text-align: center;
+    color: #8993a8;
+    margin-top: 1rem;
+  }
+  .future-placeholder i { font-size: 2rem; display: block; margin-bottom: 0.75rem; color: #c8d0e0; }
+</style>
+
+<div class="d-flex align-items-center justify-content-between mb-3">
+  <div>
+    <h5 class="fw-bold mb-0" style="color:#1e2640;">Simulation</h5>
+    <small class="text-muted">MICO 적용 전 파라미터 사전 검토</small>
+  </div>
+</div>
+
+<!-- Step 선택 패널 -->
+<div class="selector-panel">
+  <div class="selector-card" id="card-cat">
+    <span class="step-badge" style="background:#4f8ef7;">STEP 1</span>
+    <label>Category</label>
+    <select id="sel-cat"><option value="">— 선택하세요 —</option></select>
+  </div>
+  <div class="selector-card" id="card-sub">
+    <span class="step-badge" style="background:#22c55e;">STEP 2</span>
+    <label>SubCategory</label>
+    <select id="sel-sub" disabled><option value="">— Category 먼저 선택 —</option></select>
+  </div>
+  <div class="selector-card" id="card-det">
+    <span class="step-badge" style="background:#a855f7;">STEP 3</span>
+    <label>Detail</label>
+    <select id="sel-det" disabled><option value="">— SubCategory 먼저 선택 —</option></select>
+  </div>
+  <div class="selector-card" id="card-eq">
+    <span class="step-badge" style="background:#f97316;">STEP 4</span>
+    <label>장비명</label>
+    <input type="text" id="inp-eq" placeholder="장비명 입력 (예: CMP-01)">
+  </div>
+</div>
+
+<div class="run-btn-wrap">
+  <button id="btn-run" class="btn btn-primary" style="border-radius:8px; padding:0.45rem 1.5rem;" disabled>
+    <i class="bi bi-play-circle me-1"></i> Simulation 실행
+  </button>
+</div>
+
+
+<!-- ── 결과 영역 ── -->
+<div class="result-section" id="result-section">
+
+  <!-- 선택 정보 요약 -->
+  <div class="table-card mb-3">
+    <div style="padding:0.85rem 1.25rem; border-bottom:1px solid #e4e7ed; display:flex; align-items:center; gap:0.5rem;">
+      <i class="bi bi-check2-circle" style="color:#22c55e; font-size:1rem;"></i>
+      <span class="fw-bold" style="font-size:0.875rem; color:#1e2640;">선택 정보</span>
+    </div>
+    <div class="info-bar" style="border-bottom:none;">
+      <span style="color:#8993a8; font-size:0.75rem;">Category</span>
+      <span id="r-cat" class="chip" style="background:#eff6ff; color:#4f8ef7;"></span>
+      <i class="bi bi-chevron-right" style="color:#c8d0e0;"></i>
+      <span style="color:#8993a8; font-size:0.75rem;">SubCategory</span>
+      <span id="r-sub" class="chip" style="background:#f0fdf4; color:#22c55e;"></span>
+      <i class="bi bi-chevron-right" style="color:#c8d0e0;"></i>
+      <span style="color:#8993a8; font-size:0.75rem;">Detail</span>
+      <span id="r-det" class="chip" style="background:#fdf4ff; color:#a855f7;"></span>
+      <i class="bi bi-chevron-right" style="color:#c8d0e0;"></i>
+      <span style="color:#8993a8; font-size:0.75rem;">장비</span>
+      <span id="r-eq" class="chip" style="background:#fff7ed; color:#f97316;"></span>
+    </div>
+  </div>
+
+  <!-- 학습값 -->
+  <div class="table-card mb-3">
+    <div style="padding:0.85rem 1.25rem; border-bottom:1px solid #e4e7ed; display:flex; align-items:center; justify-content:space-between;">
+      <div style="display:flex; align-items:center; gap:0.5rem;">
+        <i class="bi bi-database" style="color:#4f8ef7; font-size:1rem;"></i>
+        <span class="fw-bold" style="font-size:0.875rem; color:#1e2640;">Set-up 학습값</span>
+      </div>
+      <span class="chip" style="background:#f0f2f7; color:#8993a8; font-size:0.72rem;">
+        <i class="bi bi-clock-history me-1"></i>DB 연동 전 — Set-up 등록값 표시
+      </span>
+    </div>
+    <div style="padding:1.25rem 1.25rem;">
+
+      <!-- 필수 파라미터 -->
+      <div class="section-title">필수 파라미터</div>
+      <div class="lv-grid mb-4">
+        <div class="lv-card">
+          <div class="lv-label">APC Para</div>
+          <div class="lv-value" id="lv-apc" style="font-size:0.9rem;">—</div>
+        </div>
+        <div class="lv-card">
+          <div class="lv-label">THK Para</div>
+          <div class="lv-value" id="lv-thk" style="font-size:0.9rem;">—</div>
+        </div>
+        <div class="lv-card">
+          <div class="lv-label">Target</div>
+          <div class="lv-value" id="lv-target">—<span class="lv-unit">Å</span></div>
+        </div>
+        <div class="lv-card">
+          <div class="lv-label">Pre Target</div>
+          <div class="lv-value" id="lv-pre-target">—<span class="lv-unit">Å</span></div>
+        </div>
+        <div class="lv-card">
+          <div class="lv-label">Pre THK Period</div>
+          <div class="lv-value" id="lv-pre-thk-period">—<span class="lv-unit">회</span></div>
+        </div>
+      </div>
+
+      <!-- 선택 파라미터 -->
+      <div class="section-title">선택 파라미터</div>
+      <div class="lv-grid">
+        <div class="lv-card">
+          <div class="lv-label">RR Para</div>
+          <div class="lv-value" id="lv-rr-para" style="font-size:0.9rem;">—</div>
+        </div>
+        <div class="lv-card">
+          <div class="lv-label">RR Max</div>
+          <div class="lv-value" id="lv-rr-max">—</div>
+        </div>
+        <div class="lv-card">
+          <div class="lv-label">RR Period</div>
+          <div class="lv-value" id="lv-rr-period">—<span class="lv-unit">회</span></div>
+        </div>
+        <div class="lv-card">
+          <div class="lv-label">IF RR</div>
+          <div class="lv-value" id="lv-if-rr">—</div>
+        </div>
+        <div class="lv-card">
+          <div class="lv-label">Offset Group</div>
+          <div class="lv-value" id="lv-offset-group" style="font-size:0.9rem;">—</div>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <!-- 안내 배너 -->
+  <div class="notice-banner">
+    <i class="bi bi-info-circle-fill" style="color:#d97706;"></i>
+    <div>
+      <strong>향후 기능 안내</strong><br>
+      현재는 Set-up에 등록된 학습값을 표시합니다.
+      사내 DB 연동 후에는 실제 공정 데이터를 기반으로 APC 산식(Pre Thickness / Removal Rate / Offset)에 따른
+      시뮬레이션 결과값을 확인할 수 있습니다.
+    </div>
+  </div>
+
+  <!-- 향후 시뮬레이션 결과 플레이스홀더 -->
+  <div class="future-placeholder">
+    <i class="bi bi-graph-up-arrow"></i>
+    <div style="font-size:0.9rem; font-weight:600; color:#344054; margin-bottom:0.3rem;">
+      APC 시뮬레이션 결과
+    </div>
+    <div style="font-size:0.8rem;">
+      DB 연동 및 APC 산식 적용 후 이 영역에 시뮬레이션 결과가 표시됩니다
+    </div>
+  </div>
+
+</div>
+{% endblock %}
+
+{% block scripts %}
+<script>
+const TREE = {{ tree_json|safe }};
+
+let selectedCat = null, selectedSub = null, selectedDet = null;
+
+const selCat = document.getElementById('sel-cat');
+const selSub = document.getElementById('sel-sub');
+const selDet = document.getElementById('sel-det');
+const inpEq  = document.getElementById('inp-eq');
+const btnRun = document.getElementById('btn-run');
+
+TREE.forEach(cat => selCat.add(new Option(cat.label, cat.pk)));
+
+selCat.addEventListener('change', function() {
+  selectedCat = TREE.find(c => c.pk == this.value) || null;
+  selectedSub = selectedDet = null;
+  selSub.innerHTML = '<option value="">— 선택하세요 —</option>';
+  selDet.innerHTML = '<option value="">— SubCategory 먼저 선택 —</option>';
+  selSub.disabled = !selectedCat;
+  selDet.disabled = true;
+  document.getElementById('card-cat').classList.toggle('selected', !!selectedCat);
+  document.getElementById('card-sub').classList.remove('selected');
+  document.getElementById('card-det').classList.remove('selected');
+  if (selectedCat) selectedCat.subs.forEach(s => selSub.add(new Option(s.label, s.pk)));
+  checkRunnable();
+});
+
+selSub.addEventListener('change', function() {
+  selectedSub = selectedCat?.subs.find(s => s.pk == this.value) || null;
+  selectedDet = null;
+  selDet.innerHTML = '<option value="">— 선택하세요 —</option>';
+  selDet.disabled = !selectedSub;
+  document.getElementById('card-sub').classList.toggle('selected', !!selectedSub);
+  document.getElementById('card-det').classList.remove('selected');
+  if (selectedSub) selectedSub.details.forEach(d => selDet.add(new Option(d.label, d.pk)));
+  checkRunnable();
+});
+
+selDet.addEventListener('change', function() {
+  selectedDet = selectedSub?.details.find(d => d.pk == this.value) || null;
+  document.getElementById('card-det').classList.toggle('selected', !!selectedDet);
+  checkRunnable();
+});
+
+inpEq.addEventListener('input', function() {
+  document.getElementById('card-eq').classList.toggle('selected', !!this.value.trim());
+  checkRunnable();
+});
+
+function checkRunnable() {
+  btnRun.disabled = !(selectedCat && selectedSub && selectedDet && inpEq.value.trim());
+}
+
+function val(v, fallback) {
+  return (v !== null && v !== undefined && v !== '') ? v : fallback || '—';
+}
+
+btnRun.addEventListener('click', function() {
+  const d  = selectedDet;
+  const eq = inpEq.value.trim();
+
+  // 선택 정보
+  document.getElementById('r-cat').textContent = selectedCat.label;
+  document.getElementById('r-sub').textContent = selectedSub.label;
+  document.getElementById('r-det').textContent = d.label;
+  document.getElementById('r-eq').textContent  = eq;
+
+  // 필수 파라미터
+  document.getElementById('lv-apc').textContent          = val(d.apc_para);
+  document.getElementById('lv-thk').textContent          = val(d.thk_para);
+  document.getElementById('lv-target').innerHTML         = `${val(d.target)}<span class="lv-unit">Å</span>`;
+  document.getElementById('lv-pre-target').innerHTML     = `${val(d.pre_target)}<span class="lv-unit">Å</span>`;
+  document.getElementById('lv-pre-thk-period').innerHTML = `${val(d.pre_thk_period)}<span class="lv-unit">회</span>`;
+
+  // 선택 파라미터
+  document.getElementById('lv-rr-para').textContent    = val(d.rr_para);
+  document.getElementById('lv-rr-max').textContent     = val(d.rr_max);
+  document.getElementById('lv-rr-period').innerHTML    = d.rr_period != null ? `${d.rr_period}<span class="lv-unit">회</span>` : '—';
+  document.getElementById('lv-if-rr').textContent      = val(d.if_rr);
+  document.getElementById('lv-offset-group').textContent = val(d.offset_group);
+
+  document.getElementById('result-section').classList.add('visible');
+  document.getElementById('result-section').scrollIntoView({ behavior: 'smooth', block: 'start' });
+});
+</script>
+{% endblock %}

@@ -1,0 +1,233 @@
+{% extends "setup_mico/base.html" %}
+{% block title %}| 접속 현황{% endblock %}
+{% block nav_access_stats %}active{% endblock %}
+
+{% block breadcrumb %}
+<li class="breadcrumb-item">Admin</li>
+<li class="breadcrumb-item active">접속 현황</li>
+{% endblock %}
+
+{% block content %}
+<div class="d-flex align-items-center justify-content-between mb-3">
+  <div>
+    <h5 class="fw-bold mb-0" style="color:#1e2640;">접속 현황</h5>
+    <div style="font-size:0.78rem;color:#8993a8;">MICO 사용자 접속 통계 (관리자 전용)</div>
+  </div>
+</div>
+
+<!-- 요약 카드 -->
+<div class="row g-3 mb-4">
+  <div class="col-sm-6 col-xl-3">
+    <div class="card-box d-flex align-items-center gap-3">
+      <div class="stat-icon" style="background:#eff6ff;">
+        <i class="bi bi-calendar-check" style="color:#3b82f6;"></i>
+      </div>
+      <div>
+        <div class="stat-value">{{ today_count }}</div>
+        <div class="stat-label">오늘 접속 횟수</div>
+      </div>
+    </div>
+  </div>
+  <div class="col-sm-6 col-xl-3">
+    <div class="card-box d-flex align-items-center gap-3">
+      <div class="stat-icon" style="background:#f0fdf4;">
+        <i class="bi bi-person-check" style="color:#22c55e;"></i>
+      </div>
+      <div>
+        <div class="stat-value">{{ today_users }}</div>
+        <div class="stat-label">오늘 접속자 수</div>
+      </div>
+    </div>
+  </div>
+  <div class="col-sm-6 col-xl-3">
+    <div class="card-box d-flex align-items-center gap-3">
+      <div class="stat-icon" style="background:#fefce8;">
+        <i class="bi bi-bar-chart-fill" style="color:#eab308;"></i>
+      </div>
+      <div>
+        <div class="stat-value">{{ total_count }}</div>
+        <div class="stat-label">누적 접속 횟수</div>
+      </div>
+    </div>
+  </div>
+  <div class="col-sm-6 col-xl-3">
+    <div class="card-box d-flex align-items-center gap-3">
+      <div class="stat-icon" style="background:#fdf4ff;">
+        <i class="bi bi-people-fill" style="color:#a855f7;"></i>
+      </div>
+      <div>
+        <div class="stat-value">{{ total_users }}</div>
+        <div class="stat-label">전체 가입 회원</div>
+      </div>
+    </div>
+  </div>
+</div>
+
+<!-- 일별 접속 추이 차트 -->
+<div class="card-box mb-4">
+  <div class="d-flex align-items-center justify-content-between mb-3">
+    <div class="card-box-title">일별 접속 횟수 (최근 30일)</div>
+  </div>
+  <div style="height:220px;">
+    <canvas id="dailyChart"></canvas>
+  </div>
+</div>
+
+<div class="row g-3 mb-4">
+  <!-- 사용자별 접속 통계 -->
+  <div class="col-lg-6">
+    <div class="table-card h-100">
+      <div class="table-card-header">
+        <i class="bi bi-person-badge" style="color:#4f8ef7;"></i>
+        <span class="fw-semibold" style="font-size:0.875rem;">사용자별 접속 통계</span>
+      </div>
+      <div style="overflow-x:auto;">
+        <table class="table table-hover mb-0">
+          <thead>
+            <tr>
+              <th>#</th>
+              <th>사용자</th>
+              <th>접속 횟수</th>
+            </tr>
+          </thead>
+          <tbody>
+            {% for s in user_stats %}
+            <tr>
+              <td style="color:#8993a8;">{{ forloop.counter }}</td>
+              <td>
+                <span class="fw-semibold">{{ s.user__username|default:"(탈퇴회원)" }}</span>
+              </td>
+              <td>
+                <span class="badge-pill" style="background:#eff6ff;color:#3b82f6;">
+                  {{ s.total }}
+                </span>
+              </td>
+            </tr>
+            {% empty %}
+            <tr><td colspan="3" class="text-center text-muted py-4">데이터 없음</td></tr>
+            {% endfor %}
+          </tbody>
+        </table>
+      </div>
+    </div>
+  </div>
+
+  <!-- 페이지별 Top 10 -->
+  <div class="col-lg-6">
+    <div class="table-card h-100">
+      <div class="table-card-header">
+        <i class="bi bi-link-45deg" style="color:#4f8ef7;"></i>
+        <span class="fw-semibold" style="font-size:0.875rem;">인기 페이지 Top 10</span>
+      </div>
+      <div style="overflow-x:auto;">
+        <table class="table table-hover mb-0">
+          <thead>
+            <tr>
+              <th>#</th>
+              <th>경로</th>
+              <th>조회 수</th>
+            </tr>
+          </thead>
+          <tbody>
+            {% for p in top_pages %}
+            <tr>
+              <td style="color:#8993a8;">{{ forloop.counter }}</td>
+              <td style="font-size:0.8rem;font-family:monospace;">{{ p.path }}</td>
+              <td>
+                <span class="badge-pill" style="background:#f0fdf4;color:#22c55e;">
+                  {{ p.cnt }}
+                </span>
+              </td>
+            </tr>
+            {% empty %}
+            <tr><td colspan="3" class="text-center text-muted py-4">데이터 없음</td></tr>
+            {% endfor %}
+          </tbody>
+        </table>
+      </div>
+    </div>
+  </div>
+</div>
+
+<!-- 최근 접속 로그 -->
+<div class="table-card">
+  <div class="table-card-header">
+    <i class="bi bi-clock-history" style="color:#4f8ef7;"></i>
+    <span class="fw-semibold" style="font-size:0.875rem;">최근 접속 로그</span>
+    <span class="ms-auto" style="font-size:0.75rem;color:#8993a8;">최근 50건</span>
+  </div>
+  <div style="overflow-x:auto;">
+    <table class="table table-hover mb-0">
+      <thead>
+        <tr>
+          <th>#</th>
+          <th>접속 일시</th>
+          <th>사용자</th>
+          <th>경로</th>
+          <th>IP 주소</th>
+        </tr>
+      </thead>
+      <tbody>
+        {% for log in recent_logs %}
+        <tr>
+          <td style="color:#8993a8;">{{ forloop.counter }}</td>
+          <td style="font-size:0.8rem;white-space:nowrap;">
+            {{ log.accessed_at|date:"Y-m-d H:i:s" }}
+          </td>
+          <td>
+            <span class="fw-semibold">{{ log.user.username|default:"(탈퇴회원)" }}</span>
+          </td>
+          <td style="font-size:0.8rem;font-family:monospace;">{{ log.path }}</td>
+          <td style="font-size:0.8rem;color:#8993a8;">{{ log.ip_address|default:"-" }}</td>
+        </tr>
+        {% empty %}
+        <tr><td colspan="5" class="text-center text-muted py-4">접속 기록이 없습니다.</td></tr>
+        {% endfor %}
+      </tbody>
+    </table>
+  </div>
+</div>
+{% endblock %}
+
+{% block scripts %}
+<script>
+const labels = {{ daily_labels_json|safe }};
+const data   = {{ daily_data_json|safe }};
+
+new Chart(document.getElementById('dailyChart'), {
+  type: 'bar',
+  data: {
+    labels,
+    datasets: [{
+      label: '접속 횟수',
+      data,
+      backgroundColor: 'rgba(79,142,247,0.18)',
+      borderColor: '#4f8ef7',
+      borderWidth: 2,
+      borderRadius: 4,
+    }]
+  },
+  options: {
+    responsive: true,
+    maintainAspectRatio: false,
+    plugins: { legend: { display: false } },
+    scales: {
+      x: {
+        grid: { display: false },
+        ticks: { font: { size: 11 }, color: '#8993a8' }
+      },
+      y: {
+        beginAtZero: true,
+        ticks: {
+          stepSize: 1,
+          font: { size: 11 },
+          color: '#8993a8',
+          callback: v => Number.isInteger(v) ? v : null,
+        },
+        grid: { color: 'rgba(0,0,0,0.04)' }
+      }
+    }
+  }
+});
+</script>
+{% endblock %}

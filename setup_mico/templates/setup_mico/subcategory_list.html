@@ -1,0 +1,312 @@
+{% extends 'setup_mico/base.html' %}
+{% block title %}| SubCategory{% endblock %}
+{% block nav_setup %}active{% endblock %}
+{% block setup_expanded %}true{% endblock %}
+{% block setup_show %}show{% endblock %}
+{% block nav_sub %}active{% endblock %}
+
+{% block breadcrumb %}
+<li class="breadcrumb-item">Configuration</li>
+<li class="breadcrumb-item active">SubCategory</li>
+{% endblock %}
+
+{% block content %}
+<div class="d-flex align-items-center justify-content-between mb-3">
+  <div>
+    <h5 class="fw-bold mb-0" style="color:#1e2640;">SubCategory</h5>
+    <small class="text-muted">레시피 서브카테고리 목록</small>
+  </div>
+  <button class="btn btn-primary btn-sm add-btn" style="border-radius:8px;"
+    data-bs-toggle="modal" data-bs-target="#subCategoryModal">
+    <i class="bi bi-plus-lg me-1"></i> 추가
+  </button>
+</div>
+
+<div class="table-card">
+  <table class="table table-hover mb-0">
+    <thead>
+      <tr>
+        <th style="width:50px;">#</th>
+        <th>Category</th>
+        <th>FAB</th>
+        <th>Device</th>
+        <th>Recipe ID</th>
+        <th>Maker</th>
+        <th>등록일</th>
+        <th style="width:100px;">관리</th>
+      </tr>
+      <tr class="search-row">
+        <th></th>
+        <th><input type="text" class="col-search form-control form-control-sm" placeholder="검색..." data-col="1"></th>
+        <th><input type="text" class="col-search form-control form-control-sm" placeholder="검색..." data-col="2"></th>
+        <th><input type="text" class="col-search form-control form-control-sm" placeholder="검색..." data-col="3"></th>
+        <th><input type="text" class="col-search form-control form-control-sm" placeholder="검색..." data-col="4"></th>
+        <th><input type="text" class="col-search form-control form-control-sm" placeholder="검색..." data-col="5"></th>
+        <th><input type="text" class="col-search form-control form-control-sm" placeholder="검색..." data-col="6"></th>
+        <th></th>
+      </tr>
+    </thead>
+    <tbody>
+      {% for sub in subcategories %}
+      <tr>
+        <td class="text-muted">{{ forloop.counter }}</td>
+        <td>
+          <span class="badge-pill" style="background:#f0fdf4; color:#22c55e;">
+            {{ sub.category.product }} / {{ sub.category.oper_id }}
+          </span>
+        </td>
+        <td class="fw-semibold">{{ sub.fab }}</td>
+        <td>{{ sub.device }}</td>
+        <td><span class="badge-pill" style="background:#eff6ff; color:#4f8ef7;">{{ sub.recipe_id }}</span></td>
+        <td>{{ sub.maker }}</td>
+        <td class="text-muted" style="white-space:nowrap;">{{ sub.created_at|date:"Y-m-d" }}</td>
+        <td>
+          <div class="d-flex gap-1">
+            <button class="btn btn-sm edit-btn"
+              style="padding:3px 10px; border-radius:6px; background:#f0f2f7; font-size:0.78rem;"
+              data-pk="{{ sub.pk }}"
+              data-category="{{ sub.category.pk }}"
+              data-fab="{{ sub.fab }}"
+              data-device="{{ sub.device }}"
+              data-recipe_id="{{ sub.recipe_id }}"
+              data-maker="{{ sub.maker }}"
+              data-bs-toggle="modal" data-bs-target="#subCategoryModal">
+              <i class="bi bi-pencil"></i>
+            </button>
+            <button class="btn btn-sm copy-btn"
+              style="padding:3px 10px; border-radius:6px; background:#f0f8ff; color:#4f8ef7; font-size:0.78rem;"
+              title="복사"
+              data-pk="{{ sub.pk }}"
+              data-label="{{ sub.recipe_id }}"
+              data-category="{{ sub.category.pk }}"
+              data-fab="{{ sub.fab }}"
+              data-device="{{ sub.device }}"
+              data-recipe_id="{{ sub.recipe_id }}"
+              data-maker="{{ sub.maker }}"
+              data-bs-toggle="modal" data-bs-target="#copyModal">
+              <i class="bi bi-copy"></i>
+            </button>
+            <button class="btn btn-sm delete-btn"
+              style="padding:3px 10px; border-radius:6px; background:#fff1f2; color:#ef4444; font-size:0.78rem;"
+              data-pk="{{ sub.pk }}"
+              data-label="{{ sub.recipe_id }}"
+              data-bs-toggle="modal" data-bs-target="#deleteModal">
+              <i class="bi bi-trash3"></i>
+            </button>
+          </div>
+        </td>
+      </tr>
+      {% empty %}
+      <tr>
+        <td colspan="8" class="text-center text-muted py-5">
+          <i class="bi bi-inbox" style="font-size:1.5rem; display:block; margin-bottom:0.4rem;"></i>
+          등록된 SubCategory가 없습니다
+        </td>
+      </tr>
+      {% endfor %}
+    </tbody>
+  </table>
+</div>
+
+
+<!-- ── Add / Edit Modal ── -->
+<div class="modal fade" id="subCategoryModal" tabindex="-1">
+  <div class="modal-dialog modal-dialog-centered">
+    <div class="modal-content" style="border-radius:14px; border:none;">
+      <div class="modal-header" style="border-bottom:1px solid #e4e7ed; padding:1.1rem 1.5rem;">
+        <h6 class="modal-title fw-bold" id="modalTitle">SubCategory 추가</h6>
+        <button type="button" class="btn-close" data-bs-dismiss="modal"></button>
+      </div>
+      <form id="subCategoryForm" method="post">
+        {% csrf_token %}
+        <input type="hidden" id="copyDetailsHidden" name="copy_details" value="">
+        <div class="modal-body" style="padding:1.5rem;">
+          <div class="mb-3">
+            <label class="form-label fw-semibold" style="font-size:0.82rem;">Category <span class="text-danger">*</span></label>
+            {{ form.category }}
+          </div>
+          <div class="row g-3 mb-3">
+            <div class="col-6">
+              <label class="form-label fw-semibold" style="font-size:0.82rem;">FAB</label>
+              {{ form.fab }}
+            </div>
+            <div class="col-6">
+              <label class="form-label fw-semibold" style="font-size:0.82rem;">Device</label>
+              {{ form.device }}
+            </div>
+          </div>
+          <div class="row g-3">
+            <div class="col-6">
+              <label class="form-label fw-semibold" style="font-size:0.82rem;">Recipe ID</label>
+              {{ form.recipe_id }}
+            </div>
+            <div class="col-6">
+              <label class="form-label fw-semibold" style="font-size:0.82rem;">Maker</label>
+              {{ form.maker }}
+            </div>
+          </div>
+        </div>
+        <div class="modal-footer" style="border-top:1px solid #e4e7ed; padding:1rem 1.5rem;">
+          <button type="button" class="btn btn-sm btn-light" data-bs-dismiss="modal">취소</button>
+          <button type="submit" class="btn btn-sm btn-primary" style="border-radius:8px;">저장</button>
+        </div>
+      </form>
+    </div>
+  </div>
+</div>
+
+
+<!-- ── Copy Confirm Modal ── -->
+<div class="modal fade" id="copyModal" tabindex="-1">
+  <div class="modal-dialog modal-dialog-centered" style="max-width:400px;">
+    <div class="modal-content" style="border-radius:14px; border:none;">
+      <div class="modal-body text-center" style="padding:2rem 1.5rem 1.5rem;">
+        <div style="width:52px;height:52px;border-radius:50%;background:#eff6ff;display:flex;align-items:center;justify-content:center;margin:0 auto 1rem;">
+          <i class="bi bi-copy" style="color:#4f8ef7;font-size:1.4rem;"></i>
+        </div>
+        <p class="fw-bold mb-1" style="color:#1e2640;">SubCategory를 복사합니다</p>
+        <p class="text-muted mb-3" style="font-size:0.83rem;" id="copyTargetName"></p>
+        <div style="background:#f8f9fc; border:1px solid #e4e7ed; border-radius:10px; padding:1rem;">
+          <p class="mb-0" style="font-size:0.85rem; color:#344054;">
+            속한 <strong>Detail</strong>도 함께 복사할까요?
+          </p>
+        </div>
+      </div>
+      <div class="modal-footer justify-content-center border-0 pt-0 pb-3 gap-2">
+        <button type="button" class="btn btn-sm btn-light px-3" data-bs-dismiss="modal">취소</button>
+        <button type="button" class="btn btn-sm btn-outline-primary px-3" id="btnCopyNoDetail">SubCategory만</button>
+        <button type="button" class="btn btn-sm btn-primary px-3" id="btnCopyWithDetail">Detail 포함</button>
+      </div>
+    </div>
+  </div>
+</div>
+
+
+<!-- ── Delete Confirm Modal ── -->
+<div class="modal fade" id="deleteModal" tabindex="-1">
+  <div class="modal-dialog modal-dialog-centered" style="max-width:380px;">
+    <div class="modal-content" style="border-radius:14px; border:none;">
+      <div class="modal-body text-center" style="padding:2rem 1.5rem;">
+        <div style="width:52px;height:52px;border-radius:50%;background:#fff1f2;display:flex;align-items:center;justify-content:center;margin:0 auto 1rem;">
+          <i class="bi bi-exclamation-triangle-fill" style="color:#ef4444;font-size:1.4rem;"></i>
+        </div>
+        <p class="fw-bold mb-1" style="color:#1e2640;">삭제하시겠습니까?</p>
+        <p class="text-muted mb-0" style="font-size:0.83rem;" id="deleteTargetName"></p>
+      </div>
+      <div class="modal-footer justify-content-center border-0 pt-0 pb-3 gap-2">
+        <button type="button" class="btn btn-sm btn-light px-4" data-bs-dismiss="modal">취소</button>
+        <form id="deleteForm" method="post">
+          {% csrf_token %}
+          <button type="submit" class="btn btn-sm btn-danger px-4">삭제</button>
+        </form>
+      </div>
+    </div>
+  </div>
+</div>
+
+{% endblock %}
+
+{% block scripts %}
+<script>
+const createUrl = "{% url 'subcategory_create' %}";
+let currentCopyData = {};
+
+// 추가 버튼
+document.querySelector('.add-btn').addEventListener('click', function() {
+  document.getElementById('modalTitle').textContent = 'SubCategory 추가';
+  document.getElementById('subCategoryForm').action = createUrl;
+  document.getElementById('copyDetailsHidden').value = '';
+  document.getElementById('id_category').value = '';
+  document.getElementById('id_fab').value = '';
+  document.getElementById('id_device').value = '';
+  document.getElementById('id_recipe_id').value = '';
+  document.getElementById('id_maker').value = '';
+});
+
+// 수정 버튼
+document.querySelectorAll('.edit-btn').forEach(btn => {
+  btn.addEventListener('click', function() {
+    document.getElementById('modalTitle').textContent = 'SubCategory 수정';
+    document.getElementById('subCategoryForm').action = `/setup/subcategory/${this.dataset.pk}/update/`;
+    document.getElementById('copyDetailsHidden').value = '';
+    document.getElementById('id_category').value = this.dataset.category;
+    document.getElementById('id_fab').value = this.dataset.fab;
+    document.getElementById('id_device').value = this.dataset.device;
+    document.getElementById('id_recipe_id').value = this.dataset.recipe_id;
+    document.getElementById('id_maker').value = this.dataset.maker;
+  });
+});
+
+// 복사 버튼 → copyModal에 데이터 저장
+document.querySelectorAll('.copy-btn').forEach(btn => {
+  btn.addEventListener('click', function() {
+    currentCopyData = {
+      pk:        this.dataset.pk,
+      category:  this.dataset.category,
+      fab:       this.dataset.fab,
+      device:    this.dataset.device,
+      recipe_id: this.dataset.recipe_id,
+      maker:     this.dataset.maker,
+    };
+    document.getElementById('copyTargetName').textContent = this.dataset.label;
+  });
+});
+
+// copyModal 선택 → 수정 모달로 전환
+function openCopyEditModal(withDetail) {
+  bootstrap.Modal.getInstance(document.getElementById('copyModal')).hide();
+
+  const title = withDetail ? 'SubCategory 복사 (Detail 포함)' : 'SubCategory 복사';
+  document.getElementById('modalTitle').textContent = title;
+  document.getElementById('subCategoryForm').action = `/setup/subcategory/${currentCopyData.pk}/copy/`;
+  document.getElementById('copyDetailsHidden').value = withDetail ? '1' : '0';
+  document.getElementById('id_category').value  = currentCopyData.category;
+  document.getElementById('id_fab').value        = currentCopyData.fab;
+  document.getElementById('id_device').value     = currentCopyData.device;
+  document.getElementById('id_recipe_id').value  = currentCopyData.recipe_id;
+  document.getElementById('id_maker').value      = currentCopyData.maker;
+
+  document.getElementById('copyModal').addEventListener('hidden.bs.modal', function onHidden() {
+    this.removeEventListener('hidden.bs.modal', onHidden);
+    new bootstrap.Modal(document.getElementById('subCategoryModal')).show();
+  });
+}
+
+document.getElementById('btnCopyNoDetail').addEventListener('click', function() {
+  openCopyEditModal(false);
+});
+document.getElementById('btnCopyWithDetail').addEventListener('click', function() {
+  openCopyEditModal(true);
+});
+
+// 삭제 버튼
+document.querySelectorAll('.delete-btn').forEach(btn => {
+  btn.addEventListener('click', function() {
+    document.getElementById('deleteTargetName').textContent = this.dataset.label;
+    document.getElementById('deleteForm').action = `/setup/subcategory/${this.dataset.pk}/delete/`;
+  });
+});
+
+// 컬럼별 검색
+document.querySelectorAll('.col-search').forEach(input => {
+  input.addEventListener('input', filterRows);
+});
+
+function filterRows() {
+  const inputs = document.querySelectorAll('.col-search');
+  const tbody = document.querySelector('tbody');
+  tbody.querySelectorAll('tr').forEach(row => {
+    if (row.querySelector('td[colspan]')) return;
+    let show = true;
+    inputs.forEach(input => {
+      const col = parseInt(input.dataset.col);
+      const val = input.value.trim().toLowerCase();
+      if (!val) return;
+      const cell = row.cells[col];
+      if (!cell || !cell.textContent.toLowerCase().includes(val)) show = false;
+    });
+    row.style.display = show ? '' : 'none';
+  });
+}
+</script>
+{% endblock %}

@@ -1,0 +1,184 @@
+{% extends 'setup_mico/base.html' %}
+{% block title %}| 변경 이력{% endblock %}
+{% block nav_setup_history %}active{% endblock %}
+
+{% block breadcrumb %}
+<li class="breadcrumb-item">Configuration</li>
+<li class="breadcrumb-item active">변경 이력</li>
+{% endblock %}
+
+{% block content %}
+<div class="d-flex align-items-center justify-content-between mb-3">
+  <div>
+    <h5 class="fw-bold mb-0" style="color:#1e2640;">Set-up 변경 이력</h5>
+    <small class="text-muted">Category · SubCategory · Detail · Recipe Group 생성/수정/삭제 이력</small>
+  </div>
+</div>
+
+<!-- 필터 -->
+<form method="get" class="card-box mb-3">
+  <div class="row g-2 align-items-end">
+    <div class="col-sm-6 col-md-2">
+      <label class="form-label fw-semibold mb-1" style="font-size:0.78rem;">구분</label>
+      <select name="model" class="form-select form-select-sm">
+        <option value="">전체</option>
+        {% for val, label in model_choices %}
+        <option value="{{ val }}" {% if filter_model == val %}selected{% endif %}>{{ label }}</option>
+        {% endfor %}
+      </select>
+    </div>
+    <div class="col-sm-6 col-md-2">
+      <label class="form-label fw-semibold mb-1" style="font-size:0.78rem;">작업</label>
+      <select name="action" class="form-select form-select-sm">
+        <option value="">전체</option>
+        <option value="create" {% if filter_action == 'create' %}selected{% endif %}>생성</option>
+        <option value="update" {% if filter_action == 'update' %}selected{% endif %}>수정</option>
+        <option value="delete" {% if filter_action == 'delete' %}selected{% endif %}>삭제</option>
+      </select>
+    </div>
+    <div class="col-sm-6 col-md-2">
+      <label class="form-label fw-semibold mb-1" style="font-size:0.78rem;">작업자</label>
+      <input type="text" name="user" class="form-control form-control-sm" placeholder="사용자명" value="{{ filter_user }}">
+    </div>
+    <div class="col-sm-6 col-md-2">
+      <label class="form-label fw-semibold mb-1" style="font-size:0.78rem;">시작일</label>
+      <input type="date" name="date_from" class="form-control form-control-sm" value="{{ filter_from }}">
+    </div>
+    <div class="col-sm-6 col-md-2">
+      <label class="form-label fw-semibold mb-1" style="font-size:0.78rem;">종료일</label>
+      <input type="date" name="date_to" class="form-control form-control-sm" value="{{ filter_to }}">
+    </div>
+    <div class="col-sm-6 col-md-2 d-flex gap-2">
+      <button type="submit" class="btn btn-primary btn-sm w-100" style="border-radius:8px;">
+        <i class="bi bi-search me-1"></i>조회
+      </button>
+      <a href="{% url 'setup_history' %}" class="btn btn-light btn-sm" style="border-radius:8px;" title="초기화">
+        <i class="bi bi-arrow-counterclockwise"></i>
+      </a>
+    </div>
+  </div>
+</form>
+
+<!-- 건수 -->
+<div class="mb-2" style="font-size:0.8rem;color:#8993a8;">
+  총 <strong style="color:#1e2640;">{{ total }}</strong>건
+  &nbsp;·&nbsp; 현재 페이지 {{ page.number }} / {{ page.paginator.num_pages }}
+</div>
+
+<!-- 테이블 -->
+<div class="table-card">
+  <div style="overflow-x:auto;">
+    <table class="table table-hover mb-0">
+      <thead>
+        <tr>
+          <th style="width:50px;">#</th>
+          <th style="width:150px;">작업 일시</th>
+          <th style="width:90px;">작업자</th>
+          <th style="width:70px;">작업</th>
+          <th style="width:100px;">구분</th>
+          <th>대상</th>
+          <th>변경 내용</th>
+        </tr>
+      </thead>
+      <tbody>
+        {% for h in page %}
+        <tr>
+          <td class="text-muted" style="font-size:0.78rem;">
+            {{ forloop.counter|add:page.start_index|add:"-1" }}
+          </td>
+          <td style="white-space:nowrap;font-size:0.8rem;">
+            {{ h.changed_at|date:"Y-m-d H:i" }}
+          </td>
+          <td>
+            <span class="fw-semibold" style="font-size:0.82rem;">{{ h.user.username|default:"—" }}</span>
+          </td>
+          <td>
+            {% if h.action == 'create' %}
+              <span class="badge-pill" style="background:#f0fdf4;color:#22c55e;">생성</span>
+            {% elif h.action == 'update' %}
+              <span class="badge-pill" style="background:#eff6ff;color:#3b82f6;">수정</span>
+            {% else %}
+              <span class="badge-pill" style="background:#fff1f2;color:#ef4444;">삭제</span>
+            {% endif %}
+          </td>
+          <td>
+            <span class="badge-pill" style="background:#f5f3ff;color:#7c3aed;font-size:0.72rem;">
+              {{ h.model_type }}
+            </span>
+          </td>
+          <td style="font-size:0.82rem;max-width:200px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;"
+              title="{{ h.object_repr }}">
+            {{ h.object_repr }}
+          </td>
+          <td style="font-size:0.78rem;max-width:340px;">
+            {% if h.action == 'create' %}
+              {% for key, val in h.changes.items %}
+                {% if key != 'copied_from' %}
+                  <span style="color:#8993a8;">{{ key }}:</span>
+                  <span style="color:#344054;">{{ val }}</span>{% if not forloop.last %} &nbsp;·&nbsp; {% endif %}
+                {% endif %}
+              {% endfor %}
+              {% if h.changes.copied_from %}
+                <span class="badge-pill ms-1" style="background:#fefce8;color:#ca8a04;">
+                  <i class="bi bi-copy"></i> #{{ h.changes.copied_from }} 복사
+                </span>
+              {% endif %}
+            {% elif h.action == 'update' %}
+              {% for key, val in h.changes.items %}
+                <div style="line-height:1.7;">
+                  <span style="color:#8993a8;">{{ key }}</span>
+                  <span style="color:#ef4444;text-decoration:line-through;margin:0 3px;">{{ val.before|default:"(없음)" }}</span>
+                  <i class="bi bi-arrow-right" style="color:#8993a8;font-size:0.7rem;"></i>
+                  <span style="color:#22c55e;margin-left:3px;">{{ val.after|default:"(없음)" }}</span>
+                </div>
+              {% endfor %}
+            {% else %}
+              <span style="color:#8993a8;font-style:italic;">삭제됨</span>
+            {% endif %}
+          </td>
+        </tr>
+        {% empty %}
+        <tr>
+          <td colspan="7" class="text-center text-muted py-5">
+            <i class="bi bi-journal-x" style="font-size:1.5rem;display:block;margin-bottom:0.4rem;"></i>
+            이력이 없습니다
+          </td>
+        </tr>
+        {% endfor %}
+      </tbody>
+    </table>
+  </div>
+</div>
+
+<!-- 페이지네이션 -->
+{% if page.paginator.num_pages > 1 %}
+<nav class="mt-3 d-flex justify-content-center">
+  <ul class="pagination pagination-sm mb-0">
+    {% if page.has_previous %}
+    <li class="page-item">
+      <a class="page-link" href="?page={{ page.previous_page_number }}&model={{ filter_model }}&action={{ filter_action }}&user={{ filter_user }}&date_from={{ filter_from }}&date_to={{ filter_to }}">
+        <i class="bi bi-chevron-left"></i>
+      </a>
+    </li>
+    {% endif %}
+    {% for num in page.paginator.page_range %}
+      {% if page.number == num %}
+      <li class="page-item active"><span class="page-link">{{ num }}</span></li>
+      {% elif num >= page.number|add:"-3" and num <= page.number|add:"3" %}
+      <li class="page-item">
+        <a class="page-link" href="?page={{ num }}&model={{ filter_model }}&action={{ filter_action }}&user={{ filter_user }}&date_from={{ filter_from }}&date_to={{ filter_to }}">{{ num }}</a>
+      </li>
+      {% endif %}
+    {% endfor %}
+    {% if page.has_next %}
+    <li class="page-item">
+      <a class="page-link" href="?page={{ page.next_page_number }}&model={{ filter_model }}&action={{ filter_action }}&user={{ filter_user }}&date_from={{ filter_from }}&date_to={{ filter_to }}">
+        <i class="bi bi-chevron-right"></i>
+      </a>
+    </li>
+    {% endif %}
+  </ul>
+</nav>
+{% endif %}
+
+{% endblock %}

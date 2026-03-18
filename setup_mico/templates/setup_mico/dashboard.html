@@ -1,0 +1,232 @@
+{% extends 'setup_mico/base.html' %}
+{% block title %}| Dashboard{% endblock %}
+{% block nav_dash %}active{% endblock %}
+
+{% block breadcrumb %}
+<li class="breadcrumb-item active">Dashboard</li>
+{% endblock %}
+
+{% block content %}
+
+<!-- Stats Row -->
+<div class="row g-3 mb-4">
+  <div class="col-sm-6 col-xl-3">
+    <div class="card-box d-flex align-items-center gap-3">
+      <div class="stat-icon" style="background:#eff6ff; color:#4f8ef7;">
+        <i class="bi bi-layers-half"></i>
+      </div>
+      <div>
+        <div class="stat-label">Category (공정)</div>
+        <div class="stat-value">{{ category_count }}</div>
+      </div>
+    </div>
+  </div>
+  <div class="col-sm-6 col-xl-3">
+    <div class="card-box d-flex align-items-center gap-3">
+      <div class="stat-icon" style="background:#f0fdf4; color:#22c55e;">
+        <i class="bi bi-diagram-3"></i>
+      </div>
+      <div>
+        <div class="stat-label">SubCategory (레시피)</div>
+        <div class="stat-value">{{ subcategory_count }}</div>
+      </div>
+    </div>
+  </div>
+  <div class="col-sm-6 col-xl-3">
+    <div class="card-box d-flex align-items-center gap-3">
+      <div class="stat-icon" style="background:#fdf4ff; color:#a855f7;">
+        <i class="bi bi-list-task"></i>
+      </div>
+      <div>
+        <div class="stat-label">Detail (파라미터)</div>
+        <div class="stat-value">{{ detail_count }}</div>
+      </div>
+    </div>
+  </div>
+  <div class="col-sm-6 col-xl-3">
+    <div class="card-box d-flex align-items-center gap-3">
+      <div class="stat-icon" style="background:#fff7ed; color:#f97316;">
+        <i class="bi bi-graph-up-arrow"></i>
+      </div>
+      <div>
+        <div class="stat-label">평균 산포 개선율</div>
+        <div class="stat-value">—</div>
+      </div>
+    </div>
+  </div>
+</div>
+
+<!-- Charts Row -->
+<div class="row g-3 mb-4">
+
+  <!-- 공정 적용현황 -->
+  <div class="col-xl-7">
+    <div class="card-box">
+      <div class="d-flex align-items-center justify-content-between mb-3">
+        <div>
+          <div class="card-box-title">공정 적용현황</div>
+          <div class="card-box-sub">Product별 적용 Recipe 수 (샘플 데이터)</div>
+        </div>
+        <span class="badge-pill" style="background:#eff6ff; color:#4f8ef7;">Sample</span>
+      </div>
+      <div style="position:relative; height:260px;">
+        <canvas id="processChart"></canvas>
+      </div>
+    </div>
+  </div>
+
+  <!-- 산포 개선 현황 -->
+  <div class="col-xl-5">
+    <div class="card-box">
+      <div class="d-flex align-items-center justify-content-between mb-3">
+        <div>
+          <div class="card-box-title">산포 개선 현황</div>
+          <div class="card-box-sub">APC 적용 전/후 σ 비교 (샘플 데이터)</div>
+        </div>
+        <span class="badge-pill" style="background:#fff7ed; color:#f97316;">Sample</span>
+      </div>
+      <div style="position:relative; height:260px;">
+        <canvas id="dispersionChart"></canvas>
+      </div>
+    </div>
+  </div>
+</div>
+
+<!-- Bottom Row -->
+<div class="row g-3">
+
+  <!-- 최근 공정 목록 -->
+  <div class="col-xl-6">
+    <div class="table-card">
+      <div class="table-card-header">
+        <i class="bi bi-clock-history" style="color:#4f8ef7;"></i>
+        <span class="fw-semibold" style="font-size:0.875rem;">최근 등록 공정</span>
+      </div>
+      <table class="table table-hover mb-0">
+        <thead>
+          <tr>
+            <th>Product</th>
+            <th>Oper ID</th>
+            <th>FAB</th>
+            <th>등록일</th>
+          </tr>
+        </thead>
+        <tbody>
+          <!-- 데이터 연결 후 채워질 영역 -->
+          <tr>
+            <td colspan="4" class="text-center text-muted py-4" style="font-size:0.82rem;">
+              <i class="bi bi-inbox me-1"></i> 데이터를 등록하면 표시됩니다
+            </td>
+          </tr>
+        </tbody>
+      </table>
+    </div>
+  </div>
+
+  <!-- 개선율 Top 5 -->
+  <div class="col-xl-6">
+    <div class="card-box">
+      <div class="card-box-title mb-1">산포 개선율 Top 5</div>
+      <div class="card-box-sub mb-3">APC 적용 후 σ 감소율 기준 (샘플 데이터)</div>
+
+      {% for item in top5_sample %}
+      <div class="d-flex align-items-center gap-2 mb-2">
+        <span style="font-size:0.78rem; color:#344054; width:140px; white-space:nowrap; overflow:hidden; text-overflow:ellipsis;">{{ item.name }}</span>
+        <div class="flex-grow-1" style="background:#f0f2f7; border-radius:999px; height:8px;">
+          <div style="background:#4f8ef7; width:{{ item.pct }}%; height:8px; border-radius:999px;"></div>
+        </div>
+        <span style="font-size:0.78rem; color:#4f8ef7; font-weight:600; width:36px; text-align:right;">{{ item.pct }}%</span>
+      </div>
+      {% empty %}
+      <!-- 샘플 바 (데이터 없을 때) -->
+      {% for item in sample_bars %}
+      <div class="d-flex align-items-center gap-2 mb-2">
+        <span style="font-size:0.78rem; color:#c0c8d8; width:140px;">— Recipe {{ forloop.counter }}</span>
+        <div class="flex-grow-1" style="background:#f0f2f7; border-radius:999px; height:8px;">
+          <div style="background:#dce3f0; width:{{ item }}%; height:8px; border-radius:999px;"></div>
+        </div>
+        <span style="font-size:0.78rem; color:#c0c8d8; width:36px; text-align:right;">—</span>
+      </div>
+      {% endfor %}
+      {% endfor %}
+    </div>
+  </div>
+
+</div>
+{% endblock %}
+
+{% block scripts %}
+<script>
+// ── 공정 적용현황 Bar Chart ──
+const processCtx = document.getElementById('processChart');
+new Chart(processCtx, {
+  type: 'bar',
+  data: {
+    labels: ['Product A', 'Product B', 'Product C', 'Product D', 'Product E'],
+    datasets: [{
+      label: '적용 Recipe 수',
+      data: [12, 8, 15, 5, 10],
+      backgroundColor: 'rgba(79,142,247,0.75)',
+      borderRadius: 6,
+      borderSkipped: false,
+    }]
+  },
+  options: {
+    responsive: true,
+    maintainAspectRatio: false,
+    plugins: { legend: { display: false } },
+    scales: {
+      y: {
+        beginAtZero: true,
+        grid: { color: '#f0f2f7' },
+        ticks: { font: { size: 11 } }
+      },
+      x: {
+        grid: { display: false },
+        ticks: { font: { size: 11 } }
+      }
+    }
+  }
+});
+
+// ── 산포 개선 현황 Line Chart ──
+const dispCtx = document.getElementById('dispersionChart');
+new Chart(dispCtx, {
+  type: 'line',
+  data: {
+    labels: ['Jan', 'Feb', 'Mar', 'Apr', 'May', 'Jun'],
+    datasets: [
+      {
+        label: 'APC 적용 전 σ',
+        data: [3.2, 3.1, 3.4, 3.0, 2.9, 3.1],
+        borderColor: '#f97316',
+        backgroundColor: 'rgba(249,115,22,0.08)',
+        fill: true,
+        tension: 0.4,
+        pointRadius: 4,
+      },
+      {
+        label: 'APC 적용 후 σ',
+        data: [2.1, 1.9, 2.0, 1.7, 1.6, 1.5],
+        borderColor: '#4f8ef7',
+        backgroundColor: 'rgba(79,142,247,0.08)',
+        fill: true,
+        tension: 0.4,
+        pointRadius: 4,
+      }
+    ]
+  },
+  options: {
+    responsive: true,
+    maintainAspectRatio: false,
+    plugins: {
+      legend: { position: 'bottom', labels: { font: { size: 11 }, boxWidth: 12 } }
+    },
+    scales: {
+      y: { grid: { color: '#f0f2f7' }, ticks: { font: { size: 11 } } },
+      x: { grid: { display: false }, ticks: { font: { size: 11 } } }
+    }
+  }
+});
+</script>
+{% endblock %}

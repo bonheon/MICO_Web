@@ -1,0 +1,327 @@
+{% extends 'setup_mico/base.html' %}
+{% block title %}| Detail{% endblock %}
+{% block nav_setup %}active{% endblock %}
+{% block setup_expanded %}true{% endblock %}
+{% block setup_show %}show{% endblock %}
+{% block nav_det %}active{% endblock %}
+
+{% block breadcrumb %}
+<li class="breadcrumb-item">Configuration</li>
+<li class="breadcrumb-item active">Detail</li>
+{% endblock %}
+
+{% block content %}
+<div class="d-flex align-items-center justify-content-between mb-3">
+  <div>
+    <h5 class="fw-bold mb-0" style="color:#1e2640;">Detail</h5>
+    <small class="text-muted">APC 파라미터 상세 목록</small>
+  </div>
+  <button class="btn btn-primary btn-sm add-btn" style="border-radius:8px;"
+    data-bs-toggle="modal" data-bs-target="#detailModal">
+    <i class="bi bi-plus-lg me-1"></i> 추가
+  </button>
+</div>
+
+<div class="table-card" style="overflow-x:auto;">
+  <table class="table table-hover mb-0" style="min-width:1000px;">
+    <thead>
+      <tr>
+        <th style="width:44px;">#</th>
+        <th>SubCategory</th>
+        <th>APC Para</th>
+        <th>THK Para</th>
+        <th class="text-center">Target</th>
+        <th class="text-center">Pre Target</th>
+        <th class="text-center">Pre THK Period</th>
+        <th class="text-center">RR Para</th>
+        <th class="text-center">RR Period</th>
+        <th class="text-center">IF RR</th>
+        <th class="text-center">Offset Group</th>
+        <th class="text-center">RR Max</th>
+        <th style="width:100px;">관리</th>
+      </tr>
+      <tr class="search-row">
+        <th></th>
+        <th><input type="text" class="col-search form-control form-control-sm" placeholder="검색..." data-col="1"></th>
+        <th><input type="text" class="col-search form-control form-control-sm" placeholder="검색..." data-col="2"></th>
+        <th><input type="text" class="col-search form-control form-control-sm" placeholder="검색..." data-col="3"></th>
+        <th><input type="text" class="col-search form-control form-control-sm" placeholder="검색..." data-col="4"></th>
+        <th><input type="text" class="col-search form-control form-control-sm" placeholder="검색..." data-col="5"></th>
+        <th><input type="text" class="col-search form-control form-control-sm" placeholder="검색..." data-col="6"></th>
+        <th><input type="text" class="col-search form-control form-control-sm" placeholder="검색..." data-col="7"></th>
+        <th><input type="text" class="col-search form-control form-control-sm" placeholder="검색..." data-col="8"></th>
+        <th><input type="text" class="col-search form-control form-control-sm" placeholder="검색..." data-col="9"></th>
+        <th><input type="text" class="col-search form-control form-control-sm" placeholder="검색..." data-col="10"></th>
+        <th><input type="text" class="col-search form-control form-control-sm" placeholder="검색..." data-col="11"></th>
+        <th></th>
+      </tr>
+    </thead>
+    <tbody>
+      {% for d in details %}
+      <tr>
+        <td class="text-muted">{{ forloop.counter }}</td>
+        <td>
+          <div style="font-size:0.82rem; font-weight:600;">{{ d.subcategory.recipe_id }}</div>
+          <div style="font-size:0.72rem; color:#8993a8;">{{ d.subcategory.category.product }}</div>
+        </td>
+        <td>{{ d.apc_para }}</td>
+        <td>{{ d.thk_para }}</td>
+        <td class="text-center">{{ d.target }}</td>
+        <td class="text-center">{{ d.pre_target }}</td>
+        <td class="text-center">{{ d.pre_thk_period }}</td>
+        <td class="text-center">
+          {% if d.rr_para %}
+            <span class="badge-pill" style="background:#fdf4ff; color:#a855f7;">{{ d.rr_para }}</span>
+          {% else %}<span class="text-muted">—</span>{% endif %}
+        </td>
+        <td class="text-center">{{ d.rr_period|default:"—" }}</td>
+        <td class="text-center">{{ d.if_rr|default:"—" }}</td>
+        <td class="text-center">
+          {% if d.offset_group %}
+            <span class="badge-pill" style="background:{% if d.offset_group == 'Y' %}#f0fdf4; color:#22c55e;{% else %}#fff1f2; color:#ef4444;{% endif %}">
+              {{ d.offset_group }}
+            </span>
+          {% else %}<span class="text-muted">—</span>{% endif %}
+        </td>
+        <td class="text-center">{{ d.rr_max|default:"—" }}</td>
+        <td>
+          <div class="d-flex gap-1">
+            <button class="btn btn-sm edit-btn"
+              style="padding:3px 10px; border-radius:6px; background:#f0f2f7; font-size:0.78rem;"
+              data-pk="{{ d.pk }}"
+              data-subcategory="{{ d.subcategory.pk }}"
+              data-apc_para="{{ d.apc_para }}"
+              data-thk_para="{{ d.thk_para }}"
+              data-target="{{ d.target }}"
+              data-pre_target="{{ d.pre_target }}"
+              data-pre_thk_period="{{ d.pre_thk_period }}"
+              data-rr_para="{{ d.rr_para }}"
+              data-offset_group="{{ d.offset_group }}"
+              data-rr_max="{{ d.rr_max|default:'' }}"
+              data-rr_period="{{ d.rr_period|default:'' }}"
+              data-if_rr="{{ d.if_rr|default:'' }}"
+              data-bs-toggle="modal" data-bs-target="#detailModal">
+              <i class="bi bi-pencil"></i>
+            </button>
+            <button class="btn btn-sm copy-btn"
+              style="padding:3px 10px; border-radius:6px; background:#f0f8ff; color:#4f8ef7; font-size:0.78rem;"
+              title="복사"
+              data-subcategory="{{ d.subcategory.pk }}"
+              data-apc_para="{{ d.apc_para }}"
+              data-thk_para="{{ d.thk_para }}"
+              data-target="{{ d.target }}"
+              data-pre_target="{{ d.pre_target }}"
+              data-pre_thk_period="{{ d.pre_thk_period }}"
+              data-rr_para="{{ d.rr_para }}"
+              data-offset_group="{{ d.offset_group }}"
+              data-rr_max="{{ d.rr_max|default:'' }}"
+              data-rr_period="{{ d.rr_period|default:'' }}"
+              data-if_rr="{{ d.if_rr|default:'' }}"
+              data-bs-toggle="modal" data-bs-target="#detailModal">
+              <i class="bi bi-copy"></i>
+            </button>
+            <button class="btn btn-sm delete-btn"
+              style="padding:3px 10px; border-radius:6px; background:#fff1f2; color:#ef4444; font-size:0.78rem;"
+              data-pk="{{ d.pk }}"
+              data-label="{{ d.apc_para }}"
+              data-bs-toggle="modal" data-bs-target="#deleteModal">
+              <i class="bi bi-trash3"></i>
+            </button>
+          </div>
+        </td>
+      </tr>
+      {% empty %}
+      <tr>
+        <td colspan="13" class="text-center text-muted py-5">
+          <i class="bi bi-inbox" style="font-size:1.5rem; display:block; margin-bottom:0.4rem;"></i>
+          등록된 Detail이 없습니다
+        </td>
+      </tr>
+      {% endfor %}
+    </tbody>
+  </table>
+</div>
+
+
+<!-- ── Add / Edit Modal ── -->
+<div class="modal fade" id="detailModal" tabindex="-1">
+  <div class="modal-dialog modal-dialog-centered modal-lg">
+    <div class="modal-content" style="border-radius:14px; border:none;">
+      <div class="modal-header" style="border-bottom:1px solid #e4e7ed; padding:1.1rem 1.5rem;">
+        <h6 class="modal-title fw-bold" id="modalTitle">Detail 추가</h6>
+        <button type="button" class="btn-close" data-bs-dismiss="modal"></button>
+      </div>
+      <form id="detailForm" method="post">
+        {% csrf_token %}
+        <div class="modal-body" style="padding:1.5rem;">
+
+          <!-- SubCategory -->
+          <div class="mb-3">
+            <label class="form-label fw-semibold" style="font-size:0.82rem;">SubCategory <span class="text-danger">*</span></label>
+            {{ form.subcategory }}
+          </div>
+
+          <!-- 필수 파라미터 -->
+          <div class="mb-2" style="font-size:0.75rem; font-weight:600; color:#8993a8; text-transform:uppercase; letter-spacing:0.06em;">
+            필수 파라미터
+          </div>
+          <div class="row g-3 mb-3">
+            <div class="col-6">
+              <label class="form-label fw-semibold" style="font-size:0.82rem;">APC Para <span class="text-danger">*</span></label>
+              {{ form.apc_para }}
+            </div>
+            <div class="col-6">
+              <label class="form-label fw-semibold" style="font-size:0.82rem;">THK Para <span class="text-danger">*</span></label>
+              {{ form.thk_para }}
+            </div>
+            <div class="col-4">
+              <label class="form-label fw-semibold" style="font-size:0.82rem;">Target <span class="text-danger">*</span></label>
+              {{ form.target }}
+            </div>
+            <div class="col-4">
+              <label class="form-label fw-semibold" style="font-size:0.82rem;">Pre Target <span class="text-danger">*</span></label>
+              {{ form.pre_target }}
+            </div>
+            <div class="col-4">
+              <label class="form-label fw-semibold" style="font-size:0.82rem;">Pre THK Period <span class="text-danger">*</span></label>
+              {{ form.pre_thk_period }}
+            </div>
+          </div>
+
+          <!-- 선택 파라미터 -->
+          <div class="mb-2" style="font-size:0.75rem; font-weight:600; color:#8993a8; text-transform:uppercase; letter-spacing:0.06em;">
+            선택 파라미터
+          </div>
+          <div class="row g-3">
+            <div class="col-4">
+              <label class="form-label fw-semibold" style="font-size:0.82rem;">RR Para</label>
+              {{ form.rr_para }}
+            </div>
+            <div class="col-4">
+              <label class="form-label fw-semibold" style="font-size:0.82rem;">Offset Group</label>
+              {{ form.offset_group }}
+            </div>
+            <div class="col-4">
+              <label class="form-label fw-semibold" style="font-size:0.82rem;">RR Max</label>
+              {{ form.rr_max }}
+            </div>
+            <div class="col-6">
+              <label class="form-label fw-semibold" style="font-size:0.82rem;">RR Period</label>
+              {{ form.rr_period }}
+            </div>
+            <div class="col-6">
+              <label class="form-label fw-semibold" style="font-size:0.82rem;">IF RR</label>
+              {{ form.if_rr }}
+            </div>
+          </div>
+
+        </div>
+        <div class="modal-footer" style="border-top:1px solid #e4e7ed; padding:1rem 1.5rem;">
+          <button type="button" class="btn btn-sm btn-light" data-bs-dismiss="modal">취소</button>
+          <button type="submit" class="btn btn-sm btn-primary" style="border-radius:8px;">저장</button>
+        </div>
+      </form>
+    </div>
+  </div>
+</div>
+
+
+<!-- ── Delete Confirm Modal ── -->
+<div class="modal fade" id="deleteModal" tabindex="-1">
+  <div class="modal-dialog modal-dialog-centered" style="max-width:380px;">
+    <div class="modal-content" style="border-radius:14px; border:none;">
+      <div class="modal-body text-center" style="padding:2rem 1.5rem;">
+        <div style="width:52px;height:52px;border-radius:50%;background:#fff1f2;display:flex;align-items:center;justify-content:center;margin:0 auto 1rem;">
+          <i class="bi bi-exclamation-triangle-fill" style="color:#ef4444;font-size:1.4rem;"></i>
+        </div>
+        <p class="fw-bold mb-1" style="color:#1e2640;">삭제하시겠습니까?</p>
+        <p class="text-muted mb-0" style="font-size:0.83rem;" id="deleteTargetName"></p>
+      </div>
+      <div class="modal-footer justify-content-center border-0 pt-0 pb-3 gap-2">
+        <button type="button" class="btn btn-sm btn-light px-4" data-bs-dismiss="modal">취소</button>
+        <form id="deleteForm" method="post">
+          {% csrf_token %}
+          <button type="submit" class="btn btn-sm btn-danger px-4">삭제</button>
+        </form>
+      </div>
+    </div>
+  </div>
+</div>
+
+{% endblock %}
+
+{% block scripts %}
+<script>
+const createUrl = "{% url 'detail_create' %}";
+
+function fillDetailForm(data) {
+  document.getElementById('id_subcategory').value    = data.subcategory;
+  document.getElementById('id_apc_para').value       = data.apc_para;
+  document.getElementById('id_thk_para').value       = data.thk_para;
+  document.getElementById('id_target').value         = data.target;
+  document.getElementById('id_pre_target').value     = data.pre_target;
+  document.getElementById('id_pre_thk_period').value = data.pre_thk_period;
+  document.getElementById('id_rr_para').value        = data.rr_para;
+  document.getElementById('id_offset_group').value   = data.offset_group;
+  document.getElementById('id_rr_max').value         = data.rr_max;
+  document.getElementById('id_rr_period').value      = data.rr_period;
+  document.getElementById('id_if_rr').value          = data.if_rr;
+}
+
+// 추가 버튼
+document.querySelector('.add-btn').addEventListener('click', function() {
+  document.getElementById('modalTitle').textContent = 'Detail 추가';
+  document.getElementById('detailForm').action = createUrl;
+  fillDetailForm({subcategory:'',apc_para:'',thk_para:'',target:'',pre_target:'',
+    pre_thk_period:'',rr_para:'',offset_group:'',rr_max:'',rr_period:'',if_rr:''});
+});
+
+// 수정 버튼
+document.querySelectorAll('.edit-btn').forEach(btn => {
+  btn.addEventListener('click', function() {
+    document.getElementById('modalTitle').textContent = 'Detail 수정';
+    document.getElementById('detailForm').action = `/setup/detail/${this.dataset.pk}/update/`;
+    fillDetailForm(this.dataset);
+  });
+});
+
+// 복사 버튼 → 추가 모달에 데이터 채워서 오픈
+document.querySelectorAll('.copy-btn').forEach(btn => {
+  btn.addEventListener('click', function() {
+    document.getElementById('modalTitle').textContent = 'Detail 복사';
+    document.getElementById('detailForm').action = createUrl;
+    fillDetailForm(this.dataset);
+  });
+});
+
+// 삭제 버튼
+document.querySelectorAll('.delete-btn').forEach(btn => {
+  btn.addEventListener('click', function() {
+    document.getElementById('deleteTargetName').textContent = this.dataset.label;
+    document.getElementById('deleteForm').action = `/setup/detail/${this.dataset.pk}/delete/`;
+  });
+});
+
+// 컬럼별 검색
+document.querySelectorAll('.col-search').forEach(input => {
+  input.addEventListener('input', filterRows);
+});
+
+function filterRows() {
+  const inputs = document.querySelectorAll('.col-search');
+  const tbody = document.querySelector('tbody');
+  tbody.querySelectorAll('tr').forEach(row => {
+    if (row.querySelector('td[colspan]')) return;
+    let show = true;
+    inputs.forEach(input => {
+      const col = parseInt(input.dataset.col);
+      const val = input.value.trim().toLowerCase();
+      if (!val) return;
+      const cell = row.cells[col];
+      if (!cell || !cell.textContent.toLowerCase().includes(val)) show = false;
+    });
+    row.style.display = show ? '' : 'none';
+  });
+}
+</script>
+{% endblock %}

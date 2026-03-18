@@ -1,0 +1,142 @@
+{% extends 'setup_mico/base.html' %}
+{% block title %}| VOC{% endblock %}
+{% block nav_voc %}active{% endblock %}
+
+{% block breadcrumb %}
+<li class="breadcrumb-item">Support</li>
+<li class="breadcrumb-item active">VOC 게시판</li>
+{% endblock %}
+
+{% block content %}
+<div class="d-flex align-items-center justify-content-between mb-3">
+  <div>
+    <h5 class="fw-bold mb-0" style="color:#1e2640;">VOC 게시판</h5>
+    <small class="text-muted">불편한 점이나 문제점을 남겨주세요</small>
+  </div>
+  <button class="btn btn-primary btn-sm" style="border-radius:8px;"
+    data-bs-toggle="modal" data-bs-target="#vocModal">
+    <i class="bi bi-pencil-square me-1"></i> 글쓰기
+  </button>
+</div>
+
+<div class="table-card">
+  <table class="table table-hover mb-0">
+    <thead>
+      <tr>
+        <th style="width:50px;">#</th>
+        <th style="width:90px;">상태</th>
+        <th>제목</th>
+        <th style="width:120px;">작성자</th>
+        <th style="width:110px;">등록일</th>
+        {% if request.user.is_staff %}<th style="width:80px;">관리</th>{% endif %}
+      </tr>
+    </thead>
+    <tbody>
+      {% for voc in vocs %}
+      <tr style="cursor:pointer;" onclick="location.href='{% url 'voc_detail' voc.pk %}'">
+        <td class="text-muted">{{ forloop.counter }}</td>
+        <td>
+          {% if voc.is_answered %}
+            <span class="badge-pill" style="background:#f0fdf4; color:#22c55e;">
+              <i class="bi bi-check-circle me-1"></i>답변완료
+            </span>
+          {% else %}
+            <span class="badge-pill" style="background:#fff7ed; color:#f97316;">
+              <i class="bi bi-clock me-1"></i>답변대기
+            </span>
+          {% endif %}
+        </td>
+        <td class="fw-semibold">{{ voc.title }}</td>
+        <td class="text-muted">{{ voc.author.username }}</td>
+        <td class="text-muted" style="white-space:nowrap;">{{ voc.created_at|date:"Y-m-d" }}</td>
+        {% if request.user.is_staff %}
+        <td onclick="event.stopPropagation();">
+          <button class="btn btn-sm delete-btn"
+            style="padding:3px 10px; border-radius:6px; background:#fff1f2; color:#ef4444; font-size:0.78rem;"
+            data-pk="{{ voc.pk }}" data-title="{{ voc.title }}"
+            data-bs-toggle="modal" data-bs-target="#deleteModal">
+            <i class="bi bi-trash3"></i>
+          </button>
+        </td>
+        {% endif %}
+      </tr>
+      {% empty %}
+      <tr>
+        <td colspan="{% if request.user.is_staff %}6{% else %}5{% endif %}" class="text-center text-muted py-5">
+          <i class="bi bi-inbox" style="font-size:1.5rem; display:block; margin-bottom:0.4rem;"></i>
+          등록된 VOC가 없습니다
+        </td>
+      </tr>
+      {% endfor %}
+    </tbody>
+  </table>
+</div>
+
+
+<!-- ── 글쓰기 Modal ── -->
+<div class="modal fade" id="vocModal" tabindex="-1">
+  <div class="modal-dialog modal-dialog-centered modal-lg">
+    <div class="modal-content" style="border-radius:14px; border:none;">
+      <div class="modal-header" style="border-bottom:1px solid #e4e7ed; padding:1.1rem 1.5rem;">
+        <h6 class="modal-title fw-bold">VOC 작성</h6>
+        <button type="button" class="btn-close" data-bs-dismiss="modal"></button>
+      </div>
+      <form method="post" action="{% url 'voc_create' %}">
+        {% csrf_token %}
+        <div class="modal-body" style="padding:1.5rem;">
+          <div class="mb-3">
+            <label class="form-label fw-semibold" style="font-size:0.82rem;">제목 <span class="text-danger">*</span></label>
+            {{ form.title }}
+          </div>
+          <div class="mb-1">
+            <label class="form-label fw-semibold" style="font-size:0.82rem;">내용 <span class="text-danger">*</span></label>
+            {{ form.content }}
+          </div>
+        </div>
+        <div class="modal-footer" style="border-top:1px solid #e4e7ed; padding:1rem 1.5rem;">
+          <button type="button" class="btn btn-sm btn-light" data-bs-dismiss="modal">취소</button>
+          <button type="submit" class="btn btn-sm btn-primary" style="border-radius:8px;">등록</button>
+        </div>
+      </form>
+    </div>
+  </div>
+</div>
+
+
+<!-- ── Delete Modal ── -->
+{% if request.user.is_staff %}
+<div class="modal fade" id="deleteModal" tabindex="-1">
+  <div class="modal-dialog modal-dialog-centered" style="max-width:380px;">
+    <div class="modal-content" style="border-radius:14px; border:none;">
+      <div class="modal-body text-center" style="padding:2rem 1.5rem;">
+        <div style="width:52px;height:52px;border-radius:50%;background:#fff1f2;display:flex;align-items:center;justify-content:center;margin:0 auto 1rem;">
+          <i class="bi bi-exclamation-triangle-fill" style="color:#ef4444;font-size:1.4rem;"></i>
+        </div>
+        <p class="fw-bold mb-1" style="color:#1e2640;">삭제하시겠습니까?</p>
+        <p class="text-muted mb-0" style="font-size:0.83rem;" id="deleteTargetName"></p>
+      </div>
+      <div class="modal-footer justify-content-center border-0 pt-0 pb-3 gap-2">
+        <button type="button" class="btn btn-sm btn-light px-4" data-bs-dismiss="modal">취소</button>
+        <form id="deleteForm" method="post">
+          {% csrf_token %}
+          <button type="submit" class="btn btn-sm btn-danger px-4">삭제</button>
+        </form>
+      </div>
+    </div>
+  </div>
+</div>
+{% endif %}
+{% endblock %}
+
+{% block scripts %}
+<script>
+{% if request.user.is_staff %}
+document.querySelectorAll('.delete-btn').forEach(btn => {
+  btn.addEventListener('click', function() {
+    document.getElementById('deleteTargetName').textContent = this.dataset.title;
+    document.getElementById('deleteForm').action = `/voc/${this.dataset.pk}/delete/`;
+  });
+});
+{% endif %}
+</script>
+{% endblock %}

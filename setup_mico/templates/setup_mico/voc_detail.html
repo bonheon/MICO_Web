@@ -1,0 +1,130 @@
+{% extends 'setup_mico/base.html' %}
+{% block title %}| VOC 상세{% endblock %}
+{% block nav_voc %}active{% endblock %}
+
+{% block breadcrumb %}
+<li class="breadcrumb-item">Support</li>
+<li class="breadcrumb-item"><a href="{% url 'voc_list' %}">VOC 게시판</a></li>
+<li class="breadcrumb-item active">상세</li>
+{% endblock %}
+
+{% block content %}
+<div class="d-flex align-items-center justify-content-between mb-3">
+  <div>
+    <h5 class="fw-bold mb-0" style="color:#1e2640;">VOC 상세</h5>
+  </div>
+  <a href="{% url 'voc_list' %}" class="btn btn-sm btn-light" style="border-radius:8px;">
+    <i class="bi bi-arrow-left me-1"></i> 목록
+  </a>
+</div>
+
+<!-- 문의 내용 -->
+<div class="table-card p-4 mb-3">
+  <div class="d-flex align-items-start justify-content-between mb-3">
+    <div>
+      <div class="d-flex align-items-center gap-2 mb-1">
+        {% if voc.is_answered %}
+          <span class="badge-pill" style="background:#f0fdf4; color:#22c55e;">
+            <i class="bi bi-check-circle me-1"></i>답변완료
+          </span>
+        {% else %}
+          <span class="badge-pill" style="background:#fff7ed; color:#f97316;">
+            <i class="bi bi-clock me-1"></i>답변대기
+          </span>
+        {% endif %}
+      </div>
+      <h6 class="fw-bold mb-0" style="color:#1e2640; font-size:1rem;">{{ voc.title }}</h6>
+    </div>
+    {% if request.user == voc.author or request.user.is_staff %}
+    <button class="btn btn-sm"
+      style="padding:3px 10px; border-radius:6px; background:#fff1f2; color:#ef4444; font-size:0.78rem;"
+      data-bs-toggle="modal" data-bs-target="#deleteModal">
+      <i class="bi bi-trash3"></i>
+    </button>
+    {% endif %}
+  </div>
+  <div style="font-size:0.8rem; color:#8993a8; margin-bottom:1rem;">
+    <i class="bi bi-person me-1"></i>{{ voc.author.username }}
+    &nbsp;·&nbsp;
+    <i class="bi bi-calendar3 me-1"></i>{{ voc.created_at|date:"Y-m-d H:i" }}
+  </div>
+  <div style="white-space:pre-wrap; line-height:1.7; color:#344054;">{{ voc.content }}</div>
+</div>
+
+<!-- 답변 영역 -->
+{% if voc.is_answered %}
+<div class="table-card p-4 mb-3" style="border-left: 4px solid #4f8ef7;">
+  <div class="d-flex align-items-center gap-2 mb-2">
+    <i class="bi bi-chat-left-text-fill" style="color:#4f8ef7;"></i>
+    <span class="fw-bold" style="color:#4f8ef7; font-size:0.9rem;">답변</span>
+    <span style="font-size:0.78rem; color:#8993a8;">
+      {{ voc.replied_by.username }} · {{ voc.replied_at|date:"Y-m-d H:i" }}
+    </span>
+  </div>
+  <div style="white-space:pre-wrap; line-height:1.7; color:#344054;">{{ voc.reply }}</div>
+  {% if request.user.is_staff %}
+  <div class="mt-3">
+    <button class="btn btn-sm btn-outline-primary" style="border-radius:8px; font-size:0.8rem;"
+      data-bs-toggle="collapse" data-bs-target="#replyEditForm">
+      <i class="bi bi-pencil me-1"></i>답변 수정
+    </button>
+  </div>
+  <div class="collapse mt-3" id="replyEditForm">
+    <form method="post" action="{% url 'voc_reply' voc.pk %}">
+      {% csrf_token %}
+      {{ reply_form.reply }}
+      <div class="mt-2 text-end">
+        <button type="submit" class="btn btn-sm btn-primary" style="border-radius:8px;">수정 저장</button>
+      </div>
+    </form>
+  </div>
+  {% endif %}
+</div>
+{% elif request.user.is_staff %}
+<!-- 관리자 답변 입력폼 -->
+<div class="table-card p-4 mb-3">
+  <div class="d-flex align-items-center gap-2 mb-3">
+    <i class="bi bi-chat-left-text" style="color:#4f8ef7;"></i>
+    <span class="fw-bold" style="color:#1e2640; font-size:0.9rem;">답변 작성</span>
+  </div>
+  <form method="post" action="{% url 'voc_reply' voc.pk %}">
+    {% csrf_token %}
+    {{ reply_form.reply }}
+    <div class="mt-2 text-end">
+      <button type="submit" class="btn btn-sm btn-primary" style="border-radius:8px;">
+        <i class="bi bi-send me-1"></i>답변 등록
+      </button>
+    </div>
+  </form>
+</div>
+{% else %}
+<div class="table-card p-4 text-center text-muted" style="font-size:0.85rem;">
+  <i class="bi bi-hourglass-split me-1"></i>아직 답변이 등록되지 않았습니다.
+</div>
+{% endif %}
+
+
+<!-- ── Delete Modal ── -->
+{% if request.user == voc.author or request.user.is_staff %}
+<div class="modal fade" id="deleteModal" tabindex="-1">
+  <div class="modal-dialog modal-dialog-centered" style="max-width:380px;">
+    <div class="modal-content" style="border-radius:14px; border:none;">
+      <div class="modal-body text-center" style="padding:2rem 1.5rem;">
+        <div style="width:52px;height:52px;border-radius:50%;background:#fff1f2;display:flex;align-items:center;justify-content:center;margin:0 auto 1rem;">
+          <i class="bi bi-exclamation-triangle-fill" style="color:#ef4444;font-size:1.4rem;"></i>
+        </div>
+        <p class="fw-bold mb-1" style="color:#1e2640;">삭제하시겠습니까?</p>
+        <p class="text-muted mb-0" style="font-size:0.83rem;">{{ voc.title }}</p>
+      </div>
+      <div class="modal-footer justify-content-center border-0 pt-0 pb-3 gap-2">
+        <button type="button" class="btn btn-sm btn-light px-4" data-bs-dismiss="modal">취소</button>
+        <form method="post" action="{% url 'voc_delete' voc.pk %}">
+          {% csrf_token %}
+          <button type="submit" class="btn btn-sm btn-danger px-4">삭제</button>
+        </form>
+      </div>
+    </div>
+  </div>
+</div>
+{% endif %}
+{% endblock %}

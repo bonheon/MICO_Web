@@ -1,0 +1,267 @@
+{% extends 'setup_mico/base.html' %}
+{% block title %}| History 조회{% endblock %}
+{% block nav_learning_history %}active{% endblock %}
+
+{% block breadcrumb %}
+<li class="breadcrumb-item">Learning</li>
+<li class="breadcrumb-item active">History 조회</li>
+{% endblock %}
+
+{% block content %}
+<style>
+  .filter-card {
+    background: #fff;
+    border: 1px solid #e4e7ed;
+    border-radius: 12px;
+    padding: 1.25rem 1.5rem;
+    margin-bottom: 1.25rem;
+  }
+  .filter-row {
+    display: grid;
+    grid-template-columns: 1fr 1fr 1fr auto;
+    gap: 1rem;
+    align-items: flex-end;
+  }
+  .filter-group label {
+    font-size: 0.72rem; font-weight: 600;
+    text-transform: uppercase; letter-spacing: 0.06em;
+    color: #8993a8; display: block; margin-bottom: 0.4rem;
+  }
+  .filter-group input {
+    width: 100%;
+    border: 1px solid #e4e7ed; border-radius: 8px;
+    padding: 0.5rem 0.85rem; font-size: 0.85rem;
+    color: #344054; background: #f8f9fc;
+    outline: none; transition: border-color 0.15s;
+  }
+  .filter-group input:focus { border-color: #4f8ef7; background: #fff; }
+
+  .notice-banner {
+    display: flex; align-items: flex-start; gap: 0.75rem;
+    background: #fffbeb; border: 1px solid #fde68a;
+    border-radius: 10px; padding: 0.9rem 1.1rem;
+    font-size: 0.82rem; color: #92400e; margin-bottom: 1.25rem;
+  }
+  .notice-banner i { font-size: 1rem; flex-shrink: 0; margin-top: 1px; }
+
+  .result-meta {
+    display: flex; align-items: center; gap: 0.75rem;
+    font-size: 0.8rem; color: #8993a8; margin-bottom: 0.75rem;
+  }
+  .chip { border-radius: 999px; padding: 0.2em 0.75em; font-weight: 500; font-size: 0.75rem; }
+
+  /* 샘플 배지 */
+  .sample-row td { opacity: 0.85; }
+
+  .empty-state {
+    padding: 5rem 1.5rem; text-align: center; color: #8993a8;
+  }
+  .empty-state i { font-size: 2.2rem; display: block; margin-bottom: 0.75rem; color: #c8d0e0; }
+  .empty-state .em-title { font-size: 0.9rem; font-weight: 600; color: #344054; margin-bottom: 0.3rem; }
+  .empty-state .em-sub   { font-size: 0.8rem; }
+</style>
+
+<div class="d-flex align-items-center justify-content-between mb-3">
+  <div>
+    <h5 class="fw-bold mb-0" style="color:#1e2640;">History 조회</h5>
+    <small class="text-muted">Lot / Wafer / 공정 기준으로 MICO 적용 이력 조회</small>
+  </div>
+</div>
+
+<!-- DB 연동 안내 -->
+<div class="notice-banner">
+  <i class="bi bi-info-circle-fill" style="color:#d97706;"></i>
+  <div>
+    <strong>DB 연동 준비 중</strong><br>
+    현재 사내 DB가 연결되지 않아 샘플 데이터가 표시됩니다.
+    DB 연동 후 실제 MICO 적용 이력을 조회할 수 있습니다.
+  </div>
+</div>
+
+<!-- 필터 -->
+<div class="filter-card">
+  <form method="get" action="{% url 'learning_history' %}">
+    <div class="filter-row">
+      <div class="filter-group">
+        <label><i class="bi bi-upc-scan me-1"></i>Lot ID</label>
+        <input type="text" name="lot_id" value="{{ lot_id }}" placeholder="예) LOT2603001">
+      </div>
+      <div class="filter-group">
+        <label><i class="bi bi-layers me-1"></i>Wafer ID</label>
+        <input type="text" name="wafer_id" value="{{ wafer_id }}" placeholder="예) W01 ~ W25">
+      </div>
+      <div class="filter-group">
+        <label><i class="bi bi-gear me-1"></i>공정 (Oper ID)</label>
+        <input type="text" name="process" value="{{ process }}" placeholder="예) A908740A">
+      </div>
+      <div>
+        <button type="submit" class="btn btn-primary w-100" style="border-radius:8px; padding:0.5rem 1.25rem;">
+          <i class="bi bi-search me-1"></i> 조회
+        </button>
+      </div>
+    </div>
+  </form>
+</div>
+
+{% if queried and not rows %}
+<!-- DB 미연결 → 샘플 표시 -->
+<div class="result-meta">
+  <span>조회 조건:</span>
+  {% if lot_id %}<span class="chip" style="background:#eff6ff; color:#4f8ef7;">Lot: {{ lot_id }}</span>{% endif %}
+  {% if wafer_id %}<span class="chip" style="background:#f0fdf4; color:#22c55e;">Wafer: {{ wafer_id }}</span>{% endif %}
+  {% if process %}<span class="chip" style="background:#fdf4ff; color:#a855f7;">Oper: {{ process }}</span>{% endif %}
+  <span class="chip ms-auto" style="background:#fff7ed; color:#f97316;">
+    <i class="bi bi-exclamation-circle me-1"></i>Sample 데이터
+  </span>
+</div>
+
+<div class="table-card" style="overflow-x:auto;">
+  <table class="table table-hover mb-0" style="min-width:1100px; font-size:0.82rem;">
+    <thead>
+      <tr>
+        <th style="width:44px;">#</th>
+        <th>조회 일시</th>
+        <th>Lot ID</th>
+        <th>Wafer ID</th>
+        <th>Oper ID</th>
+        <th>Recipe ID</th>
+        <th>APC Para</th>
+        <th>THK Para</th>
+        <th class="text-center">Pre THK</th>
+        <th class="text-center">Target</th>
+        <th class="text-center">APC Input</th>
+        <th class="text-center">APC Result</th>
+        <th class="text-center">수정</th>
+      </tr>
+    </thead>
+    <tbody id="sample-tbody">
+      <!-- JS로 샘플 렌더링 -->
+    </tbody>
+  </table>
+</div>
+
+{% elif queried and rows %}
+<!-- DB 연동 후 실제 데이터 -->
+<div class="result-meta">
+  <span>총 <strong>{{ rows|length }}</strong>건</span>
+  {% if lot_id %}<span class="chip" style="background:#eff6ff; color:#4f8ef7;">Lot: {{ lot_id }}</span>{% endif %}
+  {% if wafer_id %}<span class="chip" style="background:#f0fdf4; color:#22c55e;">Wafer: {{ wafer_id }}</span>{% endif %}
+  {% if process %}<span class="chip" style="background:#fdf4ff; color:#a855f7;">Oper: {{ process }}</span>{% endif %}
+</div>
+
+<div class="table-card" style="overflow-x:auto;">
+  <table class="table table-hover mb-0" style="min-width:1100px; font-size:0.82rem;">
+    <thead>
+      <tr>
+        <th style="width:44px;">#</th>
+        <th>조회 일시</th>
+        <th>Lot ID</th>
+        <th>Wafer ID</th>
+        <th>Oper ID</th>
+        <th>Recipe ID</th>
+        <th>APC Para</th>
+        <th>THK Para</th>
+        <th class="text-center">Pre THK</th>
+        <th class="text-center">Target</th>
+        <th class="text-center">APC Input</th>
+        <th class="text-center">APC Result</th>
+        <th class="text-center">수정</th>
+      </tr>
+    </thead>
+    <tbody>
+      {% for row in rows %}
+      <tr>
+        <td class="text-muted">{{ forloop.counter }}</td>
+        <td class="text-muted" style="white-space:nowrap;">{{ row.timestamp }}</td>
+        <td class="fw-semibold">{{ row.lot_id }}</td>
+        <td>{{ row.wafer_id }}</td>
+        <td><span class="badge-pill" style="background:#eff6ff; color:#4f8ef7;">{{ row.oper_id }}</span></td>
+        <td><span class="badge-pill" style="background:#f0fdf4; color:#22c55e;">{{ row.recipe_id }}</span></td>
+        <td>{{ row.apc_para }}</td>
+        <td style="max-width:160px; overflow:hidden; text-overflow:ellipsis; white-space:nowrap;" title="{{ row.thk_para }}">{{ row.thk_para }}</td>
+        <td class="text-center">{{ row.pre_thk }} <span style="font-size:0.7rem; color:#8993a8;">Å</span></td>
+        <td class="text-center">{{ row.target }} <span style="font-size:0.7rem; color:#8993a8;">Å</span></td>
+        <td class="text-center fw-semibold" style="color:#4f8ef7;">{{ row.apc_input }}</td>
+        <td class="text-center fw-semibold" style="color:#a855f7;">{{ row.apc_result }}</td>
+        <td class="text-center">
+          {% if row.modified %}
+            <span class="badge-pill" style="background:#f0fdf4; color:#22c55e;"><i class="bi bi-check2"></i> Y</span>
+          {% else %}
+            <span class="badge-pill" style="background:#f0f2f7; color:#8993a8;">N</span>
+          {% endif %}
+        </td>
+      </tr>
+      {% endfor %}
+    </tbody>
+  </table>
+</div>
+
+{% else %}
+<!-- 미조회 -->
+<div class="table-card">
+  <div class="empty-state">
+    <i class="bi bi-clock-history"></i>
+    <div class="em-title">조회 조건을 입력하세요</div>
+    <div class="em-sub">Lot ID · Wafer ID · 공정 중 하나 이상 입력 후 조회하면<br>MICO 적용 이력이 표시됩니다</div>
+  </div>
+</div>
+{% endif %}
+
+{% endblock %}
+
+{% block scripts %}
+{% if queried and not rows %}
+<script>
+// 샘플 데이터 생성
+const lotId   = "{{ lot_id|default:'LOT2603001' }}";
+const waferId = "{{ wafer_id|default:'W01' }}";
+const process = "{{ process|default:'A908740A' }}";
+
+const recipes  = ['E2_SNBPSG_R03_AB','E2_SNBPSG_R04_AB','E3_POLY_R01_CD'];
+const apcParas = ['PB_04_TIME','PB_05_TIME','PB_06_TIME'];
+const thkParas = ['EBARA_ITM_POST_THK1_AVG','EBARA_ITM_POST_THK2_AVG'];
+
+function rnd(base, range) { return +(base + (Math.random()-0.5)*range*2).toFixed(1); }
+function randInt(base, range) { return Math.round(base + (Math.random()-0.5)*range*2); }
+function pad(n) { return String(n).padStart(2,'0'); }
+function fmtDate(d) {
+  return `${d.getFullYear()}-${pad(d.getMonth()+1)}-${pad(d.getDate())} ${pad(d.getHours())}:${pad(d.getMinutes())}`;
+}
+
+const now = new Date();
+const tbody = document.getElementById('sample-tbody');
+const N = 12;
+
+for (let i = 0; i < N; i++) {
+  const dt = new Date(now - i * 1000 * 60 * 18);
+  const ri = i % recipes.length;
+  const pre_thk   = randInt(3000, 120);
+  const target    = 3000;
+  const apc_input = rnd(95, 8);
+  const apc_result= rnd(94, 6);
+  const modified  = Math.random() > 0.35;
+
+  const tr = document.createElement('tr');
+  tr.className = 'sample-row';
+  tr.innerHTML = `
+    <td class="text-muted">${i+1}</td>
+    <td class="text-muted" style="white-space:nowrap;">${fmtDate(dt)}</td>
+    <td class="fw-semibold">${lotId || 'LOT2603' + pad(i+1)}</td>
+    <td>${waferId || 'W' + pad((i%25)+1)}</td>
+    <td><span class="badge-pill" style="background:#eff6ff;color:#4f8ef7;">${process || 'A908740A'}</span></td>
+    <td><span class="badge-pill" style="background:#f0fdf4;color:#22c55e;">${recipes[ri]}</span></td>
+    <td>${apcParas[ri % apcParas.length]}</td>
+    <td style="max-width:160px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;" title="${thkParas[i%2]}">${thkParas[i%2]}</td>
+    <td class="text-center">${pre_thk} <span style="font-size:0.7rem;color:#8993a8;">Å</span></td>
+    <td class="text-center">${target} <span style="font-size:0.7rem;color:#8993a8;">Å</span></td>
+    <td class="text-center fw-semibold" style="color:#4f8ef7;">${apc_input}</td>
+    <td class="text-center fw-semibold" style="color:#a855f7;">${apc_result}</td>
+    <td class="text-center">${modified
+      ? '<span class="badge-pill" style="background:#f0fdf4;color:#22c55e;"><i class="bi bi-check2"></i> Y</span>'
+      : '<span class="badge-pill" style="background:#f0f2f7;color:#8993a8;">N</span>'}</td>
+  `;
+  tbody.appendChild(tr);
+}
+</script>
+{% endif %}
+{% endblock %}

@@ -1,0 +1,221 @@
+{% extends 'setup_mico/base.html' %}
+{% block title %}| Category{% endblock %}
+{% block nav_setup %}active{% endblock %}
+{% block setup_expanded %}true{% endblock %}
+{% block setup_show %}show{% endblock %}
+{% block nav_cat %}active{% endblock %}
+
+{% block breadcrumb %}
+<li class="breadcrumb-item">Configuration</li>
+<li class="breadcrumb-item active">Category</li>
+{% endblock %}
+
+{% block content %}
+<div class="d-flex align-items-center justify-content-between mb-3">
+  <div>
+    <h5 class="fw-bold mb-0" style="color:#1e2640;">Category</h5>
+    <small class="text-muted">공정 카테고리 목록</small>
+  </div>
+  <button class="btn btn-primary btn-sm add-btn" style="border-radius:8px;" data-bs-toggle="modal" data-bs-target="#categoryModal">
+    <i class="bi bi-plus-lg me-1"></i> 추가
+  </button>
+</div>
+
+<div class="table-card">
+  <table class="table table-hover mb-0">
+    <thead>
+      <tr>
+        <th style="width:50px;">#</th>
+        <th>Product</th>
+        <th>Oper ID</th>
+        <th>Oper Desc</th>
+        <th>등록일</th>
+        <th style="width:100px;">관리</th>
+      </tr>
+      <tr class="search-row">
+        <th></th>
+        <th><input type="text" class="col-search form-control form-control-sm" placeholder="검색..." data-col="1"></th>
+        <th><input type="text" class="col-search form-control form-control-sm" placeholder="검색..." data-col="2"></th>
+        <th><input type="text" class="col-search form-control form-control-sm" placeholder="검색..." data-col="3"></th>
+        <th><input type="text" class="col-search form-control form-control-sm" placeholder="검색..." data-col="4"></th>
+        <th></th>
+      </tr>
+    </thead>
+    <tbody>
+      {% for cat in categories %}
+      <tr>
+        <td class="text-muted">{{ forloop.counter }}</td>
+        <td class="fw-semibold">{{ cat.product }}</td>
+        <td><span class="badge-pill" style="background:#eff6ff; color:#4f8ef7;">{{ cat.oper_id }}</span></td>
+        <td style="max-width:300px; overflow:hidden; text-overflow:ellipsis; white-space:nowrap;" title="{{ cat.oper_desc }}">
+          {{ cat.oper_desc }}
+        </td>
+        <td class="text-muted" style="white-space:nowrap;">{{ cat.created_at|date:"Y-m-d" }}</td>
+        <td>
+          <div class="d-flex gap-1">
+            <button class="btn btn-sm edit-btn"
+              style="padding:3px 10px; border-radius:6px; background:#f0f2f7; font-size:0.78rem;"
+              data-pk="{{ cat.pk }}"
+              data-product="{{ cat.product }}"
+              data-oper_id="{{ cat.oper_id }}"
+              data-oper_desc="{{ cat.oper_desc }}"
+              data-bs-toggle="modal" data-bs-target="#categoryModal">
+              <i class="bi bi-pencil"></i>
+            </button>
+            <button class="btn btn-sm copy-btn"
+              style="padding:3px 10px; border-radius:6px; background:#f0f8ff; color:#4f8ef7; font-size:0.78rem;"
+              title="복사"
+              data-product="{{ cat.product }}"
+              data-oper_id="{{ cat.oper_id }}"
+              data-oper_desc="{{ cat.oper_desc }}"
+              data-bs-toggle="modal" data-bs-target="#categoryModal">
+              <i class="bi bi-copy"></i>
+            </button>
+            <button class="btn btn-sm delete-btn"
+              style="padding:3px 10px; border-radius:6px; background:#fff1f2; color:#ef4444; font-size:0.78rem;"
+              data-pk="{{ cat.pk }}"
+              data-product="{{ cat.product }}"
+              data-bs-toggle="modal" data-bs-target="#deleteModal">
+              <i class="bi bi-trash3"></i>
+            </button>
+          </div>
+        </td>
+      </tr>
+      {% empty %}
+      <tr>
+        <td colspan="6" class="text-center text-muted py-5">
+          <i class="bi bi-inbox" style="font-size:1.5rem; display:block; margin-bottom:0.4rem;"></i>
+          등록된 Category가 없습니다
+        </td>
+      </tr>
+      {% endfor %}
+    </tbody>
+  </table>
+</div>
+
+
+<!-- ── Add / Edit Modal ── -->
+<div class="modal fade" id="categoryModal" tabindex="-1">
+  <div class="modal-dialog modal-dialog-centered">
+    <div class="modal-content" style="border-radius:14px; border:none;">
+      <div class="modal-header" style="border-bottom:1px solid #e4e7ed; padding:1.1rem 1.5rem;">
+        <h6 class="modal-title fw-bold" id="modalTitle">Category 추가</h6>
+        <button type="button" class="btn-close" data-bs-dismiss="modal"></button>
+      </div>
+      <form id="categoryForm" method="post">
+        {% csrf_token %}
+        <div class="modal-body" style="padding:1.5rem;">
+          <div class="mb-3">
+            <label class="form-label fw-semibold" style="font-size:0.82rem;">Product <span class="text-danger">*</span></label>
+            {{ form.product }}
+          </div>
+          <div class="mb-3">
+            <label class="form-label fw-semibold" style="font-size:0.82rem;">Oper ID <span class="text-danger">*</span></label>
+            {{ form.oper_id }}
+          </div>
+          <div class="mb-1">
+            <label class="form-label fw-semibold" style="font-size:0.82rem;">Oper Desc <span class="text-danger">*</span></label>
+            {{ form.oper_desc }}
+          </div>
+        </div>
+        <div class="modal-footer" style="border-top:1px solid #e4e7ed; padding:1rem 1.5rem;">
+          <button type="button" class="btn btn-sm btn-light" data-bs-dismiss="modal">취소</button>
+          <button type="submit" class="btn btn-sm btn-primary" style="border-radius:8px;">저장</button>
+        </div>
+      </form>
+    </div>
+  </div>
+</div>
+
+
+<!-- ── Delete Confirm Modal ── -->
+<div class="modal fade" id="deleteModal" tabindex="-1">
+  <div class="modal-dialog modal-dialog-centered" style="max-width:380px;">
+    <div class="modal-content" style="border-radius:14px; border:none;">
+      <div class="modal-body text-center" style="padding:2rem 1.5rem;">
+        <div style="width:52px;height:52px;border-radius:50%;background:#fff1f2;display:flex;align-items:center;justify-content:center;margin:0 auto 1rem;">
+          <i class="bi bi-exclamation-triangle-fill" style="color:#ef4444;font-size:1.4rem;"></i>
+        </div>
+        <p class="fw-bold mb-1" style="color:#1e2640;">삭제하시겠습니까?</p>
+        <p class="text-muted mb-0" style="font-size:0.83rem;" id="deleteTargetName"></p>
+      </div>
+      <div class="modal-footer justify-content-center border-0 pt-0 pb-3 gap-2">
+        <button type="button" class="btn btn-sm btn-light px-4" data-bs-dismiss="modal">취소</button>
+        <form id="deleteForm" method="post">
+          {% csrf_token %}
+          <button type="submit" class="btn btn-sm btn-danger px-4">삭제</button>
+        </form>
+      </div>
+    </div>
+  </div>
+</div>
+
+{% endblock %}
+
+{% block scripts %}
+<script>
+const createUrl = "{% url 'category_create' %}";
+
+// 추가 버튼
+document.querySelector('.add-btn').addEventListener('click', function() {
+  document.getElementById('modalTitle').textContent = 'Category 추가';
+  document.getElementById('categoryForm').action = createUrl;
+  document.getElementById('id_product').value = '';
+  document.getElementById('id_oper_id').value = '';
+  document.getElementById('id_oper_desc').value = '';
+});
+
+// 수정 버튼
+document.querySelectorAll('.edit-btn').forEach(btn => {
+  btn.addEventListener('click', function() {
+    document.getElementById('modalTitle').textContent = 'Category 수정';
+    document.getElementById('categoryForm').action = `/setup/category/${this.dataset.pk}/update/`;
+    document.getElementById('id_product').value = this.dataset.product;
+    document.getElementById('id_oper_id').value = this.dataset.oper_id;
+    document.getElementById('id_oper_desc').value = this.dataset.oper_desc;
+  });
+});
+
+// 복사 버튼 → 추가 모달에 데이터 채워서 오픈
+document.querySelectorAll('.copy-btn').forEach(btn => {
+  btn.addEventListener('click', function() {
+    document.getElementById('modalTitle').textContent = 'Category 복사';
+    document.getElementById('categoryForm').action = createUrl;
+    document.getElementById('id_product').value = this.dataset.product;
+    document.getElementById('id_oper_id').value = this.dataset.oper_id;
+    document.getElementById('id_oper_desc').value = this.dataset.oper_desc;
+  });
+});
+
+// 삭제 버튼 → 삭제 모달에 대상 표시
+document.querySelectorAll('.delete-btn').forEach(btn => {
+  btn.addEventListener('click', function() {
+    const pk = this.dataset.pk;
+    document.getElementById('deleteTargetName').textContent = this.dataset.product;
+    document.getElementById('deleteForm').action = `/setup/category/${pk}/delete/`;
+  });
+});
+
+// 컬럼별 검색
+document.querySelectorAll('.col-search').forEach(input => {
+  input.addEventListener('input', filterRows);
+});
+
+function filterRows() {
+  const inputs = document.querySelectorAll('.col-search');
+  const tbody = document.querySelector('tbody');
+  tbody.querySelectorAll('tr').forEach(row => {
+    if (row.querySelector('td[colspan]')) return;
+    let show = true;
+    inputs.forEach(input => {
+      const col = parseInt(input.dataset.col);
+      const val = input.value.trim().toLowerCase();
+      if (!val) return;
+      const cell = row.cells[col];
+      if (!cell || !cell.textContent.toLowerCase().includes(val)) show = false;
+    });
+    row.style.display = show ? '' : 'none';
+  });
+}
+</script>
+{% endblock %}

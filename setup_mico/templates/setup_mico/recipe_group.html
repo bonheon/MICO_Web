@@ -1,0 +1,319 @@
+{% extends 'setup_mico/base.html' %}
+{% block title %}| Recipe Grouping{% endblock %}
+{% block nav_setup %}active{% endblock %}
+{% block setup_expanded %}true{% endblock %}
+{% block setup_show %}show{% endblock %}
+{% block nav_recipe_group %}active{% endblock %}
+
+{% block breadcrumb %}
+<li class="breadcrumb-item">Configuration</li>
+<li class="breadcrumb-item active">Recipe Grouping</li>
+{% endblock %}
+
+{% block content %}
+<style>
+  .cat-section { margin-bottom: 2rem; }
+  .cat-label {
+    display: flex; align-items: center; gap: 0.6rem;
+    font-size: 0.72rem; font-weight: 700;
+    text-transform: uppercase; letter-spacing: 0.07em;
+    color: #8993a8; margin-bottom: 0.75rem;
+  }
+  .cat-label .cat-pill {
+    background: #eff6ff; color: #4f8ef7;
+    border-radius: 999px; padding: 0.15em 0.8em;
+    font-size: 0.75rem; font-weight: 600;
+    text-transform: none; letter-spacing: 0;
+  }
+
+  .group-grid {
+    display: grid;
+    grid-template-columns: repeat(auto-fill, minmax(280px, 1fr));
+    gap: 1rem;
+  }
+  .group-card {
+    background: #fff;
+    border: 1px solid #e4e7ed;
+    border-radius: 12px;
+    padding: 1rem 1.1rem;
+    transition: box-shadow 0.15s, border-color 0.15s;
+  }
+  .group-card:hover { border-color: #4f8ef7; box-shadow: 0 2px 12px rgba(79,142,247,0.1); }
+
+  .group-card-header {
+    display: flex; align-items: center; justify-content: space-between;
+    margin-bottom: 0.75rem;
+  }
+  .group-name {
+    font-size: 0.9rem; font-weight: 700; color: #1e2640;
+    display: flex; align-items: center; gap: 0.5rem;
+  }
+  .group-name i { color: #4f8ef7; font-size: 0.95rem; }
+
+  .recipe-chips { display: flex; flex-wrap: wrap; gap: 0.4rem; min-height: 28px; }
+  .recipe-chip {
+    background: #f0fdf4; color: #22c55e;
+    border-radius: 999px; padding: 0.2em 0.7em;
+    font-size: 0.72rem; font-weight: 600;
+  }
+  .recipe-chip.empty {
+    background: #f0f2f7; color: #8993a8; font-weight: 400; font-style: italic;
+  }
+
+  .add-group-card {
+    background: #f8f9fc;
+    border: 2px dashed #d0d5e0;
+    border-radius: 12px;
+    padding: 1rem 1.1rem;
+    display: flex; align-items: center; justify-content: center;
+    gap: 0.5rem;
+    color: #8993a8; font-size: 0.83rem; font-weight: 500;
+    cursor: pointer; transition: all 0.15s;
+    min-height: 80px;
+  }
+  .add-group-card:hover { border-color: #4f8ef7; color: #4f8ef7; background: #fff; }
+
+  .empty-state {
+    padding: 4rem 1.5rem; text-align: center; color: #8993a8;
+  }
+  .empty-state i { font-size: 2rem; display: block; margin-bottom: 0.75rem; color: #c8d0e0; }
+
+  /* 모달 체크박스 영역 */
+  .sub-check-area {
+    max-height: 220px; overflow-y: auto;
+    border: 1px solid #e4e7ed; border-radius: 8px;
+    padding: 0.5rem;
+    background: #f8f9fc;
+  }
+  .sub-check-item {
+    display: flex; align-items: center; gap: 0.6rem;
+    padding: 0.45rem 0.5rem; border-radius: 6px;
+    cursor: pointer; transition: background 0.1s;
+  }
+  .sub-check-item:hover { background: #eff6ff; }
+  .sub-check-item input[type="checkbox"] { accent-color: #4f8ef7; width: 15px; height: 15px; flex-shrink: 0; }
+  .sub-check-item label { font-size: 0.82rem; color: #344054; cursor: pointer; margin: 0; }
+  .no-sub-msg { font-size: 0.8rem; color: #8993a8; padding: 0.5rem; text-align: center; }
+</style>
+
+<div class="d-flex align-items-center justify-content-between mb-3">
+  <div>
+    <h5 class="fw-bold mb-0" style="color:#1e2640;">Recipe Grouping</h5>
+    <small class="text-muted">동일 Category 내 Recipe를 묶어 학습 데이터를 함께 관리</small>
+  </div>
+  <button class="btn btn-primary btn-sm" style="border-radius:8px;"
+    onclick="openCreateModal()">
+    <i class="bi bi-plus-lg me-1"></i> 그룹 추가
+  </button>
+</div>
+
+{% regroup groups by category as grouped_groups %}
+
+{% if not groups %}
+<div class="table-card">
+  <div class="empty-state">
+    <i class="bi bi-collection"></i>
+    <div style="font-size:0.9rem; font-weight:600; color:#344054; margin-bottom:0.3rem;">등록된 그룹이 없습니다</div>
+    <div style="font-size:0.8rem;">그룹 추가 버튼으로 첫 번째 Recipe 그룹을 만들어 보세요</div>
+  </div>
+</div>
+{% endif %}
+
+{% for cat_group in grouped_groups %}
+<div class="cat-section">
+  <div class="cat-label">
+    <i class="bi bi-diagram-2"></i>
+    <span class="cat-pill">{{ cat_group.grouper.product }} / {{ cat_group.grouper.oper_id }}</span>
+    <span style="color:#c8d0e0;">{{ cat_group.list|length }}개 그룹</span>
+  </div>
+  <div class="group-grid">
+    {% for group in cat_group.list %}
+    <div class="group-card">
+      <div class="group-card-header">
+        <div class="group-name">
+          <i class="bi bi-collection"></i>
+          {{ group.name }}
+        </div>
+        <div class="d-flex gap-1">
+          <button class="btn btn-sm"
+            style="padding:3px 9px; border-radius:6px; background:#f0f2f7; font-size:0.75rem;"
+            onclick="openEditModal({{ group.pk }}, '{{ group.category.pk }}', '{{ group.name|escapejs }}', [{% for s in group.subcategories.all %}{{ s.pk }}{% if not forloop.last %},{% endif %}{% endfor %}])">
+            <i class="bi bi-pencil"></i>
+          </button>
+          <button class="btn btn-sm"
+            style="padding:3px 9px; border-radius:6px; background:#fff1f2; color:#ef4444; font-size:0.75rem;"
+            data-pk="{{ group.pk }}" data-name="{{ group.name }}"
+            onclick="openDeleteModal({{ group.pk }}, '{{ group.name|escapejs }}')">
+            <i class="bi bi-trash3"></i>
+          </button>
+        </div>
+      </div>
+      <div class="recipe-chips">
+        {% for sub in group.subcategories.all %}
+        <span class="recipe-chip" title="{{ sub.fab }} / {{ sub.device }}">
+          {{ sub.recipe_id }}
+        </span>
+        {% empty %}
+        <span class="recipe-chip empty">레시피 미지정</span>
+        {% endfor %}
+      </div>
+    </div>
+    {% endfor %}
+
+    <!-- 이 카테고리에 그룹 추가 -->
+    <div class="add-group-card" onclick="openCreateModal({{ cat_group.grouper.pk }})">
+      <i class="bi bi-plus-circle"></i> 이 카테고리에 그룹 추가
+    </div>
+  </div>
+</div>
+{% endfor %}
+
+
+<!-- ── 추가/수정 Modal ── -->
+<div class="modal fade" id="groupModal" tabindex="-1">
+  <div class="modal-dialog modal-dialog-centered">
+    <div class="modal-content" style="border-radius:14px; border:none;">
+      <div class="modal-header" style="border-bottom:1px solid #e4e7ed; padding:1.1rem 1.5rem;">
+        <h6 class="modal-title fw-bold" id="modalTitle">그룹 추가</h6>
+        <button type="button" class="btn-close" data-bs-dismiss="modal"></button>
+      </div>
+      <form id="groupForm" method="post">
+        {% csrf_token %}
+        <div class="modal-body" style="padding:1.5rem;">
+
+          <!-- Category -->
+          <div class="mb-3">
+            <label class="form-label fw-semibold" style="font-size:0.82rem;">
+              Category <span class="text-danger">*</span>
+            </label>
+            <select id="modal-cat" name="category" class="form-select" onchange="renderSubChecks(this.value, [])">
+              <option value="">— 선택하세요 —</option>
+              {% for cat in categories %}
+              <option value="{{ cat.pk }}">{{ cat.product }} / {{ cat.oper_id }}</option>
+              {% endfor %}
+            </select>
+          </div>
+
+          <!-- 그룹명 -->
+          <div class="mb-3">
+            <label class="form-label fw-semibold" style="font-size:0.82rem;">
+              그룹명 <span class="text-danger">*</span>
+            </label>
+            <input type="text" id="modal-name" name="name" class="form-control"
+              placeholder="예) E2_GROUP_A">
+          </div>
+
+          <!-- Recipe 선택 -->
+          <div class="mb-1">
+            <label class="form-label fw-semibold" style="font-size:0.82rem;">
+              Recipe 선택
+              <span style="font-size:0.72rem; color:#8993a8; font-weight:400;">(Category 먼저 선택)</span>
+            </label>
+            <div class="sub-check-area" id="sub-check-area">
+              <div class="no-sub-msg">Category를 먼저 선택하세요</div>
+            </div>
+          </div>
+
+        </div>
+        <div class="modal-footer" style="border-top:1px solid #e4e7ed; padding:1rem 1.5rem;">
+          <button type="button" class="btn btn-sm btn-light" data-bs-dismiss="modal">취소</button>
+          <button type="submit" class="btn btn-sm btn-primary" style="border-radius:8px;">저장</button>
+        </div>
+      </form>
+    </div>
+  </div>
+</div>
+
+
+<!-- ── 삭제 확인 Modal ── -->
+<div class="modal fade" id="deleteModal" tabindex="-1">
+  <div class="modal-dialog modal-dialog-centered" style="max-width:380px;">
+    <div class="modal-content" style="border-radius:14px; border:none;">
+      <div class="modal-body text-center" style="padding:2rem 1.5rem;">
+        <div style="width:52px;height:52px;border-radius:50%;background:#fff1f2;display:flex;align-items:center;justify-content:center;margin:0 auto 1rem;">
+          <i class="bi bi-exclamation-triangle-fill" style="color:#ef4444;font-size:1.4rem;"></i>
+        </div>
+        <p class="fw-bold mb-1" style="color:#1e2640;">그룹을 삭제하시겠습니까?</p>
+        <p class="text-muted mb-0" style="font-size:0.83rem;" id="deleteTargetName"></p>
+      </div>
+      <div class="modal-footer justify-content-center border-0 pt-0 pb-3 gap-2">
+        <button type="button" class="btn btn-sm btn-light px-4" data-bs-dismiss="modal">취소</button>
+        <form id="deleteForm" method="post">
+          {% csrf_token %}
+          <button type="submit" class="btn btn-sm btn-danger px-4">삭제</button>
+        </form>
+      </div>
+    </div>
+  </div>
+</div>
+
+{% endblock %}
+
+{% block scripts %}
+<script>
+const TREE = {{ tree_json|safe }};
+const createUrl = "{% url 'recipe_group_create' %}";
+
+const modal    = new bootstrap.Modal(document.getElementById('groupModal'));
+const delModal = new bootstrap.Modal(document.getElementById('deleteModal'));
+
+/* Category 선택 시 Recipe 체크박스 렌더 */
+function renderSubChecks(catPk, checkedPks) {
+  const area = document.getElementById('sub-check-area');
+  const cat  = TREE.find(c => c.pk == catPk);
+  if (!cat || !cat.subs.length) {
+    area.innerHTML = '<div class="no-sub-msg">해당 Category에 SubCategory가 없습니다</div>';
+    return;
+  }
+  area.innerHTML = cat.subs.map(s => `
+    <div class="sub-check-item">
+      <input type="checkbox" name="subcategories" value="${s.pk}" id="sub-${s.pk}"
+        ${checkedPks.includes(s.pk) ? 'checked' : ''}>
+      <label for="sub-${s.pk}">${s.label}</label>
+    </div>
+  `).join('');
+}
+
+/* 추가 모달 오픈 */
+function openCreateModal(preCatPk) {
+  document.getElementById('modalTitle').textContent = '그룹 추가';
+  document.getElementById('groupForm').action = createUrl;
+  document.getElementById('modal-name').value = '';
+  const sel = document.getElementById('modal-cat');
+  sel.disabled = false;
+  if (preCatPk) {
+    sel.value = preCatPk;
+    renderSubChecks(preCatPk, []);
+  } else {
+    sel.value = '';
+    document.getElementById('sub-check-area').innerHTML =
+      '<div class="no-sub-msg">Category를 먼저 선택하세요</div>';
+  }
+  modal.show();
+}
+
+/* 수정 모달 오픈 */
+function openEditModal(pk, catPk, name, checkedPks) {
+  document.getElementById('modalTitle').textContent = '그룹 수정';
+  document.getElementById('groupForm').action = `/setup/recipe-group/${pk}/update/`;
+  document.getElementById('modal-name').value = name;
+  const sel = document.getElementById('modal-cat');
+  sel.value = catPk;
+  sel.disabled = true;   // 수정 시 Category 변경 불가
+  renderSubChecks(catPk, checkedPks);
+  modal.show();
+}
+
+/* 모달 닫을 때 Category select 복구 */
+document.getElementById('groupModal').addEventListener('hidden.bs.modal', () => {
+  document.getElementById('modal-cat').disabled = false;
+});
+
+/* 삭제 모달 */
+function openDeleteModal(pk, name) {
+  document.getElementById('deleteTargetName').textContent = name;
+  document.getElementById('deleteForm').action = `/setup/recipe-group/${pk}/delete/`;
+  delModal.show();
+}
+</script>
+{% endblock %}

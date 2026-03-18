@@ -1,0 +1,183 @@
+<!DOCTYPE html>
+<html lang="ko">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>MICO | 회원가입</title>
+  <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.2/dist/css/bootstrap.min.css" rel="stylesheet">
+  <link href="https://cdn.jsdelivr.net/npm/bootstrap-icons@1.11.3/font/bootstrap-icons.css" rel="stylesheet">
+  <style>
+    body {
+      min-height: 100vh;
+      background: linear-gradient(135deg, #0f1729 0%, #1a2744 100%);
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      font-family: 'Segoe UI', system-ui, sans-serif;
+    }
+    .auth-card {
+      width: 100%;
+      max-width: 420px;
+      background: #fff;
+      border-radius: 20px;
+      padding: 2.5rem 2rem;
+      box-shadow: 0 24px 60px rgba(0,0,0,0.3);
+    }
+    .brand {
+      text-align: center;
+      margin-bottom: 2rem;
+    }
+    .brand .logo {
+      font-size: 2rem;
+      font-weight: 800;
+      color: #0f1729;
+      letter-spacing: 0.06em;
+    }
+    .brand .sub {
+      font-size: 0.72rem;
+      color: #8993a8;
+      letter-spacing: 0.04em;
+      margin-top: 2px;
+    }
+    .brand .divider {
+      width: 40px;
+      height: 3px;
+      background: #4f8ef7;
+      border-radius: 999px;
+      margin: 0.75rem auto 0;
+    }
+    .page-title {
+      font-size: 0.95rem;
+      font-weight: 700;
+      color: #1e2640;
+      margin-bottom: 1.5rem;
+      text-align: center;
+    }
+    .form-label {
+      font-size: 0.78rem;
+      font-weight: 600;
+      color: #344054;
+    }
+    .form-control {
+      border: 1.5px solid #e4e7ed;
+      border-radius: 10px;
+      padding: 0.6rem 0.9rem;
+      font-size: 0.875rem;
+      transition: border-color 0.15s;
+    }
+    .form-control:focus {
+      border-color: #4f8ef7;
+      box-shadow: 0 0 0 3px rgba(79,142,247,0.12);
+    }
+    .input-group-text {
+      border: 1.5px solid #e4e7ed;
+      border-right: none;
+      background: #f8f9fc;
+      border-radius: 10px 0 0 10px;
+      color: #8993a8;
+    }
+    .input-group .form-control {
+      border-left: none;
+      border-radius: 0 10px 10px 0;
+    }
+    .btn-register {
+      width: 100%;
+      padding: 0.65rem;
+      border-radius: 10px;
+      background: #4f8ef7;
+      color: #fff;
+      font-weight: 600;
+      font-size: 0.9rem;
+      border: none;
+      transition: background 0.15s;
+    }
+    .btn-register:hover { background: #3a7ae0; color: #fff; }
+    .error-box {
+      background: #fff1f2;
+      border: 1px solid #fecdd3;
+      border-radius: 10px;
+      padding: 0.65rem 0.9rem;
+      font-size: 0.8rem;
+      color: #ef4444;
+      margin-bottom: 1rem;
+    }
+    .error-box ul { margin: 0; padding-left: 1.2rem; }
+    .hint {
+      font-size: 0.72rem;
+      color: #8993a8;
+      margin-top: 0.3rem;
+    }
+    .login-link {
+      text-align: center;
+      margin-top: 1.25rem;
+      font-size: 0.82rem;
+      color: #8993a8;
+    }
+    .login-link a {
+      color: #4f8ef7;
+      font-weight: 600;
+      text-decoration: none;
+    }
+    .login-link a:hover { text-decoration: underline; }
+  </style>
+</head>
+<body>
+  <div class="auth-card">
+    <div class="brand">
+      <div class="logo">MICO</div>
+      <div class="sub">Manufacturing Intelligence Control</div>
+      <div class="divider"></div>
+    </div>
+    <div class="page-title">계정 만들기</div>
+
+    {% if error %}
+    <div class="error-box">
+      <i class="bi bi-exclamation-circle-fill me-1"></i> 입력 정보를 확인해 주세요
+      {% for field, errs in error.items %}
+        <ul>
+          {% for e in errs %}<li>{{ e }}</li>{% endfor %}
+        </ul>
+      {% endfor %}
+    </div>
+    {% endif %}
+
+    <form method="post" novalidate>
+      {% csrf_token %}
+      <div class="mb-3">
+        <label class="form-label">아이디 <span class="text-danger">*</span></label>
+        <div class="input-group">
+          <span class="input-group-text"><i class="bi bi-person"></i></span>
+          <input type="text" name="username" class="form-control"
+                 placeholder="사용할 아이디" autofocus required
+                 value="{{ form.username.value|default:'' }}">
+        </div>
+        <div class="hint">영문, 숫자, @/./+/-/_ 150자 이하</div>
+      </div>
+      <div class="mb-3">
+        <label class="form-label">비밀번호 <span class="text-danger">*</span></label>
+        <div class="input-group">
+          <span class="input-group-text"><i class="bi bi-lock"></i></span>
+          <input type="password" name="password1" class="form-control"
+                 placeholder="비밀번호" required>
+        </div>
+        <div class="hint">8자 이상, 숫자만으로 구성 불가</div>
+      </div>
+      <div class="mb-4">
+        <label class="form-label">비밀번호 확인 <span class="text-danger">*</span></label>
+        <div class="input-group">
+          <span class="input-group-text"><i class="bi bi-lock-fill"></i></span>
+          <input type="password" name="password2" class="form-control"
+                 placeholder="비밀번호 재입력" required>
+        </div>
+      </div>
+      <button type="submit" class="btn btn-register">
+        <i class="bi bi-person-plus me-1"></i> 가입하기
+      </button>
+    </form>
+
+    <div class="login-link">
+      이미 계정이 있으신가요? <a href="{% url 'login' %}">로그인</a>
+    </div>
+  </div>
+</body>
+</html>
