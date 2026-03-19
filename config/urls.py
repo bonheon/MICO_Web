@@ -16,6 +16,11 @@ Including another URLconf
 from django.contrib import admin
 from django.urls import path, include
 
+handler400 = 'setup_mico.views.error_400'
+handler403 = 'setup_mico.views.error_403'
+handler404 = 'setup_mico.views.error_404'
+handler500 = 'setup_mico.views.error_500'
+
 urlpatterns = [
     path('admin/', admin.site.urls),
     path('', include('setup_mico.urls')),

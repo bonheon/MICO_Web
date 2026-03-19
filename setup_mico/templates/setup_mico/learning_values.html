@@ -143,6 +143,9 @@
     <span class="step-badge" style="background:#4f8ef7;">STEP 1</span>
     <label>Category</label>
     <select id="sel-cat"><option value="">— 선택하세요 —</option></select>
+    <div id="cat-desc" style="margin-top:0.5rem; font-size:0.75rem; color:#8993a8; display:none;">
+      <span id="cat-desc-text"></span>
+    </div>
   </div>
   <div class="selector-card" id="card-sub">
     <span class="step-badge" style="background:#22c55e;">STEP 2</span>
@@ -314,7 +317,12 @@ const selCat = document.getElementById('sel-cat');
 const selSub = document.getElementById('sel-sub');
 const selDet = document.getElementById('sel-det');
 
-TREE.forEach(cat => selCat.add(new Option(cat.label, cat.pk)));
+TREE.forEach(cat => {
+  const optLabel = cat.oper_desc
+    ? `${cat.product} / ${cat.oper_id} — ${cat.oper_desc}`
+    : cat.label;
+  selCat.add(new Option(optLabel, cat.pk));
+});
 
 selCat.addEventListener('change', function() {
   selectedCat = TREE.find(c => c.pk == this.value) || null;
@@ -326,6 +334,17 @@ selCat.addEventListener('change', function() {
   document.getElementById('card-cat').classList.toggle('selected', !!selectedCat);
   document.getElementById('card-sub').classList.remove('selected');
   document.getElementById('card-det').classList.remove('selected');
+
+  // oper_desc 설명 표시
+  const descEl = document.getElementById('cat-desc');
+  const descText = document.getElementById('cat-desc-text');
+  if (selectedCat && selectedCat.oper_desc) {
+    descText.textContent = selectedCat.oper_desc;
+    descEl.style.display = '';
+  } else {
+    descEl.style.display = 'none';
+  }
+
   if (selectedCat) selectedCat.subs.forEach(s => selSub.add(new Option(s.label, s.pk)));
   updateContent();
 });

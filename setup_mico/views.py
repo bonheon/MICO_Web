@@ -43,6 +43,14 @@ def _grp_fields(obj):
         'subcategories': sorted([s.recipe_id for s in obj.subcategories.all()]),
     }
 
+def _sub_repr(obj):
+    """SubCategory 전체 경로: Category > SubCategory"""
+    return f'{obj.category} > {obj}'
+
+def _det_repr(obj):
+    """Detail 전체 경로: Category > SubCategory > apc_para / thk_para"""
+    return f'{obj.subcategory.category} > {obj.subcategory} > {obj.apc_para} / {obj.thk_para}'
+
 def _diff(before, after):
     return {
         k: {'before': before[k], 'after': after[k]}
@@ -72,18 +80,79 @@ def logout_view(request):
 
 
 def register_view(request):
-    if request.user.is_authenticated:
-        return redirect('dashboard')
+    # staff 전용: 비로그인 또는 일반 사용자는 접근 불가
+    if not request.user.is_authenticated:
+        return redirect('login')
+    if not request.user.is_staff:
+        from django.http import HttpResponseForbidden
+        return HttpResponseForbidden('관리자만 계정을 생성할 수 있습니다.')
     form = UserCreationForm()
     error = None
     if request.method == 'POST':
         form = UserCreationForm(request.POST)
         if form.is_valid():
-            user = form.save()
-            login(request, user)
+            form.save()
             return redirect('dashboard')
         error = form.errors
     return render(request, 'setup_mico/auth/register.html', {'form': form, 'error': error})
+
+
+# ── Skynet SSO (임시 Mock) ──
+# 실제 구현 시: _mock_skynet_api() 를 실제 API 호출로 교체
+# 예시: requests.get(f'{SKYNET_API_URL}/session', headers={'Cookie': request.META.get('HTTP_COOKIE', '')})
+
+def _mock_skynet_api(employee_id):
+    """
+    [임시 Mock] Skynet API 응답 시뮬레이션.
+    실제 구현 시 이 함수를 아래 코드로 교체:
+
+        import requests
+        SKYNET_API_URL = 'http://skynet.internal/api'
+        resp = requests.get(
+            f'{SKYNET_API_URL}/users/{employee_id}',
+            timeout=5,
+        )
+        return resp.json() if resp.ok else None
+    """
+    mock_db = {
+        '2057197': {'name': '구본헌', 'department': 'CMP팀', 'email': '2057197@company.com'},
+        '1111111': {'name': '테스트유저A', 'department': 'CMP팀', 'email': '1111111@company.com'},
+        '2222222': {'name': '테스트유저B', 'department': 'PE팀', 'email': '2222222@company.com'},
+    }
+    return mock_db.get(employee_id)
+
+
+def skynet_login_view(request):
+    """
+    Skynet SSO 로그인.
+    사내 Skynet 시스템의 사용자 정보를 API로 받아 Django 계정과 연동.
+    현재는 사번 입력 폼 방식의 Mock으로 동작.
+
+    실제 연동 시: 사번 입력 단계 없이 Skynet 세션에서 자동으로 사용자 정보를 가져옴.
+    """
+    if request.user.is_authenticated:
+        return redirect('dashboard')
+
+    error = None
+    if request.method == 'POST':
+        employee_id = request.POST.get('employee_id', '').strip()
+        if not employee_id:
+            error = '사번을 입력해 주세요.'
+        else:
+            skynet_data = _mock_skynet_api(employee_id)
+            if not skynet_data:
+                error = f'Skynet에서 [{employee_id}] 사용자 정보를 찾을 수 없습니다. (Mock 미등록 사번)'
+            else:
+                user, created = User.objects.get_or_create(username=employee_id)
+                user.first_name = skynet_data.get('name', '')
+                user.email = skynet_data.get('email', '')
+                if created:
+                    user.set_unusable_password()  # Skynet 유저는 Django 비밀번호 없음
+                user.save()
+                login(request, user, backend='django.contrib.auth.backends.ModelBackend')
+                return redirect(request.GET.get('next', 'dashboard'))
+
+    return render(request, 'setup_mico/auth/skynet_login.html', {'error': error})
 
 
 @login_required
@@ -107,6 +176,9 @@ def learning_values(request):
         tree.append({
             'pk': cat.pk,
             'label': f'{cat.product} / {cat.oper_id}',
+            'product': cat.product,
+            'oper_id': cat.oper_id,
+            'oper_desc': cat.oper_desc or '',
             'subs': subs,
         })
 
@@ -195,6 +267,8 @@ def simulation(request):
 def setup_history(request):
     from django.core.paginator import Paginator
 
+    from django.db.models import Q
+
     qs = SetupHistory.objects.select_related('user').order_by('-changed_at')
 
     model_type = request.GET.get('model', '')
@@ -202,6 +276,9 @@ def setup_history(request):
     username   = request.GET.get('user', '')
     date_from  = request.GET.get('date_from', '')
     date_to    = request.GET.get('date_to', '')
+    product_q  = request.GET.get('product', '')
+    oper_id_q  = request.GET.get('oper_id', '')
+    oper_desc_q = request.GET.get('oper_desc', '')
 
     if model_type:
         qs = qs.filter(model_type=model_type)
@@ -213,6 +290,27 @@ def setup_history(request):
         qs = qs.filter(changed_at__date__gte=date_from)
     if date_to:
         qs = qs.filter(changed_at__date__lte=date_to)
+    if product_q:
+        # object_repr에 Category prefix 포함 → 전 계층 검색
+        qs = qs.filter(object_repr__icontains=product_q)
+    if oper_id_q:
+        qs = qs.filter(object_repr__icontains=oper_id_q)
+    if oper_desc_q:
+        # oper_desc는 object_repr에 없으므로 Category 먼저 조회 후 해당 Category prefix로 전 계층 검색
+        matched_cats = Category.objects.filter(oper_desc__icontains=oper_desc_q)
+        cat_q = Q()
+        for cat in matched_cats:
+            cat_prefix = str(cat)  # "product / oper_id"
+            cat_q |= Q(object_repr__istartswith=cat_prefix)
+        # Category 자체 이력(changes 안에 oper_desc 있음)도 포함
+        cat_q |= Q(
+            model_type='Category'
+        ) & (
+            Q(changes__oper_desc__icontains=oper_desc_q) |
+            Q(changes__oper_desc__before__icontains=oper_desc_q) |
+            Q(changes__oper_desc__after__icontains=oper_desc_q)
+        )
+        qs = qs.filter(cat_q)
 
     paginator = Paginator(qs, 30)
     page = paginator.get_page(request.GET.get('page', 1))
@@ -223,11 +321,14 @@ def setup_history(request):
         'page': page,
         'total': qs.count(),
         'users': users,
-        'filter_model':  model_type,
-        'filter_action': action,
-        'filter_user':   username,
-        'filter_from':   date_from,
-        'filter_to':     date_to,
+        'filter_model':   model_type,
+        'filter_action':  action,
+        'filter_user':    username,
+        'filter_from':    date_from,
+        'filter_to':      date_to,
+        'filter_product':  product_q,
+        'filter_oper_id':  oper_id_q,
+        'filter_oper_desc': oper_desc_q,
         'model_choices': SetupHistory.MODEL_CHOICES,
     })
 
@@ -327,7 +428,7 @@ def subcategory_create(request):
         form = SubCategoryForm(request.POST)
         if form.is_valid():
             obj = form.save()
-            _record(request.user, 'create', 'SubCategory', str(obj), obj.pk, _sub_fields(obj))
+            _record(request.user, 'create', 'SubCategory', _sub_repr(obj), obj.pk, _sub_fields(obj))
     return redirect('subcategory_list')
 
 
@@ -341,15 +442,15 @@ def subcategory_update(request, pk):
             obj = form.save()
             diff = _diff(old, _sub_fields(obj))
             if diff:
-                _record(request.user, 'update', 'SubCategory', str(obj), obj.pk, diff)
+                _record(request.user, 'update', 'SubCategory', _sub_repr(obj), obj.pk, diff)
     return redirect('subcategory_list')
 
 
 @login_required
 def subcategory_delete(request, pk):
     if request.method == 'POST':
-        obj = get_object_or_404(SubCategory, pk=pk)
-        _record(request.user, 'delete', 'SubCategory', str(obj))
+        obj = get_object_or_404(SubCategory.objects.select_related('category'), pk=pk)
+        _record(request.user, 'delete', 'SubCategory', _sub_repr(obj))
         obj.delete()
     return redirect('subcategory_list')
 
@@ -370,7 +471,7 @@ def subcategory_copy(request, pk):
                     detail.subcategory = new_sub
                     detail.save()
                 fields['detail_count'] = len(details)
-            _record(request.user, 'create', 'SubCategory', str(new_sub), new_sub.pk, fields)
+            _record(request.user, 'create', 'SubCategory', _sub_repr(new_sub), new_sub.pk, fields)
     return redirect('subcategory_list')
 
 
@@ -392,7 +493,7 @@ def detail_create(request):
         form = DetailForm(request.POST)
         if form.is_valid():
             obj = form.save()
-            _record(request.user, 'create', 'Detail', str(obj), obj.pk, _det_fields(obj))
+            _record(request.user, 'create', 'Detail', _det_repr(obj), obj.pk, _det_fields(obj))
     return redirect('detail_list')
 
 
@@ -406,15 +507,15 @@ def detail_update(request, pk):
             obj = form.save()
             diff = _diff(old, _det_fields(obj))
             if diff:
-                _record(request.user, 'update', 'Detail', str(obj), obj.pk, diff)
+                _record(request.user, 'update', 'Detail', _det_repr(obj), obj.pk, diff)
     return redirect('detail_list')
 
 
 @login_required
 def detail_delete(request, pk):
     if request.method == 'POST':
-        obj = get_object_or_404(Detail, pk=pk)
-        _record(request.user, 'delete', 'Detail', str(obj))
+        obj = get_object_or_404(Detail.objects.select_related('subcategory__category'), pk=pk)
+        _record(request.user, 'delete', 'Detail', _det_repr(obj))
         obj.delete()
     return redirect('detail_list')
 
@@ -422,12 +523,12 @@ def detail_delete(request, pk):
 @login_required
 def detail_copy(request, pk):
     if request.method == 'POST':
-        original = get_object_or_404(Detail, pk=pk)
+        original = get_object_or_404(Detail.objects.select_related('subcategory__category'), pk=pk)
         fields = _det_fields(original)
         fields['copied_from'] = str(pk)
         original.pk = None
         original.save()
-        _record(request.user, 'create', 'Detail', str(original), original.pk, fields)
+        _record(request.user, 'create', 'Detail', _det_repr(original), original.pk, fields)
     return redirect('detail_list')
 
 
@@ -709,3 +810,19 @@ def access_stats(request):
         'recent_logs': recent_logs,
         'top_pages': top_pages,
     })
+
+
+
+# ── Error handlers ──────────────────────────────────────────────────────────
+
+def error_400(request, exception=None):
+    return render(request, 'errors/400.html', status=400)
+
+def error_403(request, exception=None):
+    return render(request, 'errors/403.html', status=403)
+
+def error_404(request, exception=None):
+    return render(request, 'errors/404.html', status=404)
+
+def error_500(request):
+    return render(request, 'errors/500.html', status=500)

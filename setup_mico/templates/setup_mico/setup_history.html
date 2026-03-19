@@ -17,7 +17,26 @@
 
 <!-- 필터 -->
 <form method="get" class="card-box mb-3">
-  <div class="row g-2 align-items-end">
+  <!-- Category 필드 검색 (1행) -->
+  <div class="row g-2 align-items-end mb-2">
+    <div class="col-auto d-flex align-items-end pb-1">
+      <span style="font-size:0.72rem;font-weight:700;color:#4f8ef7;letter-spacing:0.05em;white-space:nowrap;">CATEGORY</span>
+    </div>
+    <div class="col-sm-6 col-md">
+      <label class="form-label fw-semibold mb-1" style="font-size:0.78rem;">Product</label>
+      <input type="text" name="product" class="form-control form-control-sm" placeholder="제품명" value="{{ filter_product }}">
+    </div>
+    <div class="col-sm-6 col-md">
+      <label class="form-label fw-semibold mb-1" style="font-size:0.78rem;">Oper ID</label>
+      <input type="text" name="oper_id" class="form-control form-control-sm" placeholder="공정 ID" value="{{ filter_oper_id }}">
+    </div>
+    <div class="col-sm-6 col-md">
+      <label class="form-label fw-semibold mb-1" style="font-size:0.78rem;">Oper Desc</label>
+      <input type="text" name="oper_desc" class="form-control form-control-sm" placeholder="공정 설명" value="{{ filter_oper_desc }}">
+    </div>
+  </div>
+  <!-- 일반 필터 (2행) -->
+  <div class="row g-2 align-items-end pt-2" style="border-top:1px dashed #e4e7ed;">
     <div class="col-sm-6 col-md-2">
       <label class="form-label fw-semibold mb-1" style="font-size:0.78rem;">구분</label>
       <select name="model" class="form-select form-select-sm">
@@ -106,8 +125,7 @@
               {{ h.model_type }}
             </span>
           </td>
-          <td style="font-size:0.82rem;max-width:200px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;"
-              title="{{ h.object_repr }}">
+          <td style="font-size:0.82rem;">
             {{ h.object_repr }}
           </td>
           <td style="font-size:0.78rem;max-width:340px;">
@@ -156,7 +174,7 @@
   <ul class="pagination pagination-sm mb-0">
     {% if page.has_previous %}
     <li class="page-item">
-      <a class="page-link" href="?page={{ page.previous_page_number }}&model={{ filter_model }}&action={{ filter_action }}&user={{ filter_user }}&date_from={{ filter_from }}&date_to={{ filter_to }}">
+      <a class="page-link" href="?page={{ page.previous_page_number }}&model={{ filter_model }}&action={{ filter_action }}&user={{ filter_user }}&date_from={{ filter_from }}&date_to={{ filter_to }}&product={{ filter_product }}&oper_id={{ filter_oper_id }}&oper_desc={{ filter_oper_desc }}">
         <i class="bi bi-chevron-left"></i>
       </a>
     </li>
@@ -166,13 +184,13 @@
       <li class="page-item active"><span class="page-link">{{ num }}</span></li>
       {% elif num >= page.number|add:"-3" and num <= page.number|add:"3" %}
       <li class="page-item">
-        <a class="page-link" href="?page={{ num }}&model={{ filter_model }}&action={{ filter_action }}&user={{ filter_user }}&date_from={{ filter_from }}&date_to={{ filter_to }}">{{ num }}</a>
+        <a class="page-link" href="?page={{ num }}&model={{ filter_model }}&action={{ filter_action }}&user={{ filter_user }}&date_from={{ filter_from }}&date_to={{ filter_to }}&product={{ filter_product }}&oper_id={{ filter_oper_id }}&oper_desc={{ filter_oper_desc }}">{{ num }}</a>
       </li>
       {% endif %}
     {% endfor %}
     {% if page.has_next %}
     <li class="page-item">
-      <a class="page-link" href="?page={{ page.next_page_number }}&model={{ filter_model }}&action={{ filter_action }}&user={{ filter_user }}&date_from={{ filter_from }}&date_to={{ filter_to }}">
+      <a class="page-link" href="?page={{ page.next_page_number }}&model={{ filter_model }}&action={{ filter_action }}&user={{ filter_user }}&date_from={{ filter_from }}&date_to={{ filter_to }}&product={{ filter_product }}&oper_id={{ filter_oper_id }}&oper_desc={{ filter_oper_desc }}">
         <i class="bi bi-chevron-right"></i>
       </a>
     </li>

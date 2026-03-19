@@ -3,7 +3,7 @@
 <head>
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
-  <title>MICO | 회원가입</title>
+  <title>MICO | Skynet 로그인</title>
   <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.2/dist/css/bootstrap.min.css" rel="stylesheet">
   <link href="https://cdn.jsdelivr.net/npm/bootstrap-icons@1.11.3/font/bootstrap-icons.css" rel="stylesheet">
   <style>
@@ -17,7 +17,7 @@
     }
     .auth-card {
       width: 100%;
-      max-width: 420px;
+      max-width: 400px;
       background: #fff;
       border-radius: 20px;
       padding: 2.5rem 2rem;
@@ -25,7 +25,7 @@
     }
     .brand {
       text-align: center;
-      margin-bottom: 2rem;
+      margin-bottom: 1.5rem;
     }
     .brand .logo {
       font-size: 2rem;
@@ -46,12 +46,47 @@
       border-radius: 999px;
       margin: 0.75rem auto 0;
     }
-    .page-title {
-      font-size: 0.95rem;
-      font-weight: 700;
-      color: #1e2640;
+    .skynet-header {
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      gap: 0.5rem;
+      background: #f0f6ff;
+      border: 1px solid #c7dffe;
+      border-radius: 12px;
+      padding: 0.75rem 1rem;
       margin-bottom: 1.5rem;
-      text-align: center;
+    }
+    .skynet-header .label {
+      font-size: 0.82rem;
+      font-weight: 600;
+      color: #1e3a6e;
+    }
+    .skynet-badge {
+      font-size: 0.65rem;
+      background: #4f8ef7;
+      color: #fff;
+      padding: 2px 7px;
+      border-radius: 4px;
+      font-weight: 700;
+      letter-spacing: 0.05em;
+    }
+    .mock-notice {
+      background: #fffbeb;
+      border: 1px solid #fde68a;
+      border-radius: 10px;
+      padding: 0.65rem 0.9rem;
+      font-size: 0.75rem;
+      color: #92400e;
+      margin-bottom: 1.25rem;
+    }
+    .mock-notice .title {
+      font-weight: 700;
+      margin-bottom: 0.25rem;
+    }
+    .mock-notice ul {
+      margin: 0.25rem 0 0;
+      padding-left: 1.2rem;
     }
     .form-label {
       font-size: 0.78rem;
@@ -80,45 +115,42 @@
       border-left: none;
       border-radius: 0 10px 10px 0;
     }
-    .btn-register {
+    .btn-skynet-submit {
       width: 100%;
       padding: 0.65rem;
       border-radius: 10px;
-      background: #4f8ef7;
+      background: #0f1729;
       color: #fff;
       font-weight: 600;
       font-size: 0.9rem;
       border: none;
       transition: background 0.15s;
     }
-    .btn-register:hover { background: #3a7ae0; color: #fff; }
+    .btn-skynet-submit:hover { background: #1a2744; color: #fff; }
     .error-box {
       background: #fff1f2;
       border: 1px solid #fecdd3;
       border-radius: 10px;
       padding: 0.65rem 0.9rem;
-      font-size: 0.8rem;
+      font-size: 0.82rem;
       color: #ef4444;
+      display: flex;
+      align-items: center;
+      gap: 0.5rem;
       margin-bottom: 1rem;
     }
-    .error-box ul { margin: 0; padding-left: 1.2rem; }
-    .hint {
-      font-size: 0.72rem;
-      color: #8993a8;
-      margin-top: 0.3rem;
-    }
-    .login-link {
+    .back-link {
       text-align: center;
       margin-top: 1.25rem;
       font-size: 0.82rem;
       color: #8993a8;
     }
-    .login-link a {
+    .back-link a {
       color: #4f8ef7;
       font-weight: 600;
       text-decoration: none;
     }
-    .login-link a:hover { text-decoration: underline; }
+    .back-link a:hover { text-decoration: underline; }
   </style>
 </head>
 <body>
@@ -128,60 +160,49 @@
       <div class="sub">Manufacturing Intelligence Control</div>
       <div class="divider"></div>
     </div>
-    <div class="page-title">계정 만들기</div>
-    <div style="background:#fffbeb;border:1px solid #fde68a;border-radius:10px;padding:0.6rem 0.9rem;font-size:0.75rem;color:#92400e;margin-bottom:1.25rem;text-align:center;">
-      <i class="bi bi-shield-exclamation me-1"></i>
-      관리자 전용 기능입니다. 생성된 계정은 로그아웃 후 아이디/비밀번호로 로그인하세요.<br>
-      <span style="color:#6b7280;">일반 사원은 Skynet 계정으로 로그인하세요.</span>
+
+    <div class="skynet-header">
+      <i class="bi bi-shield-lock-fill text-primary"></i>
+      <span class="label">Skynet SSO 로그인</span>
+      <span class="skynet-badge">MOCK</span>
+    </div>
+
+    <!-- 임시 Mock 안내 (실제 Skynet 연동 후 제거) -->
+    <div class="mock-notice">
+      <div class="title"><i class="bi bi-cone-striped me-1"></i>임시 Mock 모드 (개발 중)</div>
+      실제 Skynet 연동 전까지 사번을 직접 입력합니다.<br>
+      등록된 테스트 사번:
+      <ul>
+        <li>2057197 (구본헌 / CMP팀)</li>
+        <li>1111111 (테스트유저A / CMP팀)</li>
+        <li>2222222 (테스트유저B / PE팀)</li>
+      </ul>
     </div>
 
     {% if error %}
     <div class="error-box">
-      <i class="bi bi-exclamation-circle-fill me-1"></i> 입력 정보를 확인해 주세요
-      {% for field, errs in error.items %}
-        <ul>
-          {% for e in errs %}<li>{{ e }}</li>{% endfor %}
-        </ul>
-      {% endfor %}
+      <i class="bi bi-exclamation-circle-fill"></i>
+      {{ error }}
     </div>
     {% endif %}
 
-    <form method="post" novalidate>
+    <form method="post">
       {% csrf_token %}
-      <div class="mb-3">
-        <label class="form-label">아이디 <span class="text-danger">*</span></label>
-        <div class="input-group">
-          <span class="input-group-text"><i class="bi bi-person"></i></span>
-          <input type="text" name="username" class="form-control"
-                 placeholder="사용할 아이디" autofocus required
-                 value="{{ form.username.value|default:'' }}">
-        </div>
-        <div class="hint">영문, 숫자, @/./+/-/_ 150자 이하</div>
-      </div>
-      <div class="mb-3">
-        <label class="form-label">비밀번호 <span class="text-danger">*</span></label>
-        <div class="input-group">
-          <span class="input-group-text"><i class="bi bi-lock"></i></span>
-          <input type="password" name="password1" class="form-control"
-                 placeholder="비밀번호" required>
-        </div>
-        <div class="hint">8자 이상, 숫자만으로 구성 불가</div>
-      </div>
       <div class="mb-4">
-        <label class="form-label">비밀번호 확인 <span class="text-danger">*</span></label>
+        <label class="form-label">사번 <span class="text-danger">*</span></label>
         <div class="input-group">
-          <span class="input-group-text"><i class="bi bi-lock-fill"></i></span>
-          <input type="password" name="password2" class="form-control"
-                 placeholder="비밀번호 재입력" required>
+          <span class="input-group-text"><i class="bi bi-person-badge"></i></span>
+          <input type="text" name="employee_id" class="form-control"
+                 placeholder="사번 7자리 입력" autofocus maxlength="20">
         </div>
       </div>
-      <button type="submit" class="btn btn-register">
-        <i class="bi bi-person-plus me-1"></i> 가입하기
+      <button type="submit" class="btn btn-skynet-submit">
+        <i class="bi bi-shield-check me-1"></i> Skynet 인증
       </button>
     </form>
 
-    <div class="login-link">
-      이미 계정이 있으신가요? <a href="{% url 'login' %}">로그인</a>
+    <div class="back-link">
+      <a href="{% url 'login' %}"><i class="bi bi-arrow-left me-1"></i>로그인 페이지로 돌아가기</a>
     </div>
   </div>
 </body>

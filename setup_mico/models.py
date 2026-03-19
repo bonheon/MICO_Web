@@ -5,7 +5,7 @@ from django.contrib.auth.models import User
 class Category(models.Model):
     product = models.CharField(max_length=100, verbose_name='제품명', default='')
     oper_id = models.CharField(max_length=100, verbose_name='공정 ID', default='')
-    oper_desc = models.TextField(verbose_name='공정 설명', default='')
+    oper_desc = models.CharField(max_length=100, verbose_name='공정 설명', default='')
     created_at = models.DateTimeField(auto_now_add=True)
     updated_at = models.DateTimeField(auto_now=True)
 
@@ -14,6 +14,8 @@ class Category(models.Model):
         verbose_name_plural = 'Categories'
 
     def __str__(self):
+        if self.oper_desc:
+            return f'{self.product} / {self.oper_id} / {self.oper_desc}'
         return f'{self.product} / {self.oper_id}'
 
 
