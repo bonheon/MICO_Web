@@ -149,3 +149,6 @@ ADMIN (superuser만 노출)
 - Skynet API 실제 연동 (`_mock_skynet_api()` 함수 교체)
 - APC 산식(Pre Thickness / Removal Rate / Offset) 기반 Simulation 결과값 표시
 - Dashboard 실제 데이터 연결
+- **알람 발생 현황** (신규)
+  - 알람 누적 관리 (발생 일시, 장비, 공정, 알람 종류 등 이력 저장)
+  - 알람 원인 분석 화면 (발생 패턴, 빈도, 원인 분류 등)
