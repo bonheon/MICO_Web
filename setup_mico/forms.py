@@ -5,13 +5,15 @@ from .models import Category, SubCategory, Detail, Voc
 class CategoryForm(forms.ModelForm):
     class Meta:
         model = Category
-        fields = ['product', 'oper_id', 'oper_desc']
+        fields = ['family', 'product', 'oper_id', 'oper_desc']
         widgets = {
+            'family':    forms.Select(attrs={'class': 'form-select'}),
             'product':   forms.TextInput(attrs={'class': 'form-control', 'placeholder': '제품명'}),
             'oper_id':   forms.TextInput(attrs={'class': 'form-control', 'placeholder': '공정 ID'}),
             'oper_desc': forms.Textarea(attrs={'class': 'form-control', 'rows': 3, 'placeholder': '공정 설명'}),
         }
         labels = {
+            'family':    'Family',
             'product':   'Product',
             'oper_id':   'Oper ID',
             'oper_desc': 'Oper Desc',

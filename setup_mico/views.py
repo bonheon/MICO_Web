@@ -21,7 +21,7 @@ def _record(user, action, model_type, obj_repr, obj_id=None, changes=None):
     )
 
 def _cat_fields(obj):
-    return {'product': obj.product, 'oper_id': obj.oper_id, 'oper_desc': obj.oper_desc}
+    return {'product': obj.product, 'family': obj.family, 'oper_id': obj.oper_id, 'oper_desc': obj.oper_desc}
 
 def _sub_fields(obj):
     return {'category': str(obj.category), 'fab': obj.fab,
@@ -345,10 +345,49 @@ def setup_status(request):
 
 @login_required
 def dashboard(request):
+    import json
+
+    # 상단 요약 카드
+    category_count = Category.objects.count()
+    subcategory_count = SubCategory.objects.count()
+    detail_count = Detail.objects.count()
+
+    # Product별 공정(Category) 수 + family 정보 → bar chart
+    product_counts = (
+        Category.objects.values('product', 'family')
+        .annotate(count=Count('id'))
+        .order_by('family', 'product')
+    )
+    bar_labels = [r['product'] for r in product_counts]
+    bar_data = [r['count'] for r in product_counts]
+    bar_families = [r['family'] for r in product_counts]
+
+    # Category별 상세 현황 → 클릭 시 테이블
+    # total_equip / applied_equip: 사내 DB 연동 후 채울 예정, 현재 0으로 초기화
+    categories = Category.objects.order_by('family', 'product', 'oper_id')
+    category_table = []
+    for cat in categories:
+        total_equip = 0    # TODO: 사내 DB 연동 후 실제 전체 장비 대수로 교체
+        applied_equip = 0  # TODO: 사내 DB 연동 후 실제 적용 대수로 교체
+        applied_rate = round(applied_equip / total_equip * 100) if total_equip else 0
+        category_table.append({
+            'product': cat.product,
+            'family': cat.family,
+            'oper_id': cat.oper_id,
+            'oper_desc': cat.oper_desc,
+            'total_equip': total_equip,
+            'applied_equip': applied_equip,
+            'applied_rate': applied_rate,
+        })
+
     context = {
-        'category_count': Category.objects.count(),
-        'subcategory_count': SubCategory.objects.count(),
-        'detail_count': Detail.objects.count(),
+        'category_count': category_count,
+        'subcategory_count': subcategory_count,
+        'detail_count': detail_count,
+        'bar_labels_json': json.dumps(bar_labels, ensure_ascii=False),
+        'bar_data_json': json.dumps(bar_data),
+        'bar_families_json': json.dumps(bar_families, ensure_ascii=False),
+        'category_table_json': json.dumps(category_table, ensure_ascii=False),
     }
     return render(request, 'setup_mico/dashboard.html', context)
 
@@ -547,7 +586,7 @@ def recipe_group_list(request):
     for cat in categories:
         tree.append({
             'pk': cat.pk,
-            'label': f'{cat.product} / {cat.oper_id}',
+            'label': f'{cat.product} / {cat.oper_id}' + (f' / {cat.oper_desc}' if cat.oper_desc else ''),
             'subs': [
                 {'pk': s.pk, 'label': f'{s.recipe_id}  ({s.fab} / {s.device})'}
                 for s in cat.subcategories.all()

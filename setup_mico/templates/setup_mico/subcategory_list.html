@@ -52,7 +52,7 @@
         <td class="text-muted">{{ forloop.counter }}</td>
         <td>
           <span class="badge-pill" style="background:#f0fdf4; color:#22c55e;">
-            {{ sub.category.product }} / {{ sub.category.oper_id }}
+            {{ sub.category.product }} / {{ sub.category.oper_id }}{% if sub.category.oper_desc %} / {{ sub.category.oper_desc }}{% endif %}
           </span>
         </td>
         <td class="fw-semibold">{{ sub.fab }}</td>

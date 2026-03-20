@@ -3,7 +3,10 @@ from django.contrib.auth.models import User
 
 
 class Category(models.Model):
+    FAMILY_CHOICES = [('NAND', 'NAND'), ('DRAM', 'DRAM')]
+
     product = models.CharField(max_length=100, verbose_name='제품명', default='')
+    family = models.CharField(max_length=10, choices=FAMILY_CHOICES, verbose_name='Family', default='')
     oper_id = models.CharField(max_length=100, verbose_name='공정 ID', default='')
     oper_desc = models.CharField(max_length=100, verbose_name='공정 설명', default='')
     created_at = models.DateTimeField(auto_now_add=True)

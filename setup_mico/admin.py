@@ -14,7 +14,8 @@ class DetailInline(admin.TabularInline):
 
 @admin.register(Category)
 class CategoryAdmin(admin.ModelAdmin):
-    list_display = ['product', 'oper_id', 'created_at', 'updated_at']
+    list_display = ['family', 'product', 'oper_id', 'oper_desc', 'created_at', 'updated_at']
+    list_filter = ['family', 'product']
     inlines = [SubCategoryInline]
 
 

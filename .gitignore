@@ -29,3 +29,6 @@ Thumbs.db
 
 # 마이그레이션 캐시
 migrations/__pycache__/
+
+# Static files (collectstatic 결과물)
+staticfiles/

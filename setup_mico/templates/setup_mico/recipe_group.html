@@ -123,7 +123,7 @@
 <div class="cat-section">
   <div class="cat-label">
     <i class="bi bi-diagram-2"></i>
-    <span class="cat-pill">{{ cat_group.grouper.product }} / {{ cat_group.grouper.oper_id }}</span>
+    <span class="cat-pill">{{ cat_group.grouper.product }} / {{ cat_group.grouper.oper_id }}{% if cat_group.grouper.oper_desc %} / {{ cat_group.grouper.oper_desc }}{% endif %}</span>
     <span style="color:#c8d0e0;">{{ cat_group.list|length }}개 그룹</span>
   </div>
   <div class="group-grid">
@@ -189,7 +189,7 @@
             <select id="modal-cat" name="category" class="form-select" onchange="renderSubChecks(this.value, [])">
               <option value="">— 선택하세요 —</option>
               {% for cat in categories %}
-              <option value="{{ cat.pk }}">{{ cat.product }} / {{ cat.oper_id }}</option>
+              <option value="{{ cat.pk }}">{{ cat.product }} / {{ cat.oper_id }}{% if cat.oper_desc %} / {{ cat.oper_desc }}{% endif %}</option>
               {% endfor %}
             </select>
           </div>
