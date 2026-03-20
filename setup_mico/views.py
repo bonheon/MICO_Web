@@ -296,13 +296,14 @@ def setup_history(request):
     if oper_id_q:
         qs = qs.filter(object_repr__icontains=oper_id_q)
     if oper_desc_q:
-        # oper_desc는 object_repr에 없으므로 Category 먼저 조회 후 해당 Category prefix로 전 계층 검색
+        # 현존하는 Category에서 oper_desc 검색 → 하위 계층 이력까지 포함
         matched_cats = Category.objects.filter(oper_desc__icontains=oper_desc_q)
         cat_q = Q()
         for cat in matched_cats:
-            cat_prefix = str(cat)  # "product / oper_id"
+            cat_prefix = str(cat)  # "product / oper_id / oper_desc"
             cat_q |= Q(object_repr__istartswith=cat_prefix)
-        # Category 자체 이력(changes 안에 oper_desc 있음)도 포함
+        # Category 이력: object_repr에 oper_desc 포함(삭제된 경우 포함) + changes JSONField
+        cat_q |= Q(model_type='Category') & Q(object_repr__icontains=oper_desc_q)
         cat_q |= Q(
             model_type='Category'
         ) & (

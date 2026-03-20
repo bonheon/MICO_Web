@@ -149,12 +149,21 @@
   }
 </style>
 
-<div class="d-flex align-items-center justify-content-between mb-3">
+<div class="d-flex align-items-center justify-content-between mb-2">
   <div>
     <h5 class="fw-bold mb-0" style="color:#1e2640;">Set-up 현황</h5>
     <small class="text-muted">Category → SubCategory → Detail 종속 구조</small>
   </div>
-  <div class="d-flex gap-2">
+  <div class="d-flex align-items-center gap-2">
+    <div class="btn-group btn-group-sm" role="group">
+      <button type="button" class="btn btn-primary family-filter active" data-family="ALL"
+        style="font-size:0.78rem; border-radius:6px 0 0 6px;">전체</button>
+      <button type="button" class="btn btn-outline-primary family-filter" data-family="NAND"
+        style="font-size:0.78rem;">NAND</button>
+      <button type="button" class="btn btn-outline-warning family-filter" data-family="DRAM"
+        style="font-size:0.78rem; border-radius:0 6px 6px 0;">DRAM</button>
+    </div>
+    <div style="width:1px; height:20px; background:#e4e7ed;"></div>
     <button class="btn btn-sm btn-light" id="expandAll" style="border-radius:8px; font-size:0.8rem;">
       <i class="bi bi-arrows-expand me-1"></i> 전체 펼치기
     </button>
@@ -162,6 +171,17 @@
       <i class="bi bi-arrows-collapse me-1"></i> 전체 접기
     </button>
   </div>
+</div>
+<div class="d-flex gap-2 mb-3">
+  <input type="text" id="search-product" class="form-control form-control-sm" placeholder="Product 검색"
+    style="font-size:0.8rem; max-width:180px;" oninput="applySearch()">
+  <input type="text" id="search-oper-id" class="form-control form-control-sm" placeholder="Oper ID 검색"
+    style="font-size:0.8rem; max-width:160px;" oninput="applySearch()">
+  <input type="text" id="search-oper-desc" class="form-control form-control-sm" placeholder="Oper Desc 검색"
+    style="font-size:0.8rem; max-width:200px;" oninput="applySearch()">
+  <button class="btn btn-sm btn-outline-secondary" id="clearSearch" style="font-size:0.8rem; white-space:nowrap;">
+    <i class="bi bi-x"></i> 초기화
+  </button>
 </div>
 
 {% if not categories %}
@@ -173,14 +193,19 @@
 
 {% for cat in categories %}
 {% with subs=cat.subcategories.all %}
-<div class="tree-category">
+<div class="tree-category" data-family="{{ cat.family }}" data-product="{{ cat.product|lower }}" data-oper-id="{{ cat.oper_id|lower }}" data-oper-desc="{{ cat.oper_desc|lower }}">
 
   <!-- Category Header -->
   <div class="tree-cat-header" data-bs-toggle="collapse" data-bs-target="#cat-{{ cat.pk }}"
        aria-expanded="true">
     <div class="cat-icon"><i class="bi bi-layers-half"></i></div>
     <div>
-      <div class="cat-title">{{ cat.product }}</div>
+      <div class="cat-title">
+        {% if cat.family %}
+        <span class="badge-pill me-1" style="background:{% if cat.family == 'DRAM' %}#eff6ff; color:#4f8ef7;{% else %}#fff7ed; color:#f97316;{% endif %}; font-size:0.68rem; font-weight:700; vertical-align:middle;">{{ cat.family }}</span>
+        {% endif %}
+        {{ cat.product }}
+      </div>
       <div class="cat-meta">Oper ID: {{ cat.oper_id }}{% if cat.oper_desc %} · {{ cat.oper_desc|truncatechars:50 }}{% endif %}</div>
     </div>
     <div class="cat-counts">
@@ -296,15 +321,53 @@
 
 {% block scripts %}
 <script>
+// 통합 필터 (family + 검색어)
+let activeFamily = 'ALL';
+
+function applySearch() {
+  const product  = document.getElementById('search-product').value.trim().toLowerCase();
+  const operId   = document.getElementById('search-oper-id').value.trim().toLowerCase();
+  const operDesc = document.getElementById('search-oper-desc').value.trim().toLowerCase();
+  document.querySelectorAll('.tree-category').forEach(el => {
+    const familyMatch = activeFamily === 'ALL' || el.dataset.family === activeFamily;
+    const productMatch  = !product  || el.dataset.product.includes(product);
+    const operIdMatch   = !operId   || el.dataset.operId.includes(operId);
+    const operDescMatch = !operDesc || el.dataset.operDesc.includes(operDesc);
+    el.style.display = (familyMatch && productMatch && operIdMatch && operDescMatch) ? '' : 'none';
+  });
+}
+
+// Family 필터
+document.querySelectorAll('.family-filter').forEach(btn => {
+  btn.addEventListener('click', function() {
+    document.querySelectorAll('.family-filter').forEach(b => {
+      b.classList.remove('active', 'btn-primary', 'btn-warning');
+      b.classList.add(b.dataset.family === 'DRAM' ? 'btn-outline-warning' : 'btn-outline-primary');
+    });
+    this.classList.remove('btn-outline-primary', 'btn-outline-warning');
+    this.classList.add('active', this.dataset.family === 'DRAM' ? 'btn-warning' : 'btn-primary');
+    activeFamily = this.dataset.family;
+    applySearch();
+  });
+});
+
+// 초기화 버튼
+document.getElementById('clearSearch').addEventListener('click', () => {
+  document.getElementById('search-product').value = '';
+  document.getElementById('search-oper-id').value = '';
+  document.getElementById('search-oper-desc').value = '';
+  applySearch();
+});
+
 // 전체 펼치기
 document.getElementById('expandAll').addEventListener('click', () => {
-  document.querySelectorAll('.collapse').forEach(el => {
+  document.querySelectorAll('.tree-category:not([style*="display: none"]) .collapse').forEach(el => {
     bootstrap.Collapse.getOrCreateInstance(el).show();
   });
 });
 // 전체 접기
 document.getElementById('collapseAll').addEventListener('click', () => {
-  document.querySelectorAll('.collapse').forEach(el => {
+  document.querySelectorAll('.tree-category:not([style*="display: none"]) .collapse').forEach(el => {
     bootstrap.Collapse.getOrCreateInstance(el).hide();
   });
 });

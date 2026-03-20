@@ -147,15 +147,25 @@
 <div class="row g-3">
   <div class="col-12">
     <div class="table-card">
-      <div class="table-card-header d-flex align-items-center justify-content-between">
+      <div class="table-card-header d-flex align-items-center justify-content-between flex-wrap gap-2">
         <div class="d-flex align-items-center gap-2">
           <i class="bi bi-clipboard-data" style="color:#a855f7;"></i>
           <span class="fw-semibold" style="font-size:0.875rem;">전체 공정 Set-up 현황</span>
         </div>
-        <input type="text" id="table-search" class="form-control form-control-sm"
-          placeholder="Product / Family / Oper ID 검색…"
-          style="width:220px; font-size:0.8rem;"
-          oninput="filterTable(this.value)">
+        <div class="d-flex align-items-center gap-2">
+          <div class="btn-group btn-group-sm" role="group">
+            <button type="button" class="btn btn-primary table-family-filter active" data-family="ALL"
+              style="font-size:0.78rem; border-radius:6px 0 0 6px;">전체</button>
+            <button type="button" class="btn btn-outline-primary table-family-filter" data-family="NAND"
+              style="font-size:0.78rem;">NAND</button>
+            <button type="button" class="btn btn-outline-warning table-family-filter" data-family="DRAM"
+              style="font-size:0.78rem; border-radius:0 6px 6px 0;">DRAM</button>
+          </div>
+          <input type="text" id="table-search" class="form-control form-control-sm"
+            placeholder="Product / Oper ID 검색…"
+            style="width:190px; font-size:0.8rem;"
+            oninput="filterTable(this.value)">
+        </div>
       </div>
       <div class="table-responsive">
         <table class="table table-hover mb-0">
@@ -232,18 +242,36 @@ function renderAllTable(data) {
 }
 
 // ── 검색 필터 ──
+let activeTableFamily = 'ALL';
+
 function filterTable(keyword) {
-  const kw = keyword.trim().toLowerCase();
-  const filtered = kw
-    ? CAT_TABLE.filter(r =>
-        r.product.toLowerCase().includes(kw) ||
-        (r.family || '').toLowerCase().includes(kw) ||
-        r.oper_id.toLowerCase().includes(kw) ||
-        (r.oper_desc || '').toLowerCase().includes(kw)
-      )
-    : CAT_TABLE;
+  const kw = (keyword || document.getElementById('table-search').value).trim().toLowerCase();
+  let filtered = activeTableFamily === 'ALL'
+    ? CAT_TABLE
+    : CAT_TABLE.filter(r => r.family === activeTableFamily);
+  if (kw) {
+    filtered = filtered.filter(r =>
+      r.product.toLowerCase().includes(kw) ||
+      r.oper_id.toLowerCase().includes(kw) ||
+      (r.oper_desc || '').toLowerCase().includes(kw)
+    );
+  }
   renderAllTable(filtered);
 }
+
+// ── 하단 테이블 Family 필터 버튼 ──
+document.querySelectorAll('.table-family-filter').forEach(btn => {
+  btn.addEventListener('click', function() {
+    document.querySelectorAll('.table-family-filter').forEach(b => {
+      b.classList.remove('active', 'btn-primary', 'btn-warning');
+      b.classList.add(b.dataset.family === 'DRAM' ? 'btn-outline-warning' : 'btn-outline-primary');
+    });
+    this.classList.remove('btn-outline-primary', 'btn-outline-warning');
+    this.classList.add('active', this.dataset.family === 'DRAM' ? 'btn-warning' : 'btn-primary');
+    activeTableFamily = this.dataset.family;
+    filterTable();
+  });
+});
 
 // ── 산포 Trend 차트 ──
 let trendChartInstance = null;
