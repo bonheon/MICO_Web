@@ -242,8 +242,8 @@
           <div class="lv-value" id="lv-rr-period">—<span class="lv-unit">회</span></div>
         </div>
         <div class="lv-card">
-          <div class="lv-label">IF RR</div>
-          <div class="lv-value" id="lv-if-rr">—</div>
+          <div class="lv-label">RR IF</div>
+          <div class="lv-value" id="lv-rr-if">—</div>
         </div>
         <div class="lv-card">
           <div class="lv-label">Offset Group</div>
@@ -357,7 +357,7 @@ btnRun.addEventListener('click', function() {
   document.getElementById('lv-rr-para').textContent    = val(d.rr_para);
   document.getElementById('lv-rr-max').textContent     = val(d.rr_max);
   document.getElementById('lv-rr-period').innerHTML    = d.rr_period != null ? `${d.rr_period}<span class="lv-unit">회</span>` : '—';
-  document.getElementById('lv-if-rr').textContent      = val(d.if_rr);
+  document.getElementById('lv-rr-if').textContent      = val(d.rr_if);
   document.getElementById('lv-offset-group').textContent = val(d.offset_group);
 
   document.getElementById('result-section').classList.add('visible');

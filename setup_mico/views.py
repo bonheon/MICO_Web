@@ -34,7 +34,13 @@ def _det_fields(obj):
         'target': obj.target, 'pre_target': obj.pre_target,
         'pre_thk_period': obj.pre_thk_period,
         'rr_para': obj.rr_para or '', 'offset_group': obj.offset_group or '',
-        'rr_max': obj.rr_max, 'rr_period': obj.rr_period, 'if_rr': obj.if_rr,
+        'rr_max': obj.rr_max, 'rr_period': obj.rr_period, 'rr_if': obj.rr_if,
+        'pre_thk_para_itm': obj.pre_thk_para_itm or '',
+        'pre_oper_code': obj.pre_oper_code or '', 'pre_oper_desc': obj.pre_oper_desc or '', 'pre_oper_para': obj.pre_oper_para or '',
+        'pre_oper_code2': obj.pre_oper_code2 or '', 'pre_oper_desc2': obj.pre_oper_desc2 or '', 'pre_oper_para2': obj.pre_oper_para2 or '',
+        'pre_oper_code3': obj.pre_oper_code3 or '', 'pre_oper_desc3': obj.pre_oper_desc3 or '', 'pre_oper_para3': obj.pre_oper_para3 or '',
+        'pre_oper_code4': obj.pre_oper_code4 or '', 'pre_oper_desc4': obj.pre_oper_desc4 or '', 'pre_oper_para4': obj.pre_oper_para4 or '',
+        'rr_weight': obj.rr_weight, 'rr_count': obj.rr_count,
     }
 
 def _grp_fields(obj):
@@ -238,7 +244,7 @@ def simulation(request):
                     'rr_para': d.rr_para or '',
                     'rr_max': d.rr_max,
                     'rr_period': d.rr_period,
-                    'if_rr': d.if_rr,
+                    'rr_if': d.rr_if,
                     'offset_group': d.offset_group or '',
                 })
             subs.append({

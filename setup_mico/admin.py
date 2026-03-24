@@ -28,5 +28,5 @@ class SubCategoryAdmin(admin.ModelAdmin):
 
 @admin.register(Detail)
 class DetailAdmin(admin.ModelAdmin):
-    list_display = ['subcategory', 'apc_para', 'thk_para', 'target', 'pre_target', 'pre_thk_period', 'rr_para', 'rr_period', 'if_rr', 'offset_group', 'rr_max', 'created_at', 'updated_at']
+    list_display = ['subcategory', 'apc_para', 'thk_para', 'target', 'pre_target', 'pre_thk_period', 'rr_para', 'rr_period', 'rr_if', 'offset_group', 'rr_max', 'created_at', 'updated_at']
     list_filter = ['subcategory__category', 'subcategory']

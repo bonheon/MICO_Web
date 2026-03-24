@@ -23,7 +23,7 @@
 </div>
 
 <div class="table-card" style="overflow-x:auto;">
-  <table class="table table-hover mb-0" style="min-width:1000px;">
+  <table class="table table-hover mb-0" style="min-width:2400px;">
     <thead>
       <tr>
         <th style="width:44px;">#</th>
@@ -32,12 +32,27 @@
         <th>THK Para</th>
         <th class="text-center">Target</th>
         <th class="text-center">Pre Target</th>
+        <th class="text-center">Offset Group</th>
+        <th>Pre THK Para ITM</th>
+        <th>Pre Oper Code</th>
+        <th>Pre Oper Desc</th>
+        <th>Pre Oper Para</th>
+        <th>Pre Oper Code2</th>
+        <th>Pre Oper Desc2</th>
+        <th>Pre Oper Para2</th>
+        <th>Pre Oper Code3</th>
+        <th>Pre Oper Desc3</th>
+        <th>Pre Oper Para3</th>
+        <th>Pre Oper Code4</th>
+        <th>Pre Oper Desc4</th>
+        <th>Pre Oper Para4</th>
         <th class="text-center">Pre THK Period</th>
         <th class="text-center">RR Para</th>
-        <th class="text-center">RR Period</th>
-        <th class="text-center">IF RR</th>
-        <th class="text-center">Offset Group</th>
         <th class="text-center">RR Max</th>
+        <th class="text-center">RR Weight</th>
+        <th class="text-center">RR Count</th>
+        <th class="text-center">RR Period</th>
+        <th class="text-center">RR IF</th>
         <th style="width:100px;">관리</th>
       </tr>
       <tr class="search-row">
@@ -53,6 +68,21 @@
         <th><input type="text" class="col-search form-control form-control-sm" placeholder="검색..." data-col="9"></th>
         <th><input type="text" class="col-search form-control form-control-sm" placeholder="검색..." data-col="10"></th>
         <th><input type="text" class="col-search form-control form-control-sm" placeholder="검색..." data-col="11"></th>
+        <th><input type="text" class="col-search form-control form-control-sm" placeholder="검색..." data-col="12"></th>
+        <th><input type="text" class="col-search form-control form-control-sm" placeholder="검색..." data-col="13"></th>
+        <th><input type="text" class="col-search form-control form-control-sm" placeholder="검색..." data-col="14"></th>
+        <th><input type="text" class="col-search form-control form-control-sm" placeholder="검색..." data-col="15"></th>
+        <th><input type="text" class="col-search form-control form-control-sm" placeholder="검색..." data-col="16"></th>
+        <th><input type="text" class="col-search form-control form-control-sm" placeholder="검색..." data-col="17"></th>
+        <th><input type="text" class="col-search form-control form-control-sm" placeholder="검색..." data-col="18"></th>
+        <th><input type="text" class="col-search form-control form-control-sm" placeholder="검색..." data-col="19"></th>
+        <th><input type="text" class="col-search form-control form-control-sm" placeholder="검색..." data-col="20"></th>
+        <th><input type="text" class="col-search form-control form-control-sm" placeholder="검색..." data-col="21"></th>
+        <th><input type="text" class="col-search form-control form-control-sm" placeholder="검색..." data-col="22"></th>
+        <th><input type="text" class="col-search form-control form-control-sm" placeholder="검색..." data-col="23"></th>
+        <th><input type="text" class="col-search form-control form-control-sm" placeholder="검색..." data-col="24"></th>
+        <th><input type="text" class="col-search form-control form-control-sm" placeholder="검색..." data-col="25"></th>
+        <th><input type="text" class="col-search form-control form-control-sm" placeholder="검색..." data-col="26"></th>
         <th></th>
       </tr>
     </thead>
@@ -68,14 +98,6 @@
         <td>{{ d.thk_para }}</td>
         <td class="text-center">{{ d.target }}</td>
         <td class="text-center">{{ d.pre_target }}</td>
-        <td class="text-center">{{ d.pre_thk_period }}</td>
-        <td class="text-center">
-          {% if d.rr_para %}
-            <span class="badge-pill" style="background:#fdf4ff; color:#a855f7;">{{ d.rr_para }}</span>
-          {% else %}<span class="text-muted">—</span>{% endif %}
-        </td>
-        <td class="text-center">{{ d.rr_period|default:"—" }}</td>
-        <td class="text-center">{{ d.if_rr|default:"—" }}</td>
         <td class="text-center">
           {% if d.offset_group %}
             <span class="badge-pill" style="background:{% if d.offset_group == 'Y' %}#f0fdf4; color:#22c55e;{% else %}#fff1f2; color:#ef4444;{% endif %}">
@@ -83,7 +105,30 @@
             </span>
           {% else %}<span class="text-muted">—</span>{% endif %}
         </td>
+        <td>{{ d.pre_thk_para_itm|default:"—" }}</td>
+        <td>{{ d.pre_oper_code|default:"—" }}</td>
+        <td>{{ d.pre_oper_desc|default:"—" }}</td>
+        <td>{{ d.pre_oper_para|default:"—" }}</td>
+        <td>{{ d.pre_oper_code2|default:"—" }}</td>
+        <td>{{ d.pre_oper_desc2|default:"—" }}</td>
+        <td>{{ d.pre_oper_para2|default:"—" }}</td>
+        <td>{{ d.pre_oper_code3|default:"—" }}</td>
+        <td>{{ d.pre_oper_desc3|default:"—" }}</td>
+        <td>{{ d.pre_oper_para3|default:"—" }}</td>
+        <td>{{ d.pre_oper_code4|default:"—" }}</td>
+        <td>{{ d.pre_oper_desc4|default:"—" }}</td>
+        <td>{{ d.pre_oper_para4|default:"—" }}</td>
+        <td class="text-center">{{ d.pre_thk_period }}</td>
+        <td class="text-center">
+          {% if d.rr_para %}
+            <span class="badge-pill" style="background:#fdf4ff; color:#a855f7;">{{ d.rr_para }}</span>
+          {% else %}<span class="text-muted">—</span>{% endif %}
+        </td>
         <td class="text-center">{{ d.rr_max|default:"—" }}</td>
+        <td class="text-center">{{ d.rr_weight|default:"—" }}</td>
+        <td class="text-center">{{ d.rr_count|default:"—" }}</td>
+        <td class="text-center">{{ d.rr_period|default:"—" }}</td>
+        <td class="text-center">{{ d.rr_if|default:"—" }}</td>
         <td>
           <div class="d-flex gap-1">
             <button class="btn btn-sm edit-btn"
@@ -99,7 +144,22 @@
               data-offset_group="{{ d.offset_group }}"
               data-rr_max="{{ d.rr_max|default:'' }}"
               data-rr_period="{{ d.rr_period|default:'' }}"
-              data-if_rr="{{ d.if_rr|default:'' }}"
+              data-rr_if="{{ d.rr_if|default:'' }}"
+              data-pre_thk_para_itm="{{ d.pre_thk_para_itm }}"
+              data-pre_oper_code="{{ d.pre_oper_code }}"
+              data-pre_oper_desc="{{ d.pre_oper_desc }}"
+              data-pre_oper_para="{{ d.pre_oper_para }}"
+              data-pre_oper_code2="{{ d.pre_oper_code2 }}"
+              data-pre_oper_desc2="{{ d.pre_oper_desc2 }}"
+              data-pre_oper_para2="{{ d.pre_oper_para2 }}"
+              data-pre_oper_code3="{{ d.pre_oper_code3 }}"
+              data-pre_oper_desc3="{{ d.pre_oper_desc3 }}"
+              data-pre_oper_para3="{{ d.pre_oper_para3 }}"
+              data-pre_oper_code4="{{ d.pre_oper_code4 }}"
+              data-pre_oper_desc4="{{ d.pre_oper_desc4 }}"
+              data-pre_oper_para4="{{ d.pre_oper_para4 }}"
+              data-rr_weight="{{ d.rr_weight|default:'' }}"
+              data-rr_count="{{ d.rr_count|default:'' }}"
               data-bs-toggle="modal" data-bs-target="#detailModal">
               <i class="bi bi-pencil"></i>
             </button>
@@ -116,7 +176,22 @@
               data-offset_group="{{ d.offset_group }}"
               data-rr_max="{{ d.rr_max|default:'' }}"
               data-rr_period="{{ d.rr_period|default:'' }}"
-              data-if_rr="{{ d.if_rr|default:'' }}"
+              data-rr_if="{{ d.rr_if|default:'' }}"
+              data-pre_thk_para_itm="{{ d.pre_thk_para_itm }}"
+              data-pre_oper_code="{{ d.pre_oper_code }}"
+              data-pre_oper_desc="{{ d.pre_oper_desc }}"
+              data-pre_oper_para="{{ d.pre_oper_para }}"
+              data-pre_oper_code2="{{ d.pre_oper_code2 }}"
+              data-pre_oper_desc2="{{ d.pre_oper_desc2 }}"
+              data-pre_oper_para2="{{ d.pre_oper_para2 }}"
+              data-pre_oper_code3="{{ d.pre_oper_code3 }}"
+              data-pre_oper_desc3="{{ d.pre_oper_desc3 }}"
+              data-pre_oper_para3="{{ d.pre_oper_para3 }}"
+              data-pre_oper_code4="{{ d.pre_oper_code4 }}"
+              data-pre_oper_desc4="{{ d.pre_oper_desc4 }}"
+              data-pre_oper_para4="{{ d.pre_oper_para4 }}"
+              data-rr_weight="{{ d.rr_weight|default:'' }}"
+              data-rr_count="{{ d.rr_count|default:'' }}"
               data-bs-toggle="modal" data-bs-target="#detailModal">
               <i class="bi bi-copy"></i>
             </button>
@@ -132,7 +207,7 @@
       </tr>
       {% empty %}
       <tr>
-        <td colspan="13" class="text-center text-muted py-5">
+        <td colspan="28" class="text-center text-muted py-5">
           <i class="bi bi-inbox" style="font-size:1.5rem; display:block; margin-bottom:0.4rem;"></i>
           등록된 Detail이 없습니다
         </td>
@@ -145,7 +220,7 @@
 
 <!-- ── Add / Edit Modal ── -->
 <div class="modal fade" id="detailModal" tabindex="-1">
-  <div class="modal-dialog modal-dialog-centered modal-lg">
+  <div class="modal-dialog modal-dialog-centered modal-xl">
     <div class="modal-content" style="border-radius:14px; border:none;">
       <div class="modal-header" style="border-bottom:1px solid #e4e7ed; padding:1.1rem 1.5rem;">
         <h6 class="modal-title fw-bold" id="modalTitle">Detail 추가</h6>
@@ -153,7 +228,7 @@
       </div>
       <form id="detailForm" method="post">
         {% csrf_token %}
-        <div class="modal-body" style="padding:1.5rem;">
+        <div class="modal-body" style="padding:1.5rem; max-height:75vh; overflow-y:auto;">
 
           <!-- SubCategory -->
           <div class="mb-3">
@@ -192,7 +267,7 @@
           <div class="mb-2" style="font-size:0.75rem; font-weight:600; color:#8993a8; text-transform:uppercase; letter-spacing:0.06em;">
             선택 파라미터
           </div>
-          <div class="row g-3">
+          <div class="row g-3 mb-3">
             <div class="col-4">
               <label class="form-label fw-semibold" style="font-size:0.82rem;">RR Para</label>
               {{ form.rr_para }}
@@ -205,14 +280,65 @@
               <label class="form-label fw-semibold" style="font-size:0.82rem;">RR Max</label>
               {{ form.rr_max }}
             </div>
-            <div class="col-6">
+            <div class="col-4">
               <label class="form-label fw-semibold" style="font-size:0.82rem;">RR Period</label>
               {{ form.rr_period }}
             </div>
-            <div class="col-6">
-              <label class="form-label fw-semibold" style="font-size:0.82rem;">IF RR</label>
-              {{ form.if_rr }}
+            <div class="col-4">
+              <label class="form-label fw-semibold" style="font-size:0.82rem;">RR IF</label>
+              {{ form.rr_if }}
             </div>
+            <div class="col-4">
+              <label class="form-label fw-semibold" style="font-size:0.82rem;">RR Weight</label>
+              {{ form.rr_weight }}
+            </div>
+            <div class="col-4">
+              <label class="form-label fw-semibold" style="font-size:0.82rem;">RR Count</label>
+              {{ form.rr_count }}
+            </div>
+            <div class="col-4">
+              <label class="form-label fw-semibold" style="font-size:0.82rem;">Pre THK Para ITM</label>
+              {{ form.pre_thk_para_itm }}
+            </div>
+          </div>
+
+          <!-- Pre Oper 파라미터 -->
+          <div class="mb-2" style="font-size:0.75rem; font-weight:600; color:#8993a8; text-transform:uppercase; letter-spacing:0.06em;">
+            Pre Oper 파라미터
+          </div>
+          <!-- 헤더 -->
+          <div class="row g-2 mb-1">
+            <div class="col-4"><span style="font-size:0.72rem; color:#8993a8; font-weight:600;">Oper Code</span></div>
+            <div class="col-4"><span style="font-size:0.72rem; color:#8993a8; font-weight:600;">Oper Desc</span></div>
+            <div class="col-4"><span style="font-size:0.72rem; color:#8993a8; font-weight:600;">Oper Para</span></div>
+          </div>
+          <!-- 1번 -->
+          <div class="row g-2 mb-2 align-items-center">
+            <div class="col-auto" style="width:24px;"><span style="font-size:0.72rem; color:#8993a8;">①</span></div>
+            <div class="col">{{ form.pre_oper_code }}</div>
+            <div class="col">{{ form.pre_oper_desc }}</div>
+            <div class="col">{{ form.pre_oper_para }}</div>
+          </div>
+          <!-- 2번 -->
+          <div class="row g-2 mb-2 align-items-center">
+            <div class="col-auto" style="width:24px;"><span style="font-size:0.72rem; color:#8993a8;">②</span></div>
+            <div class="col">{{ form.pre_oper_code2 }}</div>
+            <div class="col">{{ form.pre_oper_desc2 }}</div>
+            <div class="col">{{ form.pre_oper_para2 }}</div>
+          </div>
+          <!-- 3번 -->
+          <div class="row g-2 mb-2 align-items-center">
+            <div class="col-auto" style="width:24px;"><span style="font-size:0.72rem; color:#8993a8;">③</span></div>
+            <div class="col">{{ form.pre_oper_code3 }}</div>
+            <div class="col">{{ form.pre_oper_desc3 }}</div>
+            <div class="col">{{ form.pre_oper_para3 }}</div>
+          </div>
+          <!-- 4번 -->
+          <div class="row g-2 align-items-center">
+            <div class="col-auto" style="width:24px;"><span style="font-size:0.72rem; color:#8993a8;">④</span></div>
+            <div class="col">{{ form.pre_oper_code4 }}</div>
+            <div class="col">{{ form.pre_oper_desc4 }}</div>
+            <div class="col">{{ form.pre_oper_para4 }}</div>
           </div>
 
         </div>
@@ -255,25 +381,50 @@
 const createUrl = "{% url 'detail_create' %}";
 
 function fillDetailForm(data) {
-  document.getElementById('id_subcategory').value    = data.subcategory;
-  document.getElementById('id_apc_para').value       = data.apc_para;
-  document.getElementById('id_thk_para').value       = data.thk_para;
-  document.getElementById('id_target').value         = data.target;
-  document.getElementById('id_pre_target').value     = data.pre_target;
-  document.getElementById('id_pre_thk_period').value = data.pre_thk_period;
-  document.getElementById('id_rr_para').value        = data.rr_para;
-  document.getElementById('id_offset_group').value   = data.offset_group;
-  document.getElementById('id_rr_max').value         = data.rr_max;
-  document.getElementById('id_rr_period').value      = data.rr_period;
-  document.getElementById('id_if_rr').value          = data.if_rr;
+  document.getElementById('id_subcategory').value       = data.subcategory;
+  document.getElementById('id_apc_para').value          = data.apc_para;
+  document.getElementById('id_thk_para').value          = data.thk_para;
+  document.getElementById('id_target').value            = data.target;
+  document.getElementById('id_pre_target').value        = data.pre_target;
+  document.getElementById('id_pre_thk_period').value    = data.pre_thk_period;
+  document.getElementById('id_rr_para').value           = data.rr_para;
+  document.getElementById('id_offset_group').value      = data.offset_group;
+  document.getElementById('id_rr_max').value            = data.rr_max;
+  document.getElementById('id_rr_period').value         = data.rr_period;
+  document.getElementById('id_rr_if').value             = data.rr_if;
+  document.getElementById('id_pre_thk_para_itm').value  = data.pre_thk_para_itm || '';
+  document.getElementById('id_pre_oper_code').value     = data.pre_oper_code || '';
+  document.getElementById('id_pre_oper_desc').value     = data.pre_oper_desc || '';
+  document.getElementById('id_pre_oper_para').value     = data.pre_oper_para || '';
+  document.getElementById('id_pre_oper_code2').value    = data.pre_oper_code2 || '';
+  document.getElementById('id_pre_oper_desc2').value    = data.pre_oper_desc2 || '';
+  document.getElementById('id_pre_oper_para2').value    = data.pre_oper_para2 || '';
+  document.getElementById('id_pre_oper_code3').value    = data.pre_oper_code3 || '';
+  document.getElementById('id_pre_oper_desc3').value    = data.pre_oper_desc3 || '';
+  document.getElementById('id_pre_oper_para3').value    = data.pre_oper_para3 || '';
+  document.getElementById('id_pre_oper_code4').value    = data.pre_oper_code4 || '';
+  document.getElementById('id_pre_oper_desc4').value    = data.pre_oper_desc4 || '';
+  document.getElementById('id_pre_oper_para4').value    = data.pre_oper_para4 || '';
+  document.getElementById('id_rr_weight').value         = data.rr_weight || '';
+  document.getElementById('id_rr_count').value          = data.rr_count || '';
 }
+
+const emptyDetail = {
+  subcategory:'', apc_para:'', thk_para:'', target:'', pre_target:'',
+  pre_thk_period:'', rr_para:'', offset_group:'', rr_max:'', rr_period:'', rr_if:'',
+  pre_thk_para_itm:'',
+  pre_oper_code:'', pre_oper_desc:'', pre_oper_para:'',
+  pre_oper_code2:'', pre_oper_desc2:'', pre_oper_para2:'',
+  pre_oper_code3:'', pre_oper_desc3:'', pre_oper_para3:'',
+  pre_oper_code4:'', pre_oper_desc4:'', pre_oper_para4:'',
+  rr_weight:'', rr_count:'',
+};
 
 // 추가 버튼
 document.querySelector('.add-btn').addEventListener('click', function() {
   document.getElementById('modalTitle').textContent = 'Detail 추가';
   document.getElementById('detailForm').action = createUrl;
-  fillDetailForm({subcategory:'',apc_para:'',thk_para:'',target:'',pre_target:'',
-    pre_thk_period:'',rr_para:'',offset_group:'',rr_max:'',rr_period:'',if_rr:''});
+  fillDetailForm(emptyDetail);
 });
 
 // 수정 버튼
