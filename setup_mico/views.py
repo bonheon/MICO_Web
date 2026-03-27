@@ -525,7 +525,10 @@ def subcategory_copy(request, pk):
 
 @login_required
 def detail_list(request):
-    details = Detail.objects.select_related('subcategory__category').order_by('-created_at')
+    try:
+        details = list(Detail.objects.select_related('subcategory__category').order_by('-created_at'))
+    except Exception:
+        details = []
     form = DetailForm()
     return render(request, 'setup_mico/detail_list.html', {
         'details': details,
