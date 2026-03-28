@@ -11,9 +11,10 @@
 <style>
   .selector-panel {
     display: grid;
-    grid-template-columns: 1fr 1fr 1fr;
+    grid-template-columns: 1fr 1fr 1fr auto;
     gap: 1rem;
     margin-bottom: 1.25rem;
+    align-items: end;
   }
   .selector-card {
     background: #fff;
@@ -27,136 +28,113 @@
   .step-badge {
     position: absolute;
     top: -10px; left: 14px;
-    font-size: 0.65rem;
-    font-weight: 700;
-    padding: 2px 8px;
-    border-radius: 999px;
-    letter-spacing: 0.05em;
-    color: #fff;
+    font-size: 0.65rem; font-weight: 700;
+    padding: 2px 8px; border-radius: 999px;
+    letter-spacing: 0.05em; color: #fff;
   }
   .selector-card label {
-    font-size: 0.72rem;
-    font-weight: 600;
-    color: #8993a8;
-    text-transform: uppercase;
-    letter-spacing: 0.06em;
-    display: block;
-    margin-bottom: 0.5rem;
+    font-size: 0.72rem; font-weight: 600; color: #8993a8;
+    text-transform: uppercase; letter-spacing: 0.06em;
+    display: block; margin-bottom: 0.5rem;
   }
   .selector-card select {
-    width: 100%;
-    border: 1px solid #e4e7ed;
-    border-radius: 8px;
-    padding: 0.45rem 0.75rem;
-    font-size: 0.83rem;
-    color: #344054;
-    background: #f8f9fc;
-    outline: none;
-    cursor: pointer;
+    width: 100%; border: 1px solid #e4e7ed; border-radius: 8px;
+    padding: 0.45rem 0.75rem; font-size: 0.83rem; color: #344054;
+    background: #f8f9fc; outline: none; cursor: pointer;
   }
   .selector-card select:focus { border-color: #4f8ef7; background: #fff; }
   .selector-card select:disabled { opacity: 0.4; cursor: not-allowed; }
 
+  .btn-search {
+    padding: 0.7rem 1.5rem;
+    border-radius: 10px;
+    background: #0f1729; color: #fff;
+    font-size: 0.85rem; font-weight: 700;
+    border: none; cursor: pointer;
+    transition: background 0.15s;
+    white-space: nowrap;
+  }
+  .btn-search:hover { background: #1a2744; }
+  .btn-search:disabled { opacity: 0.45; cursor: not-allowed; }
+
   .algo-tabs { display: flex; gap: 0.5rem; margin-bottom: 1rem; }
   .algo-tab {
-    padding: 0.5rem 1.25rem;
-    border-radius: 8px;
-    border: 1px solid #e4e7ed;
-    background: #fff;
-    font-size: 0.83rem;
-    font-weight: 500;
-    color: #8993a8;
-    cursor: pointer;
-    transition: all 0.15s;
+    padding: 0.5rem 1.25rem; border-radius: 8px;
+    border: 1px solid #e4e7ed; background: #fff;
+    font-size: 0.83rem; font-weight: 500; color: #8993a8;
+    cursor: pointer; transition: all 0.15s;
   }
   .algo-tab:hover { border-color: #4f8ef7; color: #4f8ef7; }
   .algo-tab.active { background: #4f8ef7; border-color: #4f8ef7; color: #fff; font-weight: 600; }
 
   .content-card {
-    background: #fff;
-    border: 1px solid #e4e7ed;
-    border-radius: 12px;
-    overflow: hidden;
+    background: #fff; border: 1px solid #e4e7ed;
+    border-radius: 12px; overflow: hidden;
   }
   .content-header {
-    padding: 1rem 1.5rem;
-    border-bottom: 1px solid #e4e7ed;
-    display: flex;
-    align-items: center;
-    gap: 0.75rem;
+    padding: 1rem 1.5rem; border-bottom: 1px solid #e4e7ed;
+    display: flex; align-items: center; gap: 0.75rem;
   }
   .content-title { font-size: 0.875rem; font-weight: 600; color: #1e2640; }
   .content-sub   { font-size: 0.75rem; color: #8993a8; margin-top: 1px; }
 
   .info-bar {
-    display: flex;
-    align-items: center;
-    gap: 0.5rem;
-    flex-wrap: wrap;
-    padding: 0.6rem 1.5rem;
-    background: #f8f9fc;
-    border-bottom: 1px solid #e4e7ed;
-    font-size: 0.78rem;
+    display: flex; align-items: center; gap: 0.5rem; flex-wrap: wrap;
+    padding: 0.6rem 1.5rem; background: #f8f9fc;
+    border-bottom: 1px solid #e4e7ed; font-size: 0.78rem;
   }
   .chip {
-    border-radius: 999px;
-    padding: 0.2em 0.75em;
-    font-weight: 500;
-    font-size: 0.75rem;
+    border-radius: 999px; padding: 0.2em 0.75em;
+    font-weight: 500; font-size: 0.75rem;
   }
-
   .empty-state {
-    padding: 5rem 1.5rem;
-    text-align: center;
-    color: #8993a8;
+    padding: 5rem 1.5rem; text-align: center; color: #8993a8;
   }
   .empty-state i { font-size: 2.2rem; display: block; margin-bottom: 0.75rem; color: #c8d0e0; }
   .empty-state .em-title { font-size: 0.9rem; font-weight: 600; color: #344054; margin-bottom: 0.3rem; }
   .empty-state .em-sub   { font-size: 0.8rem; }
+  .loading-state { padding: 5rem 1.5rem; text-align: center; color: #8993a8; }
+  .error-state   { padding: 3rem 1.5rem; text-align: center; }
+  .db-pending    { padding: 4rem 1.5rem; text-align: center; color: #8993a8; }
 
-  .chart-area { padding: 1.25rem 1.5rem; }
-  .chart-row { display: grid; gap: 1rem; }
   .chart-box {
-    background: #f8f9fc;
-    border: 1px solid #e4e7ed;
-    border-radius: 10px;
-    padding: 1rem 1.25rem;
+    background: #f8f9fc; border: 1px solid #e4e7ed;
+    border-radius: 10px; padding: 1rem 1.25rem; margin-bottom: 1rem;
   }
   .chart-box-title {
-    font-size: 0.78rem;
-    font-weight: 600;
-    color: #344054;
-    margin-bottom: 0.75rem;
-    display: flex;
-    align-items: center;
-    gap: 0.5rem;
+    font-size: 0.78rem; font-weight: 600; color: #344054;
+    margin-bottom: 0.75rem; display: flex; align-items: center; gap: 0.5rem;
   }
-  .chart-box-title .dot {
-    width: 8px; height: 8px;
-    border-radius: 50%;
+  .chart-box-title .dot { width: 8px; height: 8px; border-radius: 50%; flex-shrink: 0; }
+  .section-title {
+    font-size: 0.78rem; font-weight: 700; color: #344054;
+    display: flex; align-items: center; gap: 0.4rem;
+    margin: 1.25rem 0 0.75rem; padding-top: 1rem;
+    border-top: 1px solid #e4e7ed;
   }
+  .section-title:first-child { border-top: none; padding-top: 0; margin-top: 0; }
 </style>
 
 <!-- Selector -->
 <div class="selector-panel">
-  <div class="selector-card" id="card-cat">
+  <div class="selector-card" id="card-device">
     <span class="step-badge" style="background:#4f8ef7;">STEP 1</span>
-    <label>Category</label>
-    <select id="sel-cat"><option value="">— 선택하세요 —</option></select>
-    <div id="cat-desc" style="margin-top:0.5rem; font-size:0.75rem; color:#8993a8; display:none;">
-      <span id="cat-desc-text"></span>
-    </div>
+    <label>Device</label>
+    <select id="sel-device"><option value="">— 선택하세요 —</option></select>
   </div>
-  <div class="selector-card" id="card-sub">
+  <div class="selector-card" id="card-oper">
     <span class="step-badge" style="background:#22c55e;">STEP 2</span>
-    <label>SubCategory</label>
-    <select id="sel-sub" disabled><option value="">— Category 먼저 선택 —</option></select>
+    <label>Oper Desc</label>
+    <select id="sel-oper" disabled><option value="">— Device 먼저 선택 —</option></select>
   </div>
-  <div class="selector-card" id="card-det">
+  <div class="selector-card" id="card-fab">
     <span class="step-badge" style="background:#a855f7;">STEP 3</span>
-    <label>Detail</label>
-    <select id="sel-det" disabled><option value="">— SubCategory 먼저 선택 —</option></select>
+    <label>FAB</label>
+    <select id="sel-fab" disabled><option value="">— Oper Desc 먼저 선택 —</option></select>
   </div>
+  <button id="btn-search" class="btn-search" disabled>
+    <i class="bi bi-search me-1"></i> 조회
+  </button>
 </div>
 
 <!-- Algorithm Tabs -->
@@ -177,193 +155,160 @@
   <div class="content-header">
     <div>
       <div class="content-title" id="content-title">Pre Thickness 학습값 Trend</div>
-      <div class="content-sub" id="content-sub">항목을 선택하면 학습 Trend가 표시됩니다</div>
+      <div class="content-sub" id="content-sub">Device → Oper Desc → FAB 선택 후 조회하세요</div>
     </div>
     <div class="ms-auto">
       <span id="data-status" class="chip" style="background:#f0f2f7; color:#8993a8;">
-        <i class="bi bi-circle me-1"></i> 미선택
+        <i class="bi bi-circle me-1"></i> 미조회
       </span>
     </div>
   </div>
 
   <!-- Info bar -->
   <div class="info-bar" id="info-bar" style="display:none;">
-    <i class="bi bi-info-circle" style="color:#8993a8;"></i>
-    <span id="info-cat" class="chip" style="background:#eff6ff; color:#4f8ef7;"></span>
+    <i class="bi bi-database" style="color:#8993a8;"></i>
+    <span id="info-device" class="chip" style="background:#eff6ff; color:#4f8ef7;"></span>
     <i class="bi bi-chevron-right" style="color:#c8d0e0;"></i>
-    <span id="info-sub" class="chip" style="background:#f0fdf4; color:#22c55e;"></span>
+    <span id="info-oper" class="chip" style="background:#f0fdf4; color:#22c55e;"></span>
     <i class="bi bi-chevron-right" style="color:#c8d0e0;"></i>
-    <span id="info-det" class="chip" style="background:#fdf4ff; color:#a855f7;"></span>
+    <span id="info-fab" class="chip" style="background:#fdf4ff; color:#a855f7;"></span>
+    <code id="info-collection" style="font-size:0.7rem; color:#8993a8; margin-left:0.5rem;"></code>
   </div>
 
-  <!-- Empty state -->
+  <!-- Empty -->
   <div class="empty-state" id="empty-state">
     <i class="bi bi-graph-up"></i>
     <div class="em-title">학습값 Trend</div>
-    <div class="em-sub">Category → SubCategory → Detail 순서로 선택하면<br>학습 Trend 차트가 표시됩니다</div>
+    <div class="em-sub" id="empty-msg">Device / Oper Desc / FAB을 선택하고<br>조회 버튼을 누르면 차트가 표시됩니다</div>
   </div>
 
-  <!-- Pre Thickness charts -->
-  <div class="chart-area" id="tab-pre_thk" style="display:none;">
-    <div class="chart-row" style="grid-template-columns: 1fr;">
-      <div class="chart-box">
-        <div class="chart-box-title">
-          <span class="dot" style="background:#4f8ef7;"></span>
-          THK 학습값 Trend
-          <span class="badge-pill ms-auto" style="background:#eff6ff; color:#4f8ef7; font-size:0.7rem;">Sample</span>
-        </div>
-        <div style="position:relative; height:220px;">
-          <canvas id="chart-thk"></canvas>
-        </div>
-      </div>
-    </div>
-    <div class="chart-row mt-3" style="grid-template-columns: 1fr 1fr;">
-      <div class="chart-box">
-        <div class="chart-box-title">
-          <span class="dot" style="background:#22c55e;"></span>
-          Pre THK vs Target
-          <span class="badge-pill ms-auto" style="background:#eff6ff; color:#4f8ef7; font-size:0.7rem;">Sample</span>
-        </div>
-        <div style="position:relative; height:180px;">
-          <canvas id="chart-thk-scatter"></canvas>
-        </div>
-      </div>
-      <div class="chart-box">
-        <div class="chart-box-title">
-          <span class="dot" style="background:#f97316;"></span>
-          편차 (Deviation) Trend
-          <span class="badge-pill ms-auto" style="background:#eff6ff; color:#4f8ef7; font-size:0.7rem;">Sample</span>
-        </div>
-        <div style="position:relative; height:180px;">
-          <canvas id="chart-thk-dev"></canvas>
-        </div>
-      </div>
-    </div>
+  <!-- Loading -->
+  <div class="loading-state" id="loading-state" style="display:none;">
+    <div class="spinner-border spinner-border-sm text-primary mb-3" role="status"></div>
+    <div style="font-size:0.85rem; color:#344054; font-weight:600;">데이터 조회 중...</div>
+    <div id="loading-collection" style="font-size:0.72rem; color:#8993a8; margin-top:0.3rem;"></div>
   </div>
 
-  <!-- Removal Rate charts -->
-  <div class="chart-area" id="tab-rr" style="display:none;">
-    <div class="chart-row" style="grid-template-columns: 1fr;">
-      <div class="chart-box">
-        <div class="chart-box-title">
-          <span class="dot" style="background:#a855f7;"></span>
-          Removal Rate 학습값 Trend
-          <span class="badge-pill ms-auto" style="background:#eff6ff; color:#4f8ef7; font-size:0.7rem;">Sample</span>
-        </div>
-        <div style="position:relative; height:220px;">
-          <canvas id="chart-rr"></canvas>
-        </div>
-      </div>
-    </div>
-    <div class="chart-row mt-3" style="grid-template-columns: 1fr 1fr 1fr;">
-      <div class="chart-box">
-        <div class="chart-box-title"><span class="dot" style="background:#4f8ef7;"></span> Pad RR <span class="badge-pill ms-auto" style="background:#eff6ff; color:#4f8ef7; font-size:0.7rem;">Sample</span></div>
-        <div style="position:relative; height:160px;"><canvas id="chart-rr-pad"></canvas></div>
-      </div>
-      <div class="chart-box">
-        <div class="chart-box-title"><span class="dot" style="background:#22c55e;"></span> Disk RR <span class="badge-pill ms-auto" style="background:#eff6ff; color:#4f8ef7; font-size:0.7rem;">Sample</span></div>
-        <div style="position:relative; height:160px;"><canvas id="chart-rr-disk"></canvas></div>
-      </div>
-      <div class="chart-box">
-        <div class="chart-box-title"><span class="dot" style="background:#f97316;"></span> Head RR <span class="badge-pill ms-auto" style="background:#eff6ff; color:#4f8ef7; font-size:0.7rem;">Sample</span></div>
-        <div style="position:relative; height:160px;"><canvas id="chart-rr-head"></canvas></div>
-      </div>
-    </div>
+  <!-- Error -->
+  <div class="error-state" id="error-state" style="display:none;">
+    <i class="bi bi-exclamation-triangle" style="font-size:1.8rem; color:#ef4444; display:block; margin-bottom:0.75rem;"></i>
+    <div style="font-size:0.9rem; font-weight:600; color:#344054; margin-bottom:0.3rem;">조회 실패</div>
+    <div id="error-msg" style="font-size:0.82rem; color:#8993a8;"></div>
   </div>
 
-  <!-- Offset charts -->
-  <div class="chart-area" id="tab-offset" style="display:none;">
-    <div class="chart-row" style="grid-template-columns: 1fr;">
-      <div class="chart-box">
-        <div class="chart-box-title">
-          <span class="dot" style="background:#f97316;"></span>
-          Offset 학습값 Trend
-          <span class="badge-pill ms-auto" style="background:#eff6ff; color:#4f8ef7; font-size:0.7rem;">Sample</span>
-        </div>
-        <div style="position:relative; height:220px;">
-          <canvas id="chart-offset"></canvas>
-        </div>
-      </div>
-    </div>
-    <div class="chart-row mt-3" style="grid-template-columns: 1fr 1fr;">
-      <div class="chart-box">
-        <div class="chart-box-title"><span class="dot" style="background:#4f8ef7;"></span> Offset 분포 <span class="badge-pill ms-auto" style="background:#eff6ff; color:#4f8ef7; font-size:0.7rem;">Sample</span></div>
-        <div style="position:relative; height:180px;"><canvas id="chart-offset-dist"></canvas></div>
-      </div>
-      <div class="chart-box">
-        <div class="chart-box-title"><span class="dot" style="background:#22c55e;"></span> 누적 보정값 <span class="badge-pill ms-auto" style="background:#eff6ff; color:#4f8ef7; font-size:0.7rem;">Sample</span></div>
-        <div style="position:relative; height:180px;"><canvas id="chart-offset-cum"></canvas></div>
-      </div>
+  <!-- Pre_Thk 동적 차트 -->
+  <div id="tab-pre_thk" style="display:none;"></div>
+
+  <!-- RR: 동적 차트 -->
+  <div id="tab-rr" style="display:none;"></div>
+
+  <!-- Offset: DB 미연결 -->
+  <div id="tab-offset" style="display:none;">
+    <div class="db-pending">
+      <i class="bi bi-plug" style="font-size:1.8rem; display:block; margin-bottom:0.75rem; color:#c8d0e0;"></i>
+      <div style="font-size:0.9rem; font-weight:600; color:#344054; margin-bottom:0.3rem;">DB 연동 대기 중</div>
+      <div style="font-size:0.82rem;">Offset 데이터는 사내 DB 연동 후 표시됩니다</div>
     </div>
   </div>
-
 </div>
 {% endblock %}
 
 {% block scripts %}
 <script>
-const TREE = {{ tree_json|safe }};
+// ── Cascade 데이터 ──
+// 구조: { device: { oper_desc: [fab, ...] } }
+const CASCADE = {{ cascade_json|safe }};
+
+const DATA_URL    = '{% url "learning_values_data" %}';
+const RR_DATA_URL = '{% url "learning_rr_data" %}';
+const COLORS = [
+  '#4f8ef7','#22c55e','#f97316','#a855f7','#ef4444',
+  '#06b6d4','#eab308','#ec4899','#14b8a6','#8b5cf6',
+  '#6366f1','#84cc16','#fb923c','#c084fc','#f87171',
+  '#22d3ee','#fbbf24','#f472b6','#2dd4bf','#60a5fa',
+];
 const algoLabels = {
   pre_thk: 'Pre Thickness 학습값 Trend',
   rr:      'Removal Rate 학습값 Trend',
   offset:  'Offset 학습값 Trend',
 };
+
 let currentAlgo = 'pre_thk';
-let selectedCat = null, selectedSub = null, selectedDet = null;
-let chartsInitialized = false;
+let preThkCharts = [];   // Pre_Thk 탭 차트 인스턴스
+let rrCharts = [];       // RR 탭 차트 인스턴스
+let rrAllData = [];      // RR 조회 결과 전체 보관
 
-// ── Selector ──
-const selCat = document.getElementById('sel-cat');
-const selSub = document.getElementById('sel-sub');
-const selDet = document.getElementById('sel-det');
+function destroyPreThkCharts() {
+  preThkCharts.forEach(c => { try { c.destroy(); } catch(_) {} });
+  preThkCharts = [];
+}
+function destroyRRCharts() {
+  rrCharts.forEach(c => { try { c.destroy(); } catch(_) {} });
+  rrCharts = [];
+}
 
-TREE.forEach(cat => {
-  const optLabel = cat.oper_desc
-    ? `${cat.product} / ${cat.oper_id} — ${cat.oper_desc}`
-    : cat.label;
-  selCat.add(new Option(optLabel, cat.pk));
+// ── 셀렉터 초기화 ──
+const selDevice = document.getElementById('sel-device');
+const selOper   = document.getElementById('sel-oper');
+const selFab    = document.getElementById('sel-fab');
+const btnSearch = document.getElementById('btn-search');
+
+Object.keys(CASCADE).sort().forEach(dev => {
+  selDevice.add(new Option(dev, dev));
 });
 
-selCat.addEventListener('change', function() {
-  selectedCat = TREE.find(c => c.pk == this.value) || null;
-  selectedSub = selectedDet = null;
-  selSub.innerHTML = '<option value="">— 선택하세요 —</option>';
-  selDet.innerHTML = '<option value="">— SubCategory 먼저 선택 —</option>';
-  selSub.disabled = !selectedCat;
-  selDet.disabled = true;
-  document.getElementById('card-cat').classList.toggle('selected', !!selectedCat);
-  document.getElementById('card-sub').classList.remove('selected');
-  document.getElementById('card-det').classList.remove('selected');
+selDevice.addEventListener('change', function() {
+  const dev = this.value;
+  selOper.innerHTML = '<option value="">— 선택하세요 —</option>';
+  selFab.innerHTML  = '<option value="">— Oper Desc 먼저 선택 —</option>';
+  selOper.disabled  = !dev;
+  selFab.disabled   = true;
+  btnSearch.disabled = true;
+  document.getElementById('card-device').classList.toggle('selected', !!dev);
+  document.getElementById('card-oper').classList.remove('selected');
+  document.getElementById('card-fab').classList.remove('selected');
 
-  // oper_desc 설명 표시
-  const descEl = document.getElementById('cat-desc');
-  const descText = document.getElementById('cat-desc-text');
-  if (selectedCat && selectedCat.oper_desc) {
-    descText.textContent = selectedCat.oper_desc;
-    descEl.style.display = '';
-  } else {
-    descEl.style.display = 'none';
+  if (dev) {
+    Object.keys(CASCADE[dev]).sort().forEach(od => {
+      selOper.add(new Option(od, od));
+    });
   }
-
-  if (selectedCat) selectedCat.subs.forEach(s => selSub.add(new Option(s.label, s.pk)));
-  updateContent();
 });
 
-selSub.addEventListener('change', function() {
-  selectedSub = selectedCat?.subs.find(s => s.pk == this.value) || null;
-  selectedDet = null;
-  selDet.innerHTML = '<option value="">— 선택하세요 —</option>';
-  selDet.disabled = !selectedSub;
-  document.getElementById('card-sub').classList.toggle('selected', !!selectedSub);
-  document.getElementById('card-det').classList.remove('selected');
-  if (selectedSub) selectedSub.details.forEach(d => selDet.add(new Option(d.label, d.pk)));
-  updateContent();
+selOper.addEventListener('change', function() {
+  const dev = selDevice.value;
+  const od  = this.value;
+  selFab.innerHTML = '<option value="">— 선택하세요 —</option>';
+  selFab.disabled  = !od;
+  btnSearch.disabled = true;
+  document.getElementById('card-oper').classList.toggle('selected', !!od);
+  document.getElementById('card-fab').classList.remove('selected');
+
+  if (dev && od) {
+    (CASCADE[dev][od] || []).sort().forEach(fab => {
+      selFab.add(new Option(fab, fab));
+    });
+  }
 });
 
-selDet.addEventListener('change', function() {
-  selectedDet = selectedSub?.details.find(d => d.pk == this.value) || null;
-  document.getElementById('card-det').classList.toggle('selected', !!selectedDet);
-  updateContent();
+selFab.addEventListener('change', function() {
+  const ok = !!this.value;
+  btnSearch.disabled = !ok;
+  document.getElementById('card-fab').classList.toggle('selected', ok);
+});
+
+btnSearch.addEventListener('click', () => {
+  const device    = selDevice.value;
+  const oper_desc = selOper.value;
+  const fab       = selFab.value;
+  if (!device || !oper_desc || !fab) return;
+  if (currentAlgo === 'pre_thk') {
+    fetchAndRender(device, oper_desc, fab);
+  } else if (currentAlgo === 'rr') {
+    fetchAndRenderRR(device, oper_desc, fab);
+  } else {
+    showTabOnly(currentAlgo);
+  }
 });
 
 // ── Tabs ──
@@ -372,188 +317,482 @@ document.querySelectorAll('.algo-tab').forEach(tab => {
     document.querySelectorAll('.algo-tab').forEach(t => t.classList.remove('active'));
     this.classList.add('active');
     currentAlgo = this.dataset.algo;
-    updateContent();
+    document.getElementById('content-title').textContent = algoLabels[currentAlgo];
+
+    if (currentAlgo === 'pre_thk') {
+      const preTab = document.getElementById('tab-pre_thk');
+      if (preTab.innerHTML.trim()) {
+        hideAllPanels();
+        preTab.style.display = '';
+      } else if (selFab.value) {
+        fetchAndRender(selDevice.value, selOper.value, selFab.value);
+      } else {
+        showEmpty('조회 버튼을 눌러 데이터를 불러오세요');
+      }
+    } else if (currentAlgo === 'rr') {
+      const rrTab = document.getElementById('tab-rr');
+      if (rrTab.innerHTML.trim()) {
+        hideAllPanels();
+        rrTab.style.display = '';
+      } else if (selFab.value) {
+        fetchAndRenderRR(selDevice.value, selOper.value, selFab.value);
+      } else {
+        showEmpty('조회 버튼을 눌러 데이터를 불러오세요');
+      }
+    } else {
+      showTabOnly(currentAlgo);
+    }
   });
 });
 
-// ── Content ──
-function updateContent() {
+// ── UI 헬퍼 ──
+function hideAllPanels() {
   ['pre_thk','rr','offset'].forEach(a => {
-    document.getElementById('tab-' + a).style.display = (a === currentAlgo && selectedDet) ? '' : 'none';
+    document.getElementById('tab-' + a).style.display = 'none';
   });
-  document.getElementById('content-title').textContent = algoLabels[currentAlgo];
+  document.getElementById('empty-state').style.display   = 'none';
+  document.getElementById('loading-state').style.display = 'none';
+  document.getElementById('error-state').style.display   = 'none';
+}
 
-  if (!selectedDet) {
-    document.getElementById('info-bar').style.display = 'none';
-    document.getElementById('empty-state').style.display = '';
-    document.getElementById('content-sub').textContent = '항목을 선택하면 학습 Trend가 표시됩니다';
-    document.getElementById('data-status').innerHTML = '<i class="bi bi-circle me-1"></i> 미선택';
-    document.getElementById('data-status').style.cssText = 'background:#f0f2f7; color:#8993a8;';
-  } else {
-    document.getElementById('info-bar').style.display = '';
-    document.getElementById('empty-state').style.display = 'none';
-    document.getElementById('info-cat').textContent = selectedCat.label;
-    document.getElementById('info-sub').textContent = selectedSub.label;
-    document.getElementById('info-det').textContent = selectedDet.label;
-    document.getElementById('content-sub').textContent = selectedDet.label;
-    document.getElementById('data-status').innerHTML = '<i class="bi bi-check-circle me-1"></i> 선택됨';
-    document.getElementById('data-status').style.cssText = 'background:#f0fdf4; color:#22c55e;';
+function showTabOnly(algo) {
+  hideAllPanels();
+  document.getElementById('tab-' + algo).style.display = '';
+}
 
-    if (!chartsInitialized) {
-      initCharts();
-      chartsInitialized = true;
+function showEmpty(msg) {
+  hideAllPanels();
+  document.getElementById('empty-state').style.display = '';
+  document.getElementById('empty-msg').textContent = msg;
+}
+
+function showLoading(col) {
+  hideAllPanels();
+  document.getElementById('loading-state').style.display = '';
+  document.getElementById('loading-collection').textContent = col;
+}
+
+function showError(msg) {
+  hideAllPanels();
+  document.getElementById('error-state').style.display = '';
+  document.getElementById('error-msg').textContent = msg;
+}
+
+
+function updateInfoBar(device, oper_desc, fab, collection) {
+  document.getElementById('info-bar').style.display = '';
+  document.getElementById('info-device').textContent = device;
+  document.getElementById('info-oper').textContent   = oper_desc;
+  document.getElementById('info-fab').textContent    = fab;
+  document.getElementById('info-collection').textContent = collection;
+  document.getElementById('data-status').innerHTML =
+    '<i class="bi bi-check-circle me-1"></i> 조회 완료';
+  document.getElementById('data-status').style.cssText = 'background:#f0fdf4; color:#22c55e;';
+  document.getElementById('content-sub').textContent =
+    `${device} / ${oper_desc} / ${fab}`;
+}
+
+// ── Data Fetch ──
+async function fetchAndRender(device, oper_desc, fab) {
+  const col = `MICO_PRE_THK_${device}_${oper_desc}_${fab}_Period`;
+  showLoading(col);
+  destroyPreThkCharts();
+  destroyRRCharts();
+  document.getElementById('tab-pre_thk').innerHTML = '';
+  document.getElementById('tab-rr').innerHTML = '';
+  rrAllData = [];
+
+  try {
+    const params = new URLSearchParams({ device, oper_desc, fab });
+    const resp = await fetch(`${DATA_URL}?${params}`);
+    const json = await resp.json();
+    if (!resp.ok) throw new Error(json.error || '데이터 조회 실패');
+
+    updateInfoBar(device, oper_desc, fab, json.collection);
+
+    if (!json.data || !json.data.length) {
+      showEmpty(`데이터가 없습니다\n(${json.collection})`);
+      return;
     }
+    renderPreThkContent(json.data, json.collection);
+  } catch(e) {
+    showError(e.message);
   }
 }
 
-// ── Charts ──
-function makeLabels(n) {
-  return Array.from({length: n}, (_, i) => `#${i+1}`);
-}
-function randArr(n, base, range) {
-  return Array.from({length: n}, () => +(base + (Math.random()-0.5)*range*2).toFixed(1));
-}
-const commonOpts = {
-  responsive: true, maintainAspectRatio: false,
-  plugins: { legend: { position: 'bottom', labels: { font: { size: 11 }, boxWidth: 12 } } },
-  scales: {
-    x: { grid: { display: false }, ticks: { font: { size: 10 } } },
-    y: { grid: { color: '#f0f2f7' }, ticks: { font: { size: 10 } } },
-  }
-};
+// ── Render ──
+function renderPreThkContent(data, collectionName) {
+  const container = document.getElementById('tab-pre_thk');
+  container.style.display = '';
+  document.getElementById('loading-state').style.display = 'none';
 
-function initCharts() {
-  const N = 20;
-  const labels = makeLabels(N);
+  // 헤더
+  const hdr = document.createElement('div');
+  hdr.style.cssText = 'padding:0.55rem 1.5rem; font-size:0.72rem; color:#8993a8; background:#f8f9fc; border-bottom:1px solid #e4e7ed; display:flex; align-items:center; gap:0.5rem;';
+  hdr.innerHTML = `
+    <i class="bi bi-database"></i>
+    <code style="font-size:0.72rem;">${collectionName}</code>
+    <span style="color:#22c55e; margin-left:auto;">
+      <i class="bi bi-check-circle me-1"></i>${data.length}건
+    </span>`;
+  container.appendChild(hdr);
 
-  // ── Pre Thickness ──
-  new Chart(document.getElementById('chart-thk'), {
-    type: 'line',
-    data: {
-      labels,
-      datasets: [
-        { label: 'THK 학습값', data: randArr(N, 3000, 80), borderColor: '#4f8ef7', backgroundColor: 'rgba(79,142,247,0.08)', fill: true, tension: 0.35, pointRadius: 3 },
-        { label: 'Target', data: Array(N).fill(3000), borderColor: '#f97316', borderDash: [6,3], pointRadius: 0, tension: 0 },
-      ]
-    },
-    options: { ...commonOpts }
-  });
+  const inner = document.createElement('div');
+  inner.style.padding = '1.25rem 1.5rem';
+  container.appendChild(inner);
 
-  new Chart(document.getElementById('chart-thk-scatter'), {
-    type: 'bar',
-    data: {
-      labels: makeLabels(10),
-      datasets: [
-        { label: 'Pre THK', data: randArr(10, 2980, 60), backgroundColor: 'rgba(34,197,94,0.65)', borderRadius: 5 },
-        { label: 'Target', data: Array(10).fill(3000), type: 'line', borderColor: '#4f8ef7', borderDash: [5,3], pointRadius: 0 },
-      ]
-    },
-    options: { ...commonOpts }
-  });
+  // pre_eq_ch 컬러맵
+  const eqValues = [...new Set(data.map(d => d.pre_eq_ch).filter(Boolean))].sort();
+  const colorMap = {};
+  eqValues.forEach((eq, i) => { colorMap[eq] = COLORS[i % COLORS.length]; });
 
-  new Chart(document.getElementById('chart-thk-dev'), {
-    type: 'line',
-    data: {
-      labels,
-      datasets: [
-        { label: '편차', data: randArr(N, 0, 60), borderColor: '#f97316', backgroundColor: 'rgba(249,115,22,0.07)', fill: true, tension: 0.35, pointRadius: 3 },
-        { label: '기준선', data: Array(N).fill(0), borderColor: '#e4e7ed', borderDash: [4,3], pointRadius: 0 },
-      ]
-    },
-    options: { ...commonOpts }
-  });
+  // ── Pre_Thk charts (Pre_THK_Para 별) ──
+  const paraValues = [...new Set(data.map(d => d.Pre_THK_Para).filter(Boolean))].sort();
 
-  // ── Removal Rate ──
-  new Chart(document.getElementById('chart-rr'), {
-    type: 'line',
-    data: {
-      labels,
-      datasets: [
-        { label: 'Pad RR', data: randArr(N, 2800, 120), borderColor: '#4f8ef7', backgroundColor: 'rgba(79,142,247,0.07)', fill: false, tension: 0.35, pointRadius: 3 },
-        { label: 'Disk RR', data: randArr(N, 2600, 100), borderColor: '#22c55e', backgroundColor: 'rgba(34,197,94,0.07)', fill: false, tension: 0.35, pointRadius: 3 },
-        { label: 'Head RR', data: randArr(N, 2900, 150), borderColor: '#f97316', backgroundColor: 'rgba(249,115,22,0.07)', fill: false, tension: 0.35, pointRadius: 3 },
-      ]
-    },
-    options: { ...commonOpts }
-  });
+  if (paraValues.length) {
+    inner.appendChild(makeSectionTitle('Pre Thk Trend', 'bi-graph-up-arrow', '#4f8ef7'));
+    paraValues.forEach((para, idx) => {
+      const paraData = data.filter(d => d.Pre_THK_Para === para);
+      const datasets = buildDatasets(eqValues, paraData, colorMap, 'Pre_Thk');
+      if (!datasets.length) return;
 
-  ['pad','disk','head'].forEach((type, i) => {
-    const colors = ['#4f8ef7','#22c55e','#f97316'];
-    const bases  = [2800, 2600, 2900];
-    new Chart(document.getElementById('chart-rr-' + type), {
-      type: 'line',
-      data: {
-        labels: makeLabels(N),
-        datasets: [{ label: type.toUpperCase() + ' RR', data: randArr(N, bases[i], 100), borderColor: colors[i], backgroundColor: colors[i]+'18', fill: true, tension: 0.4, pointRadius: 2 }]
-      },
-      options: {
-        responsive: true, maintainAspectRatio: false,
-        plugins: { legend: { display: false } },
-        scales: {
-          x: { grid: { display: false }, ticks: { font: { size: 9 } } },
-          y: { grid: { color: '#f0f2f7' }, ticks: { font: { size: 9 } } },
-        }
-      }
+      const cid = `chart-prethk-${idx}`;
+      inner.appendChild(makeChartBox(para, COLORS[idx % COLORS.length], cid, '220px', `${paraData.length}pts`));
+      preThkCharts.push(new Chart(document.getElementById(cid), makeScatterConfig(datasets, false)));
     });
-  });
+  }
 
-  // ── Offset ──
-  new Chart(document.getElementById('chart-offset'), {
-    type: 'line',
-    data: {
-      labels,
-      datasets: [
-        { label: 'Offset 값', data: randArr(N, 0, 30), borderColor: '#f97316', backgroundColor: 'rgba(249,115,22,0.08)', fill: true, tension: 0.35, pointRadius: 3 },
-        { label: '기준선', data: Array(N).fill(0), borderColor: '#e4e7ed', borderDash: [5,3], pointRadius: 0 },
-      ]
-    },
-    options: { ...commonOpts }
-  });
+  // ── b0 / b1 charts ──
+  const bGroups = [
+    { label: 'Pre Oper 2 Coefficients', fields: ['PRE_OPER2_b0', 'PRE_OPER2_b1'], color: '#a855f7' },
+    { label: 'Pre Oper 3 Coefficients', fields: ['PRE_OPER3_b0', 'PRE_OPER3_b1'], color: '#06b6d4' },
+    { label: 'Pre Oper 4 Coefficients', fields: ['PRE_OPER4_b0', 'PRE_OPER4_b1'], color: '#eab308' },
+  ];
 
-  new Chart(document.getElementById('chart-offset-dist'), {
-    type: 'bar',
-    data: {
-      labels: ['-30~-20','−20~-10','−10~0','0~10','10~20','20~30'],
-      datasets: [{
-        label: '빈도',
-        data: [2, 4, 7, 6, 4, 2],
-        backgroundColor: 'rgba(79,142,247,0.65)',
-        borderRadius: 5,
-      }]
-    },
+  bGroups.forEach((group, gi) => {
+    const activeFields = group.fields.filter(f => data.some(d => d[f] != null));
+    if (!activeFields.length) return;
+
+    inner.appendChild(makeSectionTitle(group.label, 'bi-sliders', group.color));
+
+    const row = document.createElement('div');
+    row.style.cssText = `display:grid; grid-template-columns: repeat(${activeFields.length}, 1fr); gap:1rem;`;
+
+    activeFields.forEach((field, fi) => {
+      const color = COLORS[(gi * 2 + fi + 5) % COLORS.length];
+      const datasets = buildSimpleDataset(data, field, color);
+      if (!datasets[0].data.length) return;
+      const cid = `chart-b-${gi}-${fi}`;
+      const box = makeChartBox(field, color, cid, '160px');
+      box.style.marginBottom = '0';
+      row.appendChild(box);
+      setTimeout(() => {
+        preThkCharts.push(new Chart(document.getElementById(cid), makeScatterConfig(datasets, true)));
+      }, 0);
+    });
+
+    inner.appendChild(row);
+  });
+}
+
+// ── Chart 헬퍼 ──
+// Pre_Thk: pre_eq_ch 별 색상 구분 scatter
+function buildDatasets(eqValues, data, colorMap, field) {
+  return eqValues.map(eq => {
+    const pts = data
+      .filter(d => d.pre_eq_ch === eq && d[field] != null)
+      .map(d => ({ x: new Date(d.Date).getTime(), y: d[field] }))
+      .sort((a, b) => a.x - b.x);
+    return {
+      label: eq,
+      data: pts,
+      backgroundColor: colorMap[eq] + 'cc',
+      pointRadius: 4, pointHoverRadius: 6,
+    };
+  }).filter(ds => ds.data.length > 0);
+}
+
+// b0/b1: pre_eq_ch 구분 없이 단일 scatter
+function buildSimpleDataset(data, field, color) {
+  const pts = data
+    .filter(d => d[field] != null)
+    .map(d => ({ x: new Date(d.Date).getTime(), y: d[field] }))
+    .sort((a, b) => a.x - b.x);
+  return [{
+    label: field,
+    data: pts,
+    backgroundColor: color + 'cc',
+    pointRadius: 4, pointHoverRadius: 6,
+  }];
+}
+
+function makeScatterConfig(datasets, hideLegend) {
+  return {
+    type: 'scatter',
+    data: { datasets },
     options: {
-      responsive: true, maintainAspectRatio: false,
-      plugins: { legend: { display: false } },
+      responsive: true,
+      maintainAspectRatio: false,
+      animation: { duration: 400 },
+      plugins: {
+        legend: {
+          display: !hideLegend,
+          position: 'bottom',
+          labels: { font: { size: 10 }, boxWidth: 10, padding: 8 },
+        },
+        tooltip: {
+          callbacks: {
+            title: items => {
+              const d = new Date(items[0].parsed.x);
+              return d.toLocaleString('ko-KR', {
+                month: '2-digit', day: '2-digit',
+                hour: '2-digit', minute: '2-digit',
+              });
+            },
+            label: item => `${item.dataset.label}: ${item.parsed.y}`,
+          },
+        },
+      },
       scales: {
-        x: { grid: { display: false }, ticks: { font: { size: 9 } } },
-        y: { grid: { color: '#f0f2f7' }, ticks: { font: { size: 9 } } },
-      }
+        x: {
+          type: 'linear',
+          grid: { display: false },
+          ticks: {
+            font: { size: 9 }, maxTicksLimit: 10,
+            callback: val => {
+              const d = new Date(val);
+              return `${String(d.getMonth()+1).padStart(2,'0')}-${String(d.getDate()).padStart(2,'0')}`;
+            },
+          },
+        },
+        y: {
+          grid: { color: '#f0f2f7' },
+          ticks: { font: { size: 9 } },
+        },
+      },
+    },
+  };
+}
+
+function makeChartBox(title, dotColor, canvasId, height, badge) {
+  const div = document.createElement('div');
+  div.className = 'chart-box';
+  const badgeHtml = badge
+    ? `<span class="badge-pill ms-auto" style="background:#eff6ff;color:#4f8ef7;font-size:0.7rem;">${badge}</span>`
+    : '';
+  div.innerHTML = `
+    <div class="chart-box-title">
+      <span class="dot" style="background:${dotColor};"></span>
+      <span style="font-size:0.75rem;word-break:break-all;">${title}</span>
+      ${badgeHtml}
+    </div>
+    <div style="position:relative;height:${height};">
+      <canvas id="${canvasId}"></canvas>
+    </div>`;
+  return div;
+}
+
+function makeSectionTitle(label, icon, color) {
+  const div = document.createElement('div');
+  div.className = 'section-title';
+  div.innerHTML = `<i class="bi ${icon}" style="color:${color};"></i> ${label}`;
+  return div;
+}
+
+// ── RR: Fetch ──
+async function fetchAndRenderRR(device, oper_desc, fab) {
+  const col = `MICO_Removal_Rate_${device}_${oper_desc}_${fab}`;
+  showLoading(col);
+  destroyRRCharts();
+  document.getElementById('tab-rr').innerHTML = '';
+  rrAllData = [];
+
+  try {
+    const params = new URLSearchParams({ device, oper_desc, fab });
+    const resp = await fetch(`${RR_DATA_URL}?${params}`);
+    const json = await resp.json();
+    if (!resp.ok) throw new Error(json.error || '데이터 조회 실패');
+
+    updateInfoBar(device, oper_desc, fab, json.collection);
+
+    if (!json.data || !json.data.length) {
+      showEmpty(`데이터가 없습니다\n(${json.collection})`);
+      return;
     }
+
+    rrAllData = json.data;
+    renderRRContent(json.data, json.recipe_ids, json.collection);
+  } catch(e) {
+    showError(e.message);
+  }
+}
+
+// ── RR: Render ──
+function renderRRContent(data, recipeIds, collectionName) {
+  const container = document.getElementById('tab-rr');
+  container.style.display = '';
+  document.getElementById('loading-state').style.display = 'none';
+
+  // 헤더
+  const hdr = document.createElement('div');
+  hdr.style.cssText = 'padding:0.55rem 1.5rem; font-size:0.72rem; color:#8993a8; background:#f8f9fc; border-bottom:1px solid #e4e7ed; display:flex; align-items:center; gap:0.5rem;';
+  hdr.innerHTML = `
+    <i class="bi bi-database"></i>
+    <code style="font-size:0.72rem;">${collectionName}</code>
+    <span style="color:#22c55e; margin-left:auto;">
+      <i class="bi bi-check-circle me-1"></i>${data.length}건
+    </span>`;
+  container.appendChild(hdr);
+
+  // Recipe_ID 선택 패널
+  const recipePanel = document.createElement('div');
+  recipePanel.style.cssText = 'padding:1rem 1.5rem; border-bottom:1px solid #e4e7ed; background:#fff;';
+  recipePanel.innerHTML = `
+    <div style="font-size:0.72rem; font-weight:600; color:#8993a8; text-transform:uppercase; letter-spacing:0.06em; margin-bottom:0.6rem;">
+      <i class="bi bi-card-list me-1"></i>Recipe ID 선택
+    </div>
+    <div id="rr-recipe-btns" style="display:flex; flex-wrap:wrap; gap:0.4rem;"></div>`;
+  container.appendChild(recipePanel);
+
+  const btnGroup = recipePanel.querySelector('#rr-recipe-btns');
+  recipeIds.forEach((rid, i) => {
+    const btn = document.createElement('button');
+    btn.className = 'btn btn-sm';
+    btn.style.cssText = 'border-radius:8px; font-size:0.8rem; border:1px solid #e4e7ed; background:#f8f9fc; color:#344054;';
+    btn.textContent = rid;
+    btn.dataset.recipe = rid;
+    if (i === 0) {
+      btn.style.cssText = 'border-radius:8px; font-size:0.8rem; border:1px solid #4f8ef7; background:#4f8ef7; color:#fff; font-weight:600;';
+    }
+    btn.addEventListener('click', function() {
+      btnGroup.querySelectorAll('button').forEach(b => {
+        b.style.cssText = 'border-radius:8px; font-size:0.8rem; border:1px solid #e4e7ed; background:#f8f9fc; color:#344054;';
+      });
+      this.style.cssText = 'border-radius:8px; font-size:0.8rem; border:1px solid #4f8ef7; background:#4f8ef7; color:#fff; font-weight:600;';
+      renderRRCharts(rrAllData.filter(d => d.Recipe_ID === this.dataset.recipe), this.dataset.recipe);
+    });
+    btnGroup.appendChild(btn);
   });
 
-  new Chart(document.getElementById('chart-offset-cum'), {
-    type: 'line',
-    data: {
-      labels,
-      datasets: [{
-        label: '누적 보정값',
-        data: randArr(N, 0, 20).reduce((acc, v, i) => { acc.push((acc[i-1]||0) + v); return acc; }, []),
-        borderColor: '#22c55e',
-        backgroundColor: 'rgba(34,197,94,0.08)',
-        fill: true,
-        tension: 0.3,
-        pointRadius: 2,
-      }]
+  // 차트 컨테이너
+  const chartArea = document.createElement('div');
+  chartArea.id = 'rr-chart-area';
+  chartArea.style.padding = '1.25rem 1.5rem';
+  container.appendChild(chartArea);
+
+  // 첫 번째 Recipe_ID로 기본 렌더
+  if (recipeIds.length) {
+    const firstData = data.filter(d => d.Recipe_ID === recipeIds[0]);
+    renderRRCharts(firstData, recipeIds[0]);
+  }
+}
+
+// ── RR: 차트 렌더링 (Recipe 선택 시) ──
+function renderRRCharts(data, recipeId) {
+  // 기존 RR 차트 제거
+  destroyRRCharts();
+
+  const area = document.getElementById('rr-chart-area');
+  area.innerHTML = '';
+
+  if (!data.length) {
+    area.innerHTML = '<div style="text-align:center; padding:2rem; color:#8993a8; font-size:0.85rem;">해당 Recipe ID의 데이터가 없습니다</div>';
+    return;
+  }
+
+  // EQ 컬러맵
+  const eqValues = [...new Set(data.map(d => d.EQ).filter(Boolean))].sort();
+  const colorMap = {};
+  eqValues.forEach((eq, i) => { colorMap[eq] = COLORS[i % COLORS.length]; });
+
+  // 차트 그룹 정의
+  const chartGroups = [
+    {
+      label: 'Removal Rate Coefficient',
+      icon: 'bi-graph-up-arrow', color: '#4f8ef7',
+      pairs: [['b1', '#4f8ef7'], ['b0', '#22c55e']],
     },
-    options: {
-      responsive: true, maintainAspectRatio: false,
-      plugins: { legend: { display: false } },
-      scales: {
-        x: { grid: { display: false }, ticks: { font: { size: 9 } } },
-        y: { grid: { color: '#f0f2f7' }, ticks: { font: { size: 9 } } },
-      }
-    }
+    {
+      label: 'Weighted Coefficient',
+      icon: 'bi-layers', color: '#a855f7',
+      pairs: [['b1_weighted', '#a855f7'], ['b0_weighted', '#ec4899']],
+    },
+    {
+      label: 'Current Coefficient',
+      icon: 'bi-activity', color: '#f97316',
+      pairs: [['b1_current', '#f97316'], ['b0_current', '#eab308']],
+    },
+  ];
+
+  chartGroups.forEach((group, gi) => {
+    area.appendChild(makeSectionTitle(group.label, group.icon, group.color));
+    const row = document.createElement('div');
+    row.style.cssText = 'display:grid; grid-template-columns:1fr 1fr; gap:1rem;';
+
+    group.pairs.forEach(([field, fallbackColor], fi) => {
+      const hasData = data.some(d => d[field] != null);
+      if (!hasData) return;
+
+      const datasets = buildEqDatasets(eqValues, data, colorMap, field);
+      if (!datasets.length) return;
+
+      const cid = `chart-rr-${gi}-${fi}`;
+      const box = makeChartBox(field, fallbackColor, cid, '200px', `${datasets.reduce((s, ds) => s + ds.data.length, 0)}pts`);
+      box.style.marginBottom = '0';
+      row.appendChild(box);
+
+      setTimeout(() => {
+        rrCharts.push(new Chart(document.getElementById(cid), makeScatterConfig(datasets, false)));
+      }, 0);
+    });
+
+    if (row.children.length) area.appendChild(row);
   });
+
+  // if_b1 / if_b0 (조건부)
+  const ifPairs = [['if_b1', '#06b6d4'], ['if_b0', '#8b5cf6']];
+  const hasIfData = ifPairs.some(([f]) => data.some(d => d[f] != null));
+
+  if (hasIfData) {
+    area.appendChild(makeSectionTitle('IF Coefficient', 'bi-diagram-3', '#06b6d4'));
+    const row = document.createElement('div');
+    row.style.cssText = 'display:grid; grid-template-columns:1fr 1fr; gap:1rem;';
+
+    ifPairs.forEach(([field, fallbackColor], fi) => {
+      const hasData = data.some(d => d[field] != null);
+      if (!hasData) return;
+
+      const datasets = buildEqDatasets(eqValues, data, colorMap, field);
+      if (!datasets.length) return;
+
+      const cid = `chart-rr-if-${fi}`;
+      const box = makeChartBox(field, fallbackColor, cid, '200px', `${datasets.reduce((s, ds) => s + ds.data.length, 0)}pts`);
+      box.style.marginBottom = '0';
+      row.appendChild(box);
+
+      setTimeout(() => {
+        rrCharts.push(new Chart(document.getElementById(cid), makeScatterConfig(datasets, false)));
+      }, 0);
+    });
+
+    if (row.children.length) area.appendChild(row);
+  }
+}
+
+// EQ 기준 scatter datasets 생성 (RR용)
+function buildEqDatasets(eqValues, data, colorMap, field) {
+  return eqValues.map(eq => {
+    const pts = data
+      .filter(d => d.EQ === eq && d[field] != null)
+      .map(d => ({ x: new Date(d.Date).getTime(), y: d[field] }))
+      .sort((a, b) => a.x - b.x);
+    return {
+      label: eq,
+      data: pts,
+      backgroundColor: colorMap[eq] + 'cc',
+      pointRadius: 4, pointHoverRadius: 6,
+    };
+  }).filter(ds => ds.data.length > 0);
 }
 </script>
 {% endblock %}

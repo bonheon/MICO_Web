@@ -33,6 +33,7 @@
         <th>Recipe ID</th>
         <th>Maker</th>
         <th>등록일</th>
+        <th>등록자</th>
         <th style="width:100px;">관리</th>
       </tr>
       <tr class="search-row">
@@ -43,6 +44,7 @@
         <th><input type="text" class="col-search form-control form-control-sm" placeholder="검색..." data-col="4"></th>
         <th><input type="text" class="col-search form-control form-control-sm" placeholder="검색..." data-col="5"></th>
         <th><input type="text" class="col-search form-control form-control-sm" placeholder="검색..." data-col="6"></th>
+        <th><input type="text" class="col-search form-control form-control-sm" placeholder="검색..." data-col="7"></th>
         <th></th>
       </tr>
     </thead>
@@ -60,6 +62,9 @@
         <td><span class="badge-pill" style="background:#eff6ff; color:#4f8ef7;">{{ sub.recipe_id }}</span></td>
         <td>{{ sub.maker }}</td>
         <td class="text-muted" style="white-space:nowrap;">{{ sub.created_at|date:"Y-m-d" }}</td>
+        <td class="text-muted" style="white-space:nowrap;">
+          {% if sub.created_by %}{{ sub.created_by.username }}{% else %}—{% endif %}
+        </td>
         <td>
           <div class="d-flex gap-1">
             <button class="btn btn-sm edit-btn"
@@ -98,7 +103,7 @@
       </tr>
       {% empty %}
       <tr>
-        <td colspan="8" class="text-center text-muted py-5">
+        <td colspan="9" class="text-center text-muted py-5">
           <i class="bi bi-inbox" style="font-size:1.5rem; display:block; margin-bottom:0.4rem;"></i>
           등록된 SubCategory가 없습니다
         </td>

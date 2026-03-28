@@ -53,6 +53,7 @@
         <th class="text-center">RR Count</th>
         <th class="text-center">RR Period</th>
         <th class="text-center">RR IF</th>
+        <th>등록자</th>
         <th style="width:100px;">관리</th>
       </tr>
       <tr class="search-row">
@@ -83,6 +84,7 @@
         <th><input type="text" class="col-search form-control form-control-sm" placeholder="검색..." data-col="24"></th>
         <th><input type="text" class="col-search form-control form-control-sm" placeholder="검색..." data-col="25"></th>
         <th><input type="text" class="col-search form-control form-control-sm" placeholder="검색..." data-col="26"></th>
+        <th><input type="text" class="col-search form-control form-control-sm" placeholder="검색..." data-col="27"></th>
         <th></th>
       </tr>
     </thead>
@@ -129,6 +131,9 @@
         <td class="text-center">{{ d.rr_count|default:"—" }}</td>
         <td class="text-center">{{ d.rr_period|default:"—" }}</td>
         <td class="text-center">{{ d.rr_if|default:"—" }}</td>
+        <td class="text-muted" style="white-space:nowrap;">
+          {% if d.created_by %}{{ d.created_by.username }}{% else %}—{% endif %}
+        </td>
         <td>
           <div class="d-flex gap-1">
             <button class="btn btn-sm edit-btn"
@@ -207,7 +212,7 @@
       </tr>
       {% empty %}
       <tr>
-        <td colspan="28" class="text-center text-muted py-5">
+        <td colspan="29" class="text-center text-muted py-5">
           <i class="bi bi-inbox" style="font-size:1.5rem; display:block; margin-bottom:0.4rem;"></i>
           등록된 Detail이 없습니다
         </td>

@@ -10,6 +10,8 @@ urlpatterns = [
 
     path('', views.dashboard, name='dashboard'),
     path('learning/', views.learning_values, name='learning_values'),
+    path('learning/data/', views.learning_values_data, name='learning_values_data'),
+    path('learning/rr-data/', views.learning_rr_data, name='learning_rr_data'),
     path('learning/history/', views.learning_history, name='learning_history'),
     path('simulation/', views.simulation, name='simulation'),
     path('apc/history/', views.apc_history, name='apc_history'),

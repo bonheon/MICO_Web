@@ -1,4 +1,6 @@
+import requests
 from django.shortcuts import render, redirect, get_object_or_404
+from django.http import JsonResponse
 from django.db.models import Count
 from django.db.models.functions import TruncDate
 from django.contrib.auth import authenticate, login, logout
@@ -66,23 +68,74 @@ def _diff(before, after):
 
 # ── Auth ──
 
+def _get_user_info_from_workplace(request):
+    """
+    SK Hynix Workplace SSO 쿠키로 사용자 정보 조회.
+    SMOFC 쿠키가 없거나 'LOGOUT' 이거나 API 호출 실패 시 None 반환.
+    """
+    smofc = request.COOKIES.get('SMOFC', 'LOGOUT')
+    lastuser = request.COOKIES.get('LASTUSER', 'LOGOUT')
+
+    if smofc == 'LOGOUT' or lastuser == 'LOGOUT':
+        return None
+
+    smsession = request.COOKIES.get('SMSESSION', 'LOGOUT')
+    cookies = {
+        'SMOFC': smofc,
+        'SMSESSION': smsession,
+        'LASTUSER': lastuser,
+    }
+
+    try:
+        url = f'https://workplace.skhynix.com/api/common/v1/account/userInfo/{lastuser}'
+        response = requests.get(url, cookies=cookies, timeout=5)
+        if not response.ok:
+            return None
+        data = response.json().get('data', {})
+        return {
+            'username': lastuser,
+            'name': data.get('empNm', ''),       # API 응답 필드명 확인 후 수정
+            'email': data.get('email', ''),
+            'department': data.get('deptNm', ''),
+        }
+    except Exception:
+        return None
+
+
+def _login_user_from_workplace(request, user_info):
+    """Workplace 사용자 정보로 Django 유저 생성/갱신 후 로그인."""
+    employee_id = user_info['username']
+    user, created = User.objects.get_or_create(username=employee_id)
+    user.first_name = user_info.get('name', '')
+    user.email = user_info.get('email', '')
+    if created:
+        user.set_unusable_password()
+    user.save()
+    login(request, user, backend='django.contrib.auth.backends.ModelBackend')
+    return user
+
+
 def login_view(request):
+    """
+    진입점: Workplace SSO 쿠키(SMOFC)가 있으면 자동 로그인, 없으면 로그인 안내 화면으로 이동.
+    """
     if request.user.is_authenticated:
         return redirect('dashboard')
-    error = None
-    if request.method == 'POST':
-        form = AuthenticationForm(request, data=request.POST)
-        if form.is_valid():
-            login(request, form.get_user())
-            return redirect(request.GET.get('next', 'dashboard'))
-        error = '아이디 또는 비밀번호가 올바르지 않습니다.'
-    return render(request, 'setup_mico/auth/login.html', {'error': error})
+
+    user_info = _get_user_info_from_workplace(request)
+    if user_info:
+        _login_user_from_workplace(request, user_info)
+        return redirect(request.GET.get('next', 'dashboard'))
+
+    # SSO 쿠키 없음 → Workplace 로그인 안내 화면
+    next_url = request.GET.get('next', '')
+    return redirect(f'/login/skynet/?next={next_url}' if next_url else '/login/skynet/')
 
 
 def logout_view(request):
     if request.method == 'POST':
         logout(request)
-    return redirect('login')
+    return redirect('skynet_login')
 
 
 def register_view(request):
@@ -103,94 +156,197 @@ def register_view(request):
     return render(request, 'setup_mico/auth/register.html', {'form': form, 'error': error})
 
 
-# ── Skynet SSO (임시 Mock) ──
-# 실제 구현 시: _mock_skynet_api() 를 실제 API 호출로 교체
-# 예시: requests.get(f'{SKYNET_API_URL}/session', headers={'Cookie': request.META.get('HTTP_COOKIE', '')})
-
-def _mock_skynet_api(employee_id):
-    """
-    [임시 Mock] Skynet API 응답 시뮬레이션.
-    실제 구현 시 이 함수를 아래 코드로 교체:
-
-        import requests
-        SKYNET_API_URL = 'http://skynet.internal/api'
-        resp = requests.get(
-            f'{SKYNET_API_URL}/users/{employee_id}',
-            timeout=5,
-        )
-        return resp.json() if resp.ok else None
-    """
-    mock_db = {
-        '2057197': {'name': '구본헌', 'department': 'CMP팀', 'email': '2057197@company.com'},
-        '1111111': {'name': '테스트유저A', 'department': 'CMP팀', 'email': '1111111@company.com'},
-        '2222222': {'name': '테스트유저B', 'department': 'PE팀', 'email': '2222222@company.com'},
-    }
-    return mock_db.get(employee_id)
-
-
 def skynet_login_view(request):
     """
-    Skynet SSO 로그인.
-    사내 Skynet 시스템의 사용자 정보를 API로 받아 Django 계정과 연동.
-    현재는 사번 입력 폼 방식의 Mock으로 동작.
-
-    실제 연동 시: 사번 입력 단계 없이 Skynet 세션에서 자동으로 사용자 정보를 가져옴.
+    일반 구성원: Skynet 로그인 안내 화면 (API Key는 Skynet 쿠키에서 자동 수신).
+    관리자: ID/PW 로그인 폼 (접힌 상태).
     """
     if request.user.is_authenticated:
         return redirect('dashboard')
 
     error = None
-    if request.method == 'POST':
-        employee_id = request.POST.get('employee_id', '').strip()
-        if not employee_id:
-            error = '사번을 입력해 주세요.'
-        else:
-            skynet_data = _mock_skynet_api(employee_id)
-            if not skynet_data:
-                error = f'Skynet에서 [{employee_id}] 사용자 정보를 찾을 수 없습니다. (Mock 미등록 사번)'
-            else:
-                user, created = User.objects.get_or_create(username=employee_id)
-                user.first_name = skynet_data.get('name', '')
-                user.email = skynet_data.get('email', '')
-                if created:
-                    user.set_unusable_password()  # Skynet 유저는 Django 비밀번호 없음
-                user.save()
-                login(request, user, backend='django.contrib.auth.backends.ModelBackend')
-                return redirect(request.GET.get('next', 'dashboard'))
+
+    if request.method == 'POST' and request.POST.get('login_type') == 'admin':
+        form = AuthenticationForm(request, data=request.POST)
+        if form.is_valid():
+            login(request, form.get_user())
+            return redirect(request.GET.get('next', 'dashboard'))
+        error = '아이디 또는 비밀번호가 올바르지 않습니다.'
 
     return render(request, 'setup_mico/auth/skynet_login.html', {'error': error})
 
 
 @login_required
 def learning_values(request):
-    import json
-    categories = Category.objects.prefetch_related('subcategories__details').order_by('product', 'oper_id')
+    """
+    Device / Oper Desc / FAB 드롭다운 옵션 제공.
+    샘플 데이터 파일에서 가용 컬렉션 목록을 파싱해 cascading 옵션을 생성.
+    """
+    import json, os
 
-    # JS용 계층 데이터
-    tree = []
-    for cat in categories:
-        subs = []
-        for sub in cat.subcategories.all():
-            details = []
-            for d in sub.details.all():
-                details.append({'pk': d.pk, 'label': f'{d.apc_para} / {d.thk_para}'})
-            subs.append({
-                'pk': sub.pk,
-                'label': f'{sub.fab} / {sub.device} / {sub.recipe_id}',
-                'details': details,
-            })
-        tree.append({
-            'pk': cat.pk,
-            'label': f'{cat.product} / {cat.oper_id}',
-            'product': cat.product,
-            'oper_id': cat.oper_id,
-            'oper_desc': cat.oper_desc or '',
-            'subs': subs,
+    # ── 샘플 데이터에서 옵션 파싱 ─────────────────────────────────────────
+    sample_path = os.path.join(os.path.dirname(__file__), 'sample_data', 'pre_thk_sample.json')
+    with open(sample_path, 'r', encoding='utf-8') as f:
+        sample_collections = json.load(f)
+
+    # Collection명 → (device, oper_desc, fab) 파싱
+    # 형식: MICO_PRE_THK_{device}_{oper_desc}_{fab}_Period
+    PREFIX, SUFFIX = 'MICO_PRE_THK_', '_Period'
+    options = []
+    for col_name in sample_collections:
+        inner = col_name[len(PREFIX):-len(SUFFIX)]   # "E2_SN BPSG CMP_M14"
+        parts = inner.split('_')                      # ['E2', 'SN BPSG CMP', 'M14']
+        if len(parts) < 3:
+            continue
+        options.append({
+            'device'   : parts[0],
+            'oper_desc': '_'.join(parts[1:-1]),       # 중간 전체 (언더스코어 포함 복원)
+            'fab'      : parts[-1],
         })
+    # ─────────────────────────────────────────────────────────────────────
+
+    # ── 사내 MongoDB 사용 시: 위 파싱 대신 MongoDB 컬렉션 목록 조회
+    # from pymongo import MongoClient
+    # MONGO_URI = 'mongodb://TODO_HOST:TODO_PORT'
+    # MONGO_DB  = 'TODO_DB_NAME'
+    # client = MongoClient(MONGO_URI, serverSelectionTimeoutMS=5000)
+    # col_names = client[MONGO_DB].list_collection_names()
+    # client.close()
+    # options = []
+    # for col_name in col_names:
+    #     if not (col_name.startswith(PREFIX) and col_name.endswith(SUFFIX)):
+    #         continue
+    #     inner = col_name[len(PREFIX):-len(SUFFIX)]
+    #     parts = inner.split('_')
+    #     if len(parts) < 3:
+    #         continue
+    #     options.append({'device': parts[0], 'oper_desc': '_'.join(parts[1:-1]), 'fab': parts[-1]})
+    # ─────────────────────────────────────────────────────────────────────
+
+    # Cascading 구조: {device: {oper_desc: [fab, ...]}}
+    cascade = {}
+    for o in options:
+        cascade.setdefault(o['device'], {}).setdefault(o['oper_desc'], []).append(o['fab'])
 
     return render(request, 'setup_mico/learning_values.html', {
-        'tree_json': json.dumps(tree, ensure_ascii=False),
+        'cascade_json': json.dumps(cascade, ensure_ascii=False),
     })
+
+
+@login_required
+def learning_values_data(request):
+    """
+    Pre_Thk 학습값 조회.
+    Collection명: MICO_PRE_THK_{device}_{oper_desc}_{fab}_Period
+
+    [현재] 로컬 샘플 파일(sample_data/pre_thk_sample.json) 사용
+    [사내] 아래 MongoDB 블록 주석 해제 후 위 샘플 블록 주석 처리
+    """
+    import os, json
+
+    device    = request.GET.get('device', '').strip()
+    oper_desc = request.GET.get('oper_desc', '').strip()
+    fab       = request.GET.get('fab', '').strip()
+
+    if not all([device, oper_desc, fab]):
+        return JsonResponse({'error': 'device / oper_desc / fab 파라미터가 필요합니다'}, status=400)
+
+    collection_name = f"MICO_PRE_THK_{device}_{oper_desc}_{fab}_Period"
+
+    # ════════════════════════════════════════════════════════════════════
+    # [개발] 샘플 데이터 파일 사용
+    # ════════════════════════════════════════════════════════════════════
+    sample_path = os.path.join(os.path.dirname(__file__), 'sample_data', 'pre_thk_sample.json')
+    try:
+        with open(sample_path, 'r', encoding='utf-8') as f:
+            sample = json.load(f)
+        data = sample.get(collection_name, [])
+    except FileNotFoundError:
+        return JsonResponse({'error': '샘플 데이터 파일을 찾을 수 없습니다'}, status=500)
+
+    return JsonResponse({'collection': collection_name, 'data': data})
+
+    # ════════════════════════════════════════════════════════════════════
+    # [사내] MongoDB 연결 시 위 블록 대신 아래 사용 (pip install pymongo)
+    # ════════════════════════════════════════════════════════════════════
+    # from pymongo import MongoClient
+    #
+    # MONGO_URI = 'mongodb://TODO_HOST:TODO_PORT'   # ← 실제 접속 정보 입력
+    # MONGO_DB  = 'TODO_DB_NAME'                    # ← 실제 DB명 입력
+    #
+    # try:
+    #     client = MongoClient(MONGO_URI, serverSelectionTimeoutMS=5000)
+    #     db  = client[MONGO_DB]
+    #     col = db[collection_name]
+    #     docs = list(col.find({}, {'_id': 0}).sort('Date', 1))
+    #     client.close()
+    # except Exception as e:
+    #     return JsonResponse({'error': f'DB 연결 오류: {str(e)}'}, status=500)
+    #
+    # def serialize(doc):
+    #     return {k: (v.isoformat() if hasattr(v, 'isoformat') else v) for k, v in doc.items()}
+    #
+    # return JsonResponse({'collection': collection_name, 'data': [serialize(d) for d in docs]})
+
+
+@login_required
+def learning_rr_data(request):
+    """
+    Removal Rate 학습값 조회.
+    Collection명: MICO_Removal_Rate_{device}_{oper_desc}_{fab}
+
+    [현재] 로컬 샘플 파일(sample_data/rr_sample.json) 사용
+    [사내] 아래 MongoDB 블록 주석 해제 후 위 샘플 블록 주석 처리
+    """
+    import os, json
+
+    device    = request.GET.get('device', '').strip()
+    oper_desc = request.GET.get('oper_desc', '').strip()
+    fab       = request.GET.get('fab', '').strip()
+
+    if not all([device, oper_desc, fab]):
+        return JsonResponse({'error': 'device / oper_desc / fab 파라미터가 필요합니다'}, status=400)
+
+    collection_name = f"MICO_Removal_Rate_{device}_{oper_desc}_{fab}"
+
+    # ════════════════════════════════════════════════════════════════════
+    # [개발] 샘플 데이터 파일 사용
+    # ════════════════════════════════════════════════════════════════════
+    sample_path = os.path.join(os.path.dirname(__file__), 'sample_data', 'rr_sample.json')
+    try:
+        with open(sample_path, 'r', encoding='utf-8') as f:
+            sample = json.load(f)
+        data = sample.get(collection_name, [])
+    except FileNotFoundError:
+        return JsonResponse({'error': '샘플 데이터 파일을 찾을 수 없습니다'}, status=500)
+
+    # Recipe_ID 목록 추출
+    recipe_ids = sorted(set(d['Recipe_ID'] for d in data if 'Recipe_ID' in d))
+
+    return JsonResponse({'collection': collection_name, 'data': data, 'recipe_ids': recipe_ids})
+
+    # ════════════════════════════════════════════════════════════════════
+    # [사내] MongoDB 연결 시 위 블록 대신 아래 사용 (pip install pymongo)
+    # ════════════════════════════════════════════════════════════════════
+    # from pymongo import MongoClient
+    #
+    # MONGO_URI = 'mongodb://TODO_HOST:TODO_PORT'   # ← 실제 접속 정보 입력
+    # MONGO_DB  = 'TODO_DB_NAME'                    # ← 실제 DB명 입력
+    #
+    # try:
+    #     client = MongoClient(MONGO_URI, serverSelectionTimeoutMS=5000)
+    #     db  = client[MONGO_DB]
+    #     col = db[collection_name]
+    #     docs = list(col.find({}, {'_id': 0}).sort('Date', 1))
+    #     client.close()
+    # except Exception as e:
+    #     return JsonResponse({'error': f'DB 연결 오류: {str(e)}'}, status=500)
+    #
+    # def serialize(doc):
+    #     return {k: (v.isoformat() if hasattr(v, 'isoformat') else v) for k, v in doc.items()}
+    #
+    # recipe_ids = sorted(set(d['Recipe_ID'] for d in docs if 'Recipe_ID' in d))
+    # return JsonResponse({'collection': collection_name, 'data': [serialize(d) for d in docs], 'recipe_ids': recipe_ids})
 
 
 @login_required
@@ -403,7 +559,7 @@ def dashboard(request):
 
 @login_required
 def category_list(request):
-    categories = Category.objects.all().order_by('-created_at')
+    categories = Category.objects.select_related('created_by').order_by('-created_at')
     form = CategoryForm()
     return render(request, 'setup_mico/category_list.html', {
         'categories': categories,
@@ -416,7 +572,9 @@ def category_create(request):
     if request.method == 'POST':
         form = CategoryForm(request.POST)
         if form.is_valid():
-            obj = form.save()
+            obj = form.save(commit=False)
+            obj.created_by = request.user
+            obj.save()
             _record(request.user, 'create', 'Category', str(obj), obj.pk, _cat_fields(obj))
     return redirect('category_list')
 
@@ -450,6 +608,7 @@ def category_copy(request, pk):
         original = get_object_or_404(Category, pk=pk)
         fields = _cat_fields(original)
         original.pk = None
+        original.created_by = request.user
         original.save()
         fields['copied_from'] = str(pk)
         _record(request.user, 'create', 'Category', str(original), original.pk, fields)
@@ -460,7 +619,7 @@ def category_copy(request, pk):
 
 @login_required
 def subcategory_list(request):
-    subcategories = SubCategory.objects.select_related('category').order_by('-created_at')
+    subcategories = SubCategory.objects.select_related('category', 'created_by').order_by('-created_at')
     form = SubCategoryForm()
     return render(request, 'setup_mico/subcategory_list.html', {
         'subcategories': subcategories,
@@ -473,7 +632,9 @@ def subcategory_create(request):
     if request.method == 'POST':
         form = SubCategoryForm(request.POST)
         if form.is_valid():
-            obj = form.save()
+            obj = form.save(commit=False)
+            obj.created_by = request.user
+            obj.save()
             _record(request.user, 'create', 'SubCategory', _sub_repr(obj), obj.pk, _sub_fields(obj))
     return redirect('subcategory_list')
 
@@ -508,7 +669,9 @@ def subcategory_copy(request, pk):
         details = list(original.details.all())
         form = SubCategoryForm(request.POST)
         if form.is_valid():
-            new_sub = form.save()
+            new_sub = form.save(commit=False)
+            new_sub.created_by = request.user
+            new_sub.save()
             fields = _sub_fields(new_sub)
             fields['copied_from'] = str(pk)
             if request.POST.get('copy_details') == '1':
@@ -525,7 +688,7 @@ def subcategory_copy(request, pk):
 
 @login_required
 def detail_list(request):
-    details = Detail.objects.select_related('subcategory__category').order_by('-created_at')
+    details = Detail.objects.select_related('subcategory__category', 'created_by').order_by('-created_at')
     form = DetailForm()
     return render(request, 'setup_mico/detail_list.html', {
         'details': details,
@@ -538,7 +701,9 @@ def detail_create(request):
     if request.method == 'POST':
         form = DetailForm(request.POST)
         if form.is_valid():
-            obj = form.save()
+            obj = form.save(commit=False)
+            obj.created_by = request.user
+            obj.save()
             _record(request.user, 'create', 'Detail', _det_repr(obj), obj.pk, _det_fields(obj))
     return redirect('detail_list')
 
@@ -573,6 +738,7 @@ def detail_copy(request, pk):
         fields = _det_fields(original)
         fields['copied_from'] = str(pk)
         original.pk = None
+        original.created_by = request.user
         original.save()
         _record(request.user, 'create', 'Detail', _det_repr(original), original.pk, fields)
     return redirect('detail_list')

@@ -9,6 +9,10 @@ class Category(models.Model):
     family = models.CharField(max_length=10, choices=FAMILY_CHOICES, verbose_name='Family', default='')
     oper_id = models.CharField(max_length=100, verbose_name='공정 ID', default='')
     oper_desc = models.CharField(max_length=100, verbose_name='공정 설명', default='')
+    created_by = models.ForeignKey(
+        User, on_delete=models.SET_NULL, null=True, blank=True,
+        related_name='created_categories', verbose_name='등록자'
+    )
     created_at = models.DateTimeField(auto_now_add=True)
     updated_at = models.DateTimeField(auto_now=True)
 
@@ -33,6 +37,10 @@ class SubCategory(models.Model):
     device = models.CharField(max_length=100, verbose_name='Device', default='')
     recipe_id = models.CharField(max_length=100, verbose_name='Recipe ID', default='')
     maker = models.CharField(max_length=100, verbose_name='Maker', default='')
+    created_by = models.ForeignKey(
+        User, on_delete=models.SET_NULL, null=True, blank=True,
+        related_name='created_subcategories', verbose_name='등록자'
+    )
     created_at = models.DateTimeField(auto_now_add=True)
     updated_at = models.DateTimeField(auto_now=True)
 
@@ -86,6 +94,10 @@ class Detail(models.Model):
     pre_oper_para4 = models.CharField(max_length=100, verbose_name='Pre Oper Para4', blank=True, default='')
     rr_weight = models.IntegerField(verbose_name='RR Weight', null=True, blank=True)
     rr_count = models.IntegerField(verbose_name='RR Count', null=True, blank=True)
+    created_by = models.ForeignKey(
+        User, on_delete=models.SET_NULL, null=True, blank=True,
+        related_name='created_details', verbose_name='등록자'
+    )
     created_at = models.DateTimeField(auto_now_add=True)
     updated_at = models.DateTimeField(auto_now=True)
 

@@ -17,7 +17,7 @@
     }
     .auth-card {
       width: 100%;
-      max-width: 400px;
+      max-width: 420px;
       background: #fff;
       border-radius: 20px;
       padding: 2.5rem 2rem;
@@ -25,7 +25,7 @@
     }
     .brand {
       text-align: center;
-      margin-bottom: 1.5rem;
+      margin-bottom: 1.75rem;
     }
     .brand .logo {
       font-size: 2rem;
@@ -46,47 +46,29 @@
       border-radius: 999px;
       margin: 0.75rem auto 0;
     }
-    .skynet-header {
-      display: flex;
-      align-items: center;
-      justify-content: center;
-      gap: 0.5rem;
+    .skynet-notice {
       background: #f0f6ff;
       border: 1px solid #c7dffe;
-      border-radius: 12px;
-      padding: 0.75rem 1rem;
+      border-radius: 14px;
+      padding: 1.5rem 1.25rem;
+      text-align: center;
       margin-bottom: 1.5rem;
     }
-    .skynet-header .label {
-      font-size: 0.82rem;
-      font-weight: 600;
+    .skynet-notice .icon {
+      font-size: 2rem;
+      color: #4f8ef7;
+      margin-bottom: 0.75rem;
+    }
+    .skynet-notice .title {
+      font-size: 0.95rem;
+      font-weight: 700;
       color: #1e3a6e;
+      margin-bottom: 0.5rem;
     }
-    .skynet-badge {
-      font-size: 0.65rem;
-      background: #4f8ef7;
-      color: #fff;
-      padding: 2px 7px;
-      border-radius: 4px;
-      font-weight: 700;
-      letter-spacing: 0.05em;
-    }
-    .mock-notice {
-      background: #fffbeb;
-      border: 1px solid #fde68a;
-      border-radius: 10px;
-      padding: 0.65rem 0.9rem;
-      font-size: 0.75rem;
-      color: #92400e;
-      margin-bottom: 1.25rem;
-    }
-    .mock-notice .title {
-      font-weight: 700;
-      margin-bottom: 0.25rem;
-    }
-    .mock-notice ul {
-      margin: 0.25rem 0 0;
-      padding-left: 1.2rem;
+    .skynet-notice .desc {
+      font-size: 0.82rem;
+      color: #4a6fa5;
+      line-height: 1.6;
     }
     .form-label {
       font-size: 0.78rem;
@@ -115,18 +97,18 @@
       border-left: none;
       border-radius: 0 10px 10px 0;
     }
-    .btn-skynet-submit {
+    .btn-login {
       width: 100%;
       padding: 0.65rem;
       border-radius: 10px;
-      background: #0f1729;
+      background: #4f8ef7;
       color: #fff;
       font-weight: 600;
       font-size: 0.9rem;
       border: none;
       transition: background 0.15s;
     }
-    .btn-skynet-submit:hover { background: #1a2744; color: #fff; }
+    .btn-login:hover { background: #3a7ae0; color: #fff; }
     .error-box {
       background: #fff1f2;
       border: 1px solid #fecdd3;
@@ -139,18 +121,28 @@
       gap: 0.5rem;
       margin-bottom: 1rem;
     }
-    .back-link {
+    .divider-or {
+      display: flex;
+      align-items: center;
+      gap: 0.75rem;
+      margin: 1.5rem 0 1rem;
+      color: #c0c8d8;
+      font-size: 0.78rem;
+    }
+    .divider-or::before, .divider-or::after {
+      content: '';
+      flex: 1;
+      height: 1px;
+      background: #e8eaf0;
+    }
+    .admin-toggle {
       text-align: center;
-      margin-top: 1.25rem;
-      font-size: 0.82rem;
+      font-size: 0.78rem;
       color: #8993a8;
+      cursor: pointer;
+      user-select: none;
     }
-    .back-link a {
-      color: #4f8ef7;
-      font-weight: 600;
-      text-decoration: none;
-    }
-    .back-link a:hover { text-decoration: underline; }
+    .admin-toggle:hover { color: #4f8ef7; }
   </style>
 </head>
 <body>
@@ -161,49 +153,58 @@
       <div class="divider"></div>
     </div>
 
-    <div class="skynet-header">
-      <i class="bi bi-shield-lock-fill text-primary"></i>
-      <span class="label">Skynet SSO 로그인</span>
-      <span class="skynet-badge">MOCK</span>
-    </div>
-
-    <!-- 임시 Mock 안내 (실제 Skynet 연동 후 제거) -->
-    <div class="mock-notice">
-      <div class="title"><i class="bi bi-cone-striped me-1"></i>임시 Mock 모드 (개발 중)</div>
-      실제 Skynet 연동 전까지 사번을 직접 입력합니다.<br>
-      등록된 테스트 사번:
-      <ul>
-        <li>2057197 (구본헌 / CMP팀)</li>
-        <li>1111111 (테스트유저A / CMP팀)</li>
-        <li>2222222 (테스트유저B / PE팀)</li>
-      </ul>
-    </div>
-
-    {% if error %}
-    <div class="error-box">
-      <i class="bi bi-exclamation-circle-fill"></i>
-      {{ error }}
-    </div>
-    {% endif %}
-
-    <form method="post">
-      {% csrf_token %}
-      <div class="mb-4">
-        <label class="form-label">사번 <span class="text-danger">*</span></label>
-        <div class="input-group">
-          <span class="input-group-text"><i class="bi bi-person-badge"></i></span>
-          <input type="text" name="employee_id" class="form-control"
-                 placeholder="사번 7자리 입력" autofocus maxlength="20">
-        </div>
+    <div class="skynet-notice">
+      <div class="icon"><i class="bi bi-shield-lock"></i></div>
+      <div class="title">Skynet 로그인이 필요합니다</div>
+      <div class="desc">
+        Skynet에 로그인한 후 다시 접속해 주세요.
       </div>
-      <button type="submit" class="btn btn-skynet-submit">
-        <i class="bi bi-shield-check me-1"></i> Skynet 인증
-      </button>
-    </form>
+    </div>
 
-    <div class="back-link">
-      <a href="{% url 'login' %}"><i class="bi bi-arrow-left me-1"></i>로그인 페이지로 돌아가기</a>
+    <!-- 관리자용 로그인 (접힌 상태) -->
+    <div class="divider-or">관리자 전용</div>
+    <div class="admin-toggle" data-bs-toggle="collapse" data-bs-target="#adminLoginForm">
+      <i class="bi bi-chevron-down me-1"></i>관리자 계정으로 로그인
+    </div>
+
+    <div class="collapse mt-3" id="adminLoginForm">
+      {% if error %}
+      <div class="error-box">
+        <i class="bi bi-exclamation-circle-fill"></i>
+        {{ error }}
+      </div>
+      {% endif %}
+      <form method="post">
+        {% csrf_token %}
+        <input type="hidden" name="login_type" value="admin">
+        <div class="mb-3">
+          <label class="form-label">아이디</label>
+          <div class="input-group">
+            <span class="input-group-text"><i class="bi bi-person"></i></span>
+            <input type="text" name="username" class="form-control" placeholder="아이디를 입력하세요" required>
+          </div>
+        </div>
+        <div class="mb-3">
+          <label class="form-label">비밀번호</label>
+          <div class="input-group">
+            <span class="input-group-text"><i class="bi bi-lock"></i></span>
+            <input type="password" name="password" class="form-control" placeholder="비밀번호를 입력하세요" required>
+          </div>
+        </div>
+        <button type="submit" class="btn btn-login">
+          <i class="bi bi-box-arrow-in-right me-1"></i> 로그인
+        </button>
+      </form>
     </div>
   </div>
+
+  <script src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.2/dist/js/bootstrap.bundle.min.js"></script>
+  {% if error %}
+  <script>
+    document.addEventListener('DOMContentLoaded', function() {
+      new bootstrap.Collapse(document.getElementById('adminLoginForm'), { show: true });
+    });
+  </script>
+  {% endif %}
 </body>
 </html>
