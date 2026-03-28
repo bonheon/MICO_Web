@@ -9,339 +9,490 @@
 
 {% block content %}
 <style>
+  /* ── 필터 카드 ── */
   .filter-card {
-    background: #fff;
-    border: 1px solid #e4e7ed;
-    border-radius: 12px;
-    padding: 1.25rem 1.5rem;
-    margin-bottom: 1.25rem;
+    background:#fff; border:1px solid #e4e7ed; border-radius:12px;
+    padding:1.1rem 1.25rem; margin-bottom:1.1rem;
   }
-  .filter-row {
-    display: grid;
-    grid-template-columns: 1fr 1fr 1fr auto;
-    gap: 1rem;
-    align-items: flex-end;
-  }
+  .filter-row { display:flex; gap:0.75rem; align-items:flex-end; flex-wrap:wrap; }
+  .filter-group { display:flex; flex-direction:column; gap:0.3rem; min-width:130px; }
   .filter-group label {
-    font-size: 0.72rem;
-    font-weight: 600;
-    text-transform: uppercase;
-    letter-spacing: 0.06em;
-    color: #8993a8;
-    display: block;
-    margin-bottom: 0.4rem;
+    font-size:0.69rem; font-weight:700; color:#8993a8;
+    text-transform:uppercase; letter-spacing:0.06em;
   }
   .filter-group select {
-    width: 100%;
-    border: 1px solid #e4e7ed;
-    border-radius: 8px;
-    padding: 0.5rem 0.85rem;
-    font-size: 0.85rem;
-    color: #344054;
-    background: #f8f9fc;
-    outline: none;
-    transition: border-color 0.15s;
-    cursor: pointer;
+    border:1px solid #e4e7ed; border-radius:8px;
+    padding:0.45rem 0.8rem; font-size:0.82rem; color:#344054;
+    background:#f8f9fc; outline:none; cursor:pointer; transition:border-color 0.15s;
+    min-width:150px;
   }
-  .filter-group select:focus { border-color: #4f8ef7; background: #fff; }
-  .filter-group select:disabled { opacity: 0.5; cursor: not-allowed; }
+  .filter-group select:focus  { border-color:#4f8ef7; background:#fff; }
+  .filter-group select:disabled { opacity:0.45; cursor:not-allowed; }
+  .btn-query {
+    padding:0.45rem 1.25rem; border-radius:8px; font-size:0.82rem; font-weight:600;
+    background:#4f8ef7; border:none; color:#fff; cursor:pointer; transition:background 0.15s;
+    white-space:nowrap;
+  }
+  .btn-query:hover { background:#3a7de0; }
+  .btn-reset-filter {
+    padding:0.45rem 0.9rem; border-radius:8px; font-size:0.82rem;
+    background:#f0f2f7; border:1px solid #e4e7ed; color:#8993a8; cursor:pointer;
+  }
+  .btn-reset-filter:hover { background:#e4e7ed; }
 
-  .chart-card {
-    background: #fff;
-    border: 1px solid #e4e7ed;
-    border-radius: 12px;
-    overflow: hidden;
+  /* ── Family 버튼 ── */
+  .fam-btns { display:flex; gap:0.35rem; }
+  .btn-fam {
+    padding:0.42rem 0.9rem; border-radius:8px; font-size:0.78rem; font-weight:600;
+    border:1px solid #e4e7ed; background:#f0f2f7; color:#344054;
+    cursor:pointer; transition:all 0.15s;
   }
-  .chart-header {
-    padding: 0.9rem 1.25rem;
-    border-bottom: 1px solid #e4e7ed;
-    display: flex;
-    align-items: center;
-    justify-content: space-between;
-  }
-  .chart-body { padding: 1.5rem; }
+  .btn-fam.active-all  { background:#4f8ef7; border-color:#4f8ef7; color:#fff; }
+  .btn-fam.active-nand { background:#eff6ff; border-color:#4f8ef7; color:#4f8ef7; }
+  .btn-fam.active-dram { background:#fff7ed; border-color:#f97316; color:#f97316; }
 
-  .empty-state {
-    padding: 5rem 1.5rem;
-    text-align: center;
-    color: #8993a8;
-  }
-  .empty-state i { font-size: 2.2rem; display: block; margin-bottom: 0.75rem; color: #c8d0e0; }
-  .empty-state .em-title { font-size: 0.9rem; font-weight: 600; color: #344054; margin-bottom: 0.3rem; }
-  .empty-state .em-sub   { font-size: 0.8rem; }
-
-  .notice-banner {
-    display: flex; align-items: flex-start; gap: 0.75rem;
-    background: #fffbeb; border: 1px solid #fde68a;
-    border-radius: 10px; padding: 0.9rem 1.1rem;
-    font-size: 0.82rem; color: #92400e;
-    margin-bottom: 1.25rem;
-  }
-  .notice-banner i { font-size: 1rem; flex-shrink: 0; margin-top: 1px; }
-
-  .chip {
-    border-radius: 999px; padding: 0.2em 0.75em;
-    font-weight: 500; font-size: 0.75rem;
-  }
-
-  .stat-row {
-    display: grid;
-    grid-template-columns: repeat(3, 1fr);
-    gap: 1rem;
-    margin-bottom: 1.25rem;
-  }
+  /* ── 요약 카드 ── */
+  .stat-bar { display:grid; grid-template-columns:repeat(3,1fr); gap:1rem; margin-bottom:1.1rem; }
   .stat-card {
-    background: #fff;
-    border: 1px solid #e4e7ed;
-    border-radius: 12px;
-    padding: 1rem 1.25rem;
+    background:#fff; border:1px solid #e4e7ed; border-radius:12px;
+    padding:0.9rem 1.1rem; display:flex; align-items:center; gap:0.8rem;
   }
-  .stat-label { font-size: 0.72rem; font-weight: 600; text-transform: uppercase; letter-spacing: 0.05em; color: #8993a8; margin-bottom: 0.3rem; }
-  .stat-value { font-size: 1.6rem; font-weight: 700; color: #1e2640; }
-  .stat-sub   { font-size: 0.75rem; color: #8993a8; margin-top: 0.1rem; }
+  .stat-icon {
+    width:38px; height:38px; border-radius:10px; flex-shrink:0;
+    display:flex; align-items:center; justify-content:center; font-size:1rem;
+  }
+  .stat-label { font-size:0.68rem; font-weight:700; color:#8993a8; text-transform:uppercase; letter-spacing:0.05em; }
+  .stat-value { font-size:1.35rem; font-weight:700; color:#1e2640; line-height:1.2; }
+  .stat-sub   { font-size:0.73rem; color:#8993a8; }
+
+  /* ── 차트 카드 ── */
+  .chart-card {
+    background:#fff; border:1px solid #e4e7ed; border-radius:12px; overflow:hidden;
+    margin-bottom:1.1rem;
+  }
+  .chart-hdr {
+    padding:0.8rem 1.25rem; border-bottom:1px solid #e4e7ed;
+    display:flex; align-items:center; justify-content:space-between;
+  }
+  .chart-title { font-size:0.87rem; font-weight:700; color:#1e2640; }
+  .chart-sub   { font-size:0.73rem; color:#8993a8; margin-top:2px; }
+  .chart-body  { padding:1.25rem 1.5rem; }
+
+  /* ── 테이블 ── */
+  .data-table { width:100%; border-collapse:collapse; font-size:0.8rem; }
+  .data-table th {
+    background:#f8f9fc; padding:0.5rem 0.8rem;
+    font-size:0.68rem; font-weight:700; color:#8993a8;
+    text-transform:uppercase; letter-spacing:0.05em;
+    border-bottom:2px solid #e4e7ed; text-align:center;
+  }
+  .data-table th:first-child { text-align:left; }
+  .data-table td {
+    padding:0.5rem 0.8rem; border-bottom:1px solid #f0f2f7;
+    text-align:center; color:#344054;
+  }
+  .data-table td:first-child { text-align:left; font-weight:600; color:#1e2640; }
+  .data-table tr:last-child td { border-bottom:none; }
+  .data-table tr:hover td { background:#f8f9fc; }
+  .td-total { font-weight:700; color:#4f8ef7 !important; }
+
+  /* ── 빈 화면 ── */
+  .empty-state {
+    padding:5rem 1.5rem; text-align:center; color:#8993a8;
+  }
+  .empty-state i { font-size:2.2rem; display:block; margin-bottom:0.75rem; color:#c8d0e0; }
+  .empty-state .em-title { font-size:0.9rem; font-weight:600; color:#344054; margin-bottom:0.3rem; }
+  .empty-state .em-sub   { font-size:0.8rem; }
+
+  /* ── 범례 도트 ── */
+  .legend-dot {
+    display:inline-block; width:10px; height:10px; border-radius:50%; margin-right:4px;
+  }
 </style>
 
 <div class="d-flex align-items-center justify-content-between mb-3">
   <div>
     <h5 class="fw-bold mb-0" style="color:#1e2640;">APC 수정건수</h5>
-    <small class="text-muted">공정별 APC 수정 이력 현황</small>
+    <small class="text-muted">공정/장비별 APC 파라미터 수정 이력 Trend</small>
   </div>
 </div>
 
-<!-- DB 연동 안내 -->
-<div class="notice-banner">
-  <i class="bi bi-info-circle-fill" style="color:#d97706;"></i>
-  <div>
-    <strong>DB 연동 준비 중</strong><br>
-    현재 사내 DB가 연결되지 않아 샘플 데이터가 표시됩니다.
-    DB 연동 후 필터 조회 시 실제 APC 수정건수 데이터가 차트에 반영됩니다.
-  </div>
-</div>
-
-<!-- 필터 -->
+<!-- ── 필터 ── -->
 <div class="filter-card">
-  <form method="get" action="{% url 'apc_history' %}">
-    <div class="filter-row">
-      <div class="filter-group">
-        <label><i class="bi bi-cpu me-1"></i>Product</label>
-        <select name="product" id="sel-product" {% if not product_list %}disabled{% endif %}>
-          <option value="">— 전체 —</option>
-          {% for p in product_list %}
-          <option value="{{ p }}" {% if p == product %}selected{% endif %}>{{ p }}</option>
-          {% empty %}
-          <option value="" disabled>DB 연동 후 사용 가능</option>
-          {% endfor %}
-        </select>
-      </div>
-      <div class="filter-group">
-        <label><i class="bi bi-layers me-1"></i>Device</label>
-        <select name="device" id="sel-device" {% if not device_list %}disabled{% endif %}>
-          <option value="">— 전체 —</option>
-          {% for d in device_list %}
-          <option value="{{ d }}" {% if d == device %}selected{% endif %}>{{ d }}</option>
-          {% empty %}
-          <option value="" disabled>DB 연동 후 사용 가능</option>
-          {% endfor %}
-        </select>
-      </div>
-      <div class="filter-group">
-        <label><i class="bi bi-gear me-1"></i>공정 (Oper ID)</label>
-        <select name="process" id="sel-process" {% if not process_list %}disabled{% endif %}>
-          <option value="">— 전체 —</option>
-          {% for pr in process_list %}
-          <option value="{{ pr }}" {% if pr == process %}selected{% endif %}>{{ pr }}</option>
-          {% empty %}
-          <option value="" disabled>DB 연동 후 사용 가능</option>
-          {% endfor %}
-        </select>
-      </div>
-      <div>
-        <button type="submit" class="btn btn-primary w-100" style="border-radius:8px; padding:0.5rem 1.25rem;"
-          {% if not product_list and not device_list and not process_list %}disabled{% endif %}>
-          <i class="bi bi-search me-1"></i> 조회
-        </button>
+  <div class="filter-row">
+    <!-- Family 버튼 -->
+    <div class="filter-group">
+      <label>Family</label>
+      <div class="fam-btns">
+        <button class="btn-fam active-all" id="btn-all" onclick="selectFamily('all')">전체</button>
+        <button class="btn-fam" id="btn-nand" onclick="selectFamily('NAND')">NAND</button>
+        <button class="btn-fam" id="btn-dram" onclick="selectFamily('DRAM')">DRAM</button>
       </div>
     </div>
-  </form>
+
+    <!-- Product -->
+    <div class="filter-group">
+      <label>Product</label>
+      <select id="sel-product" onchange="onProductChange()">
+        <option value="">— 선택 —</option>
+      </select>
+    </div>
+
+    <!-- Device -->
+    <div class="filter-group">
+      <label>Device</label>
+      <select id="sel-device" disabled onchange="onDeviceChange()">
+        <option value="">— 선택 —</option>
+      </select>
+    </div>
+
+    <!-- Oper Desc -->
+    <div class="filter-group">
+      <label>Oper Desc</label>
+      <select id="sel-oper" disabled>
+        <option value="">전체</option>
+      </select>
+    </div>
+
+    <button class="btn-query" onclick="queryChart()"><i class="bi bi-search me-1"></i>조회</button>
+    <button class="btn-reset-filter" onclick="resetAll()"><i class="bi bi-x-circle me-1"></i>초기화</button>
+  </div>
 </div>
 
-{% if queried and chart_json == 'null' %}
-<!-- 조회했지만 DB 미연결 → 샘플 차트 표시 -->
-
-<!-- 요약 통계 (샘플) -->
-<div class="stat-row">
+<!-- ── 요약 카드 (조회 후 표시) ── -->
+<div class="stat-bar" id="stat-bar" style="display:none;">
   <div class="stat-card">
-    <div class="stat-label">총 수정건수</div>
-    <div class="stat-value">—</div>
-    <div class="stat-sub">DB 연동 후 표시</div>
-  </div>
-  <div class="stat-card">
-    <div class="stat-label">월 평균 수정</div>
-    <div class="stat-value">—</div>
-    <div class="stat-sub">DB 연동 후 표시</div>
-  </div>
-  <div class="stat-card">
-    <div class="stat-label">최다 수정 공정</div>
-    <div class="stat-value" style="font-size:1rem;">—</div>
-    <div class="stat-sub">DB 연동 후 표시</div>
-  </div>
-</div>
-
-<!-- Bar Chart (샘플) -->
-<div class="chart-card">
-  <div class="chart-header">
+    <div class="stat-icon" style="background:#eff6ff;"><i class="bi bi-bar-chart-fill" style="color:#4f8ef7;"></i></div>
     <div>
-      <span class="fw-bold" style="font-size:0.875rem; color:#1e2640;">월별 APC 수정건수</span>
-      <div style="font-size:0.75rem; color:#8993a8; margin-top:2px;">
-        {% if product %}Product: <strong>{{ product }}</strong>{% endif %}
-        {% if device %}&nbsp;·&nbsp;Device: <strong>{{ device }}</strong>{% endif %}
-        {% if process %}&nbsp;·&nbsp;Oper: <strong>{{ process }}</strong>{% endif %}
-      </div>
-    </div>
-    <span class="chip" style="background:#fff7ed; color:#f97316;">
-      <i class="bi bi-exclamation-circle me-1"></i>Sample
-    </span>
-  </div>
-  <div class="chart-body">
-    <div style="position:relative; height:320px;">
-      <canvas id="chart-apc-monthly"></canvas>
+      <div class="stat-label">총 수정건수</div>
+      <div class="stat-value" id="stat-total">—</div>
+      <div class="stat-sub" id="stat-period">—</div>
     </div>
   </div>
-</div>
-
-<!-- 공정별 Bar Chart (샘플) -->
-<div class="chart-card mt-3">
-  <div class="chart-header">
+  <div class="stat-card">
+    <div class="stat-icon" style="background:#f0fdf4;"><i class="bi bi-calendar-check" style="color:#22c55e;"></i></div>
     <div>
-      <span class="fw-bold" style="font-size:0.875rem; color:#1e2640;">공정별 APC 수정건수 비교</span>
-      <div style="font-size:0.75rem; color:#8993a8; margin-top:2px;">누적 기준</div>
+      <div class="stat-label">최다 수정 월</div>
+      <div class="stat-value" id="stat-peak-month" style="font-size:1rem;">—</div>
+      <div class="stat-sub" id="stat-peak-val">—</div>
     </div>
-    <span class="chip" style="background:#fff7ed; color:#f97316;">
-      <i class="bi bi-exclamation-circle me-1"></i>Sample
-    </span>
   </div>
-  <div class="chart-body">
-    <div style="position:relative; height:280px;">
-      <canvas id="chart-apc-process"></canvas>
+  <div class="stat-card">
+    <div class="stat-icon" style="background:#fdf4ff;"><i class="bi bi-graph-up" style="color:#a855f7;"></i></div>
+    <div>
+      <div class="stat-label">월 평균</div>
+      <div class="stat-value" id="stat-avg">—</div>
+      <div class="stat-sub">건 / 월</div>
     </div>
   </div>
 </div>
 
-{% elif not queried %}
-<!-- 미조회 상태 -->
-<div class="chart-card">
-  <div class="empty-state">
+<!-- ── 차트 카드 ── -->
+<div class="chart-card" id="chart-card">
+  <div id="empty-state" class="empty-state">
     <i class="bi bi-bar-chart-line"></i>
-    <div class="em-title">조회 조건을 입력하세요</div>
-    <div class="em-sub">Product · Device · 공정을 입력하고 조회 버튼을 누르면<br>APC 수정건수 차트가 표시됩니다</div>
+    <div class="em-title">조회 조건을 선택하세요</div>
+    <div class="em-sub">Family → Product → Device 순서로 선택 후 조회하면<br>APC 수정건수 Trend 차트가 표시됩니다</div>
   </div>
-</div>
-
-{% else %}
-<!-- DB 연동 후 실제 데이터 표시 영역 -->
-<div class="stat-row" id="stat-row"></div>
-<div class="chart-card">
-  <div class="chart-header">
-    <span class="fw-bold" style="font-size:0.875rem; color:#1e2640;">월별 APC 수정건수</span>
-  </div>
-  <div class="chart-body">
-    <div style="position:relative; height:320px;">
-      <canvas id="chart-apc-real"></canvas>
+  <div id="chart-area" style="display:none;">
+    <div class="chart-hdr">
+      <div>
+        <div class="chart-title" id="chart-title">APC 수정건수 Trend</div>
+        <div class="chart-sub" id="chart-sub"></div>
+      </div>
+      <div id="chart-legend" style="display:flex;gap:0.75rem;flex-wrap:wrap;font-size:0.75rem;color:#344054;"></div>
+    </div>
+    <div class="chart-body">
+      <div style="position:relative;height:320px;">
+        <canvas id="chart-main"></canvas>
+      </div>
     </div>
   </div>
 </div>
-{% endif %}
+
+<!-- ── 데이터 테이블 ── -->
+<div class="chart-card" id="table-card" style="display:none;">
+  <div class="chart-hdr">
+    <div class="chart-title">월별 수정건수 상세</div>
+  </div>
+  <div class="chart-body" style="padding:0;">
+    <div style="overflow-x:auto;">
+      <table class="data-table" id="data-table"></table>
+    </div>
+  </div>
+</div>
 
 {% endblock %}
 
 {% block scripts %}
 <script>
-const commonOpts = {
-  responsive: true,
-  maintainAspectRatio: false,
-  plugins: {
-    legend: { position: 'bottom', labels: { font: { size: 11 }, boxWidth: 12 } },
-  },
-  scales: {
-    x: { grid: { display: false }, ticks: { font: { size: 11 } } },
-    y: {
-      grid: { color: '#f0f2f7' },
-      ticks: { font: { size: 11 } },
-      beginAtZero: true,
-    },
-  },
-};
+const RAW       = {{ raw_data_json|safe }};
+const PRODS_BY_FAM  = {{ products_by_family_json|safe }};
+const DEVS_BY_PROD  = {{ devices_by_product_json|safe }};
+const OPERS_BY_DEV  = {{ opers_by_device_json|safe }};
 
-{% if queried and chart_json == 'null' %}
-/* ── 샘플 차트 ── */
-const MONTHS = ['Jan','Feb','Mar','Apr','May','Jun','Jul','Aug','Sep','Oct','Nov','Dec'];
-function rand(n, base, range) {
-  return Array.from({length: n}, () => Math.round(base + (Math.random()-0.5)*range*2));
+const COLORS = ['#4f8ef7','#f97316','#22c55e','#a855f7','#ef4444','#14b8a6','#f59e0b','#6366f1'];
+
+let selFamily  = 'all';
+let chartInst  = null;
+
+/* ── Family 선택 ── */
+function selectFamily(fam) {
+  selFamily = fam;
+  ['all','nand','dram'].forEach(f => {
+    document.getElementById('btn-' + f).className = 'btn-fam';
+  });
+  const key = fam === 'all' ? 'all' : fam.toLowerCase();
+  document.getElementById('btn-' + key).classList.add('active-' + key);
+
+  // Product 드롭다운 갱신
+  const sel = document.getElementById('sel-product');
+  sel.innerHTML = '<option value="">— 선택 —</option>';
+  let products = [];
+  if (fam === 'all') {
+    products = [...new Set(Object.values(PRODS_BY_FAM).flat())].sort();
+  } else {
+    products = PRODS_BY_FAM[fam] || [];
+  }
+  products.forEach(p => {
+    sel.innerHTML += `<option value="${p}">${p}</option>`;
+  });
+
+  // Device / Oper 초기화
+  resetSelect('sel-device');
+  resetSelect('sel-oper');
 }
 
-new Chart(document.getElementById('chart-apc-monthly'), {
-  type: 'bar',
-  data: {
-    labels: MONTHS,
-    datasets: [
-      {
-        label: 'APC 수정건수',
-        data: rand(12, 30, 20),
-        backgroundColor: 'rgba(79,142,247,0.75)',
-        borderRadius: 5,
-        borderSkipped: false,
-      },
-      {
-        label: '목표 수정건수',
-        data: Array(12).fill(25),
-        type: 'line',
-        borderColor: '#f97316',
-        borderDash: [6, 3],
-        pointRadius: 0,
-        tension: 0,
-        borderWidth: 2,
-      },
-    ],
-  },
-  options: { ...commonOpts },
-});
+function resetSelect(id, placeholder='— 선택 —') {
+  const el = document.getElementById(id);
+  el.innerHTML = `<option value="">${placeholder}</option>`;
+  el.disabled = true;
+}
 
-const PROCESSES = ['A908740A','B123456B','C234567C','D345678D','E456789E'];
-new Chart(document.getElementById('chart-apc-process'), {
-  type: 'bar',
-  data: {
-    labels: PROCESSES,
-    datasets: [
-      {
-        label: '수정건수',
-        data: rand(5, 80, 50),
-        backgroundColor: [
-          'rgba(79,142,247,0.75)',
-          'rgba(34,197,94,0.75)',
-          'rgba(168,85,247,0.75)',
-          'rgba(249,115,22,0.75)',
-          'rgba(239,68,68,0.75)',
-        ],
-        borderRadius: 5,
-        borderSkipped: false,
-      },
-    ],
-  },
-  options: {
-    ...commonOpts,
-    indexAxis: 'y',
-    plugins: { legend: { display: false } },
-  },
-});
+function onProductChange() {
+  const prod = document.getElementById('sel-product').value;
+  resetSelect('sel-device');
+  resetSelect('sel-oper');
+  if (!prod) return;
 
-{% elif chart_json != 'null' %}
-/* ── 실제 DB 데이터 ── */
-const chartData = {{ chart_json|safe }};
-new Chart(document.getElementById('chart-apc-real'), {
-  type: 'bar',
-  data: chartData,
-  options: { ...commonOpts },
-});
-{% endif %}
+  const devSel = document.getElementById('sel-device');
+  devSel.disabled = false;
+
+  let devs = [];
+  if (selFamily === 'all') {
+    // 모든 family에서 해당 product의 device 수집
+    Object.keys(DEVS_BY_PROD).forEach(k => {
+      if (k.endsWith('||' + prod)) devs.push(...DEVS_BY_PROD[k]);
+    });
+    devs = [...new Set(devs)].sort();
+  } else {
+    devs = DEVS_BY_PROD[`${selFamily}||${prod}`] || [];
+  }
+  devs.forEach(d => {
+    devSel.innerHTML += `<option value="${d}">${d}</option>`;
+  });
+}
+
+function onDeviceChange() {
+  const prod = document.getElementById('sel-product').value;
+  const dev  = document.getElementById('sel-device').value;
+  resetSelect('sel-oper', '전체');
+  if (!prod || !dev) return;
+
+  const operSel = document.getElementById('sel-oper');
+  operSel.disabled = false;
+
+  let opers = [];
+  if (selFamily === 'all') {
+    Object.keys(OPERS_BY_DEV).forEach(k => {
+      const parts = k.split('||');
+      if (parts[1] === prod && parts[2] === dev) opers.push(...OPERS_BY_DEV[k]);
+    });
+    opers = [...new Set(opers)].sort();
+  } else {
+    opers = OPERS_BY_DEV[`${selFamily}||${prod}||${dev}`] || [];
+  }
+  opers.forEach(o => {
+    operSel.innerHTML += `<option value="${o}">${o}</option>`;
+  });
+}
+
+/* ── 조회 ── */
+function queryChart() {
+  const prod = document.getElementById('sel-product').value;
+  const dev  = document.getElementById('sel-device').value;
+  const oper = document.getElementById('sel-oper').value;
+
+  if (!prod || !dev) {
+    alert('Product와 Device를 선택해 주세요.');
+    return;
+  }
+
+  // 필터링
+  let filtered = RAW.filter(r => {
+    const famOk  = selFamily === 'all' || r.Family === selFamily;
+    const prodOk = r.Product === prod;
+    const devOk  = r.Device === dev;
+    const operOk = !oper || r.Oper_Desc === oper;
+    return famOk && prodOk && devOk && operOk;
+  });
+
+  if (!filtered.length) {
+    alert('해당 조건의 데이터가 없습니다.');
+    return;
+  }
+
+  // 월 목록 (정렬)
+  const months = [...new Set(filtered.map(r => r.Year_Month))].sort();
+
+  // Oper별 데이터셋 구성
+  const opers = [...new Set(filtered.map(r => r.Oper_Desc))].sort();
+
+  const datasets = opers.map((o, i) => {
+    const data = months.map(m => {
+      const rows = filtered.filter(r => r.Oper_Desc === o && r.Year_Month === m);
+      return rows.length ? rows.reduce((s, r) => s + r.count, 0) : null;
+    });
+    return {
+      label: o,
+      data,
+      borderColor: COLORS[i % COLORS.length],
+      backgroundColor: COLORS[i % COLORS.length] + '22',
+      tension: 0.35,
+      pointRadius: 5,
+      pointHoverRadius: 7,
+      borderWidth: 2.5,
+      spanGaps: true,
+      fill: false,
+    };
+  });
+
+  // 요약 통계
+  const allCounts = filtered.map(r => r.count);
+  const total     = allCounts.reduce((s, v) => s + v, 0);
+  const avgVal    = Math.round(total / months.length * 10) / 10;
+
+  // 월별 합산 → 최다 월
+  const monthTotals = months.map(m =>
+    filtered.filter(r => r.Year_Month === m).reduce((s, r) => s + r.count, 0)
+  );
+  const peakIdx = monthTotals.indexOf(Math.max(...monthTotals));
+
+  // 요약 카드 표시
+  document.getElementById('stat-total').textContent = total.toLocaleString() + '건';
+  document.getElementById('stat-period').textContent = `${months[0]} ~ ${months[months.length - 1]}`;
+  document.getElementById('stat-peak-month').textContent = months[peakIdx];
+  document.getElementById('stat-peak-val').textContent = monthTotals[peakIdx] + '건';
+  document.getElementById('stat-avg').textContent = avgVal;
+  document.getElementById('stat-bar').style.display = '';
+
+  // 차트 제목
+  const famLabel = selFamily === 'all' ? '' : `[${selFamily}] `;
+  document.getElementById('chart-title').textContent = `${famLabel}${prod} / ${dev} — APC 수정건수 Trend`;
+  document.getElementById('chart-sub').textContent = oper ? `Oper: ${oper}` : `Oper Desc ${opers.length}개`;
+
+  // 범례
+  const legendEl = document.getElementById('chart-legend');
+  legendEl.innerHTML = opers.map((o, i) =>
+    `<span><span class="legend-dot" style="background:${COLORS[i % COLORS.length]};"></span>${o}</span>`
+  ).join('');
+
+  // 차트 렌더
+  document.getElementById('empty-state').style.display = 'none';
+  document.getElementById('chart-area').style.display = '';
+
+  if (chartInst) { chartInst.destroy(); chartInst = null; }
+  chartInst = new Chart(document.getElementById('chart-main'), {
+    type: 'line',
+    data: { labels: months, datasets },
+    options: {
+      responsive: true,
+      maintainAspectRatio: false,
+      interaction: { mode: 'index', intersect: false },
+      plugins: {
+        legend: { display: false },
+        tooltip: {
+          backgroundColor: '#1e2640',
+          padding: 10,
+          callbacks: {
+            label: ctx => ` ${ctx.dataset.label}: ${ctx.parsed.y !== null ? ctx.parsed.y + '건' : '—'}`,
+          },
+        },
+      },
+      scales: {
+        x: {
+          grid: { display: false },
+          ticks: { font: { size: 11 }, color: '#8993a8' },
+        },
+        y: {
+          grid: { color: '#f0f2f7' },
+          ticks: { font: { size: 11 }, color: '#8993a8', callback: v => v + '건' },
+          beginAtZero: true,
+        },
+      },
+    },
+  });
+
+  // 테이블 렌더
+  renderTable(months, opers, filtered);
+  document.getElementById('table-card').style.display = '';
+}
+
+function renderTable(months, opers, filtered) {
+  let html = '<thead><tr><th>Oper Desc</th>';
+  months.forEach(m => { html += `<th>${m}</th>`; });
+  html += '<th>합계</th></tr></thead><tbody>';
+
+  opers.forEach(o => {
+    const rowData = months.map(m => {
+      const rows = filtered.filter(r => r.Oper_Desc === o && r.Year_Month === m);
+      return rows.length ? rows.reduce((s, r) => s + r.count, 0) : null;
+    });
+    const rowTotal = rowData.reduce((s, v) => s + (v || 0), 0);
+    html += `<tr><td>${o}</td>`;
+    rowData.forEach(v => { html += `<td>${v !== null ? v : '—'}</td>`; });
+    html += `<td class="td-total">${rowTotal}</td></tr>`;
+  });
+
+  // 월별 합계 행
+  html += '<tr style="background:#f8f9fc;font-weight:700;"><td style="color:#8993a8;">합계</td>';
+  months.forEach(m => {
+    const sum = filtered.filter(r => r.Year_Month === m).reduce((s, r) => s + r.count, 0);
+    html += `<td class="td-total">${sum}</td>`;
+  });
+  const grandTotal = filtered.reduce((s, r) => s + r.count, 0);
+  html += `<td class="td-total">${grandTotal}</td></tr>`;
+
+  html += '</tbody>';
+  document.getElementById('data-table').innerHTML = html;
+}
+
+function resetAll() {
+  selFamily = 'all';
+  ['all','nand','dram'].forEach(f => document.getElementById('btn-' + f).className = 'btn-fam');
+  document.getElementById('btn-all').classList.add('active-all');
+
+  document.getElementById('sel-product').innerHTML = '<option value="">— 선택 —</option>';
+  // 전체 product 다시 채우기
+  const allProds = [...new Set(Object.values(PRODS_BY_FAM).flat())].sort();
+  allProds.forEach(p => {
+    document.getElementById('sel-product').innerHTML += `<option value="${p}">${p}</option>`;
+  });
+  resetSelect('sel-device');
+  resetSelect('sel-oper', '전체');
+
+  document.getElementById('stat-bar').style.display = 'none';
+  document.getElementById('empty-state').style.display = '';
+  document.getElementById('chart-area').style.display = 'none';
+  document.getElementById('table-card').style.display = 'none';
+  if (chartInst) { chartInst.destroy(); chartInst = null; }
+}
+
+/* ── 초기화: 전체 product 로드 ── */
+(function init() {
+  const allProds = [...new Set(Object.values(PRODS_BY_FAM).flat())].sort();
+  const sel = document.getElementById('sel-product');
+  allProds.forEach(p => { sel.innerHTML += `<option value="${p}">${p}</option>`; });
+})();
 </script>
 {% endblock %}

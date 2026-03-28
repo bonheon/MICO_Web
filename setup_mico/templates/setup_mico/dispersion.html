@@ -9,330 +9,516 @@
 
 {% block content %}
 <style>
-  .filter-card {
-    background: #fff;
-    border: 1px solid #e4e7ed;
-    border-radius: 12px;
-    padding: 1.25rem 1.5rem;
-    margin-bottom: 1.25rem;
+  /* ── 요약 카드 ── */
+  .summary-bar {
+    display: grid; grid-template-columns: repeat(3,1fr); gap:1rem; margin-bottom:1.25rem;
   }
-  .filter-row {
+  .sum-card {
+    background:#fff; border:1px solid #e4e7ed; border-radius:12px;
+    padding:1rem 1.25rem; display:flex; align-items:center; gap:0.9rem;
+  }
+  .sum-icon {
+    width:40px; height:40px; border-radius:10px;
+    display:flex; align-items:center; justify-content:center; font-size:1.1rem; flex-shrink:0;
+  }
+  .sum-label { font-size:0.72rem; color:#8993a8; font-weight:600; text-transform:uppercase; letter-spacing:0.05em; }
+  .sum-value { font-size:1.3rem; font-weight:700; color:#1e2640; line-height:1.2; }
+
+  /* ── 그리드 공통 ──
+     cols: Product(0.85fr) | Oper Desc(2fr) | 13P(0.9fr) | ED(0.9fr) | EX(0.9fr) | 장비적용(0.85fr) | Wafer%(1.3fr) | Base/MICO(1.1fr) | Actions(1.2fr)
+  */
+  .ROW {
     display: grid;
-    grid-template-columns: 1fr 1fr 1fr auto;
-    gap: 1rem;
-    align-items: flex-end;
+    grid-template-columns: 0.85fr 2fr 0.9fr 0.9fr 0.9fr 0.85fr 1.3fr 1.1fr 1.2fr;
+    align-items: center;
   }
-  .filter-group label {
-    font-size: 0.72rem; font-weight: 600;
-    text-transform: uppercase; letter-spacing: 0.06em;
-    color: #8993a8; display: block; margin-bottom: 0.4rem;
-  }
-  .filter-group select {
-    width: 100%;
-    border: 1px solid #e4e7ed; border-radius: 8px;
-    padding: 0.5rem 0.85rem; font-size: 0.85rem;
-    color: #344054; background: #f8f9fc;
-    outline: none; cursor: pointer; transition: border-color 0.15s;
-  }
-  .filter-group select:focus { border-color: #4f8ef7; background: #fff; }
-  .filter-group select:disabled { opacity: 0.5; cursor: not-allowed; }
 
-  .chart-card {
-    background: #fff; border: 1px solid #e4e7ed;
-    border-radius: 12px; overflow: hidden;
+  /* ── 테이블 헤더 ── */
+  .tbl-hdr {
+    background:#f8f9fc; border:1px solid #e4e7ed; border-radius:10px 10px 0 0;
+    padding:0.5rem 1.1rem;
+    font-size:0.69rem; font-weight:700; color:#8993a8; text-transform:uppercase; letter-spacing:0.05em;
   }
-  .chart-header {
-    padding: 0.9rem 1.25rem; border-bottom: 1px solid #e4e7ed;
-    display: flex; align-items: center; justify-content: space-between;
+  .tbl-hdr .imp-group {
+    display:grid; grid-template-columns:1fr 1fr 1fr; gap:0;
+    text-align:center;
   }
-  .chart-body { padding: 1.5rem; }
 
-  .stat-row {
-    display: grid; grid-template-columns: repeat(4, 1fr);
-    gap: 1rem; margin-bottom: 1.25rem;
+  /* ── 그룹 카드 ── */
+  .group-card {
+    background:#fff; border:1px solid #e4e7ed;
+    border-top:none; overflow:hidden;
   }
-  .stat-card {
-    background: #fff; border: 1px solid #e4e7ed;
-    border-radius: 12px; padding: 1rem 1.25rem;
-  }
-  .stat-label { font-size: 0.72rem; font-weight: 600; text-transform: uppercase; letter-spacing: 0.05em; color: #8993a8; margin-bottom: 0.3rem; }
-  .stat-value { font-size: 1.5rem; font-weight: 700; color: #1e2640; }
-  .stat-sub   { font-size: 0.75rem; color: #8993a8; margin-top: 0.1rem; }
-  .stat-badge { font-size: 0.72rem; font-weight: 600; border-radius: 999px; padding: 0.15em 0.6em; }
+  .group-card:last-child { border-radius:0 0 10px 10px; }
 
-  .empty-state {
-    padding: 5rem 1.5rem; text-align: center; color: #8993a8;
+  /* ── 그룹 헤더 행 ── */
+  .group-hdr {
+    padding:0.7rem 1.1rem;
+    border-bottom:1px solid transparent;
+    transition:background 0.1s;
   }
-  .empty-state i { font-size: 2.2rem; display: block; margin-bottom: 0.75rem; color: #c8d0e0; }
-  .empty-state .em-title { font-size: 0.9rem; font-weight: 600; color: #344054; margin-bottom: 0.3rem; }
-  .empty-state .em-sub   { font-size: 0.8rem; }
+  .group-hdr:hover { background:#f8f9fc; }
 
-  .notice-banner {
-    display: flex; align-items: flex-start; gap: 0.75rem;
-    background: #fffbeb; border: 1px solid #fde68a;
-    border-radius: 10px; padding: 0.9rem 1.1rem;
-    font-size: 0.82rem; color: #92400e; margin-bottom: 1.25rem;
+  /* ── 산포 개선율 셀 ── */
+  .imp-group-cell {
+    display:grid; grid-template-columns:1fr 1fr 1fr; gap:0; text-align:center;
   }
-  .notice-banner i { font-size: 1rem; flex-shrink: 0; margin-top: 1px; }
-  .chip { border-radius: 999px; padding: 0.2em 0.75em; font-weight: 500; font-size: 0.75rem; }
+  .imp-item { display:flex; flex-direction:column; align-items:center; gap:1px; }
+  .imp-lbl  { font-size:0.62rem; color:#c8d0e0; font-weight:600; letter-spacing:0.03em; }
+  .imp-num     { font-size:0.88rem; font-weight:700; color:#22c55e; }
+  .imp-num.neg { color:#ef4444; }
+  .imp-num.na  { color:#c8d0e0; font-size:0.78rem; }
 
-  .two-col { display: grid; grid-template-columns: 1fr 1fr; gap: 1rem; margin-top: 1rem; }
+  /* ── 배지 ── */
+  .product-badge {
+    display:inline-block; padding:0.2em 0.65em; border-radius:999px;
+    font-size:0.72rem; font-weight:700;
+  }
+  .badge-lc { background:#eff6ff; color:#4f8ef7; }
+  .badge-op { background:#fdf4ff; color:#a855f7; }
+  .badge-cl { background:#f0fdf4; color:#22c55e; }
+  .badge-default { background:#f0f2f7; color:#8993a8; }
+
+  .family-badge {
+    display:inline-block; padding:0.18em 0.55em; border-radius:999px;
+    font-size:0.67rem; font-weight:700; letter-spacing:0.02em;
+  }
+  .family-nand { background:#eff6ff; color:#4f8ef7; }
+  .family-dram { background:#fff7ed; color:#f97316; }
+
+  /* ── 필터 바 ── */
+  .filter-bar {
+    display:flex; align-items:center; gap:0.75rem; flex-wrap:wrap;
+    background:#fff; border:1px solid #e4e7ed; border-radius:10px;
+    padding:0.65rem 1rem; margin-bottom:0.9rem;
+  }
+  .filter-bar .fam-btns { display:flex; gap:0.35rem; flex-shrink:0; }
+  .btn-fam {
+    padding:4px 12px; border-radius:6px; font-size:0.75rem; font-weight:600;
+    border:1px solid #e4e7ed; background:#f0f2f7; color:#344054;
+    cursor:pointer; transition:all 0.15s;
+  }
+  .btn-fam.active       { background:#4f8ef7; border-color:#4f8ef7; color:#fff; }
+  .btn-fam.active-nand  { background:#eff6ff; border-color:#4f8ef7; color:#4f8ef7; }
+  .btn-fam.active-dram  { background:#fff7ed; border-color:#f97316; color:#f97316; }
+  .filter-sep { width:1px; height:20px; background:#e4e7ed; flex-shrink:0; }
+  .filter-input {
+    padding:4px 10px; border:1px solid #e4e7ed; border-radius:6px;
+    font-size:0.8rem; color:#344054; outline:none; width:160px;
+  }
+  .filter-input:focus { border-color:#4f8ef7; }
+  .btn-reset {
+    padding:4px 10px; border-radius:6px; font-size:0.75rem; font-weight:500;
+    border:1px solid #e4e7ed; background:#fff; color:#8993a8;
+    cursor:pointer; transition:all 0.15s;
+  }
+  .btn-reset:hover { background:#f0f2f7; }
+
+  .applied-badge {
+    display:inline-flex; align-items:center; gap:3px;
+    padding:0.2em 0.6em; border-radius:999px; font-size:0.7rem; font-weight:600;
+  }
+  .badge-applied   { background:#f0fdf4; color:#22c55e; }
+  .badge-partial   { background:#fef9c3; color:#ca8a04; }
+  .badge-unapplied { background:#fff1f2; color:#ef4444; }
+
+  /* ── Wafer 바 ── */
+  .wafer-bar-wrap { display:flex; align-items:center; gap:0.4rem; min-width:0; overflow:hidden; }
+  .wafer-bar { width:65px; flex-shrink:0; height:5px; background:#e4e7ed; border-radius:999px; overflow:hidden; }
+  .wafer-fill { height:100%; background:#4f8ef7; border-radius:999px; }
+
+  /* ── 버튼 ── */
+  .btn-expand {
+    padding:3px 9px; border-radius:6px; font-size:0.73rem; font-weight:500;
+    border:1px solid #e4e7ed; background:#f0f2f7; color:#344054;
+    cursor:pointer; white-space:nowrap; transition:all 0.15s;
+  }
+  .btn-expand:hover { background:#e4e7ed; }
+  .btn-expand.open  { background:#4f8ef7; border-color:#4f8ef7; color:#fff; }
+  .btn-chart {
+    padding:3px 8px; border-radius:6px; font-size:0.73rem;
+    border:1px solid #e4e7ed; background:#fff; color:#8993a8;
+    cursor:pointer; transition:all 0.15s; margin-right:3px;
+  }
+  .btn-chart:hover { border-color:#4f8ef7; color:#4f8ef7; }
+  .btn-chart.open  { background:#eff6ff; border-color:#4f8ef7; color:#4f8ef7; }
+
+  /* ── Device 행 ── */
+  .device-panel { border-top:1px solid #e4e7ed; background:#fafbfc; }
+  .device-row {
+    padding:0.55rem 1.1rem;
+    border-bottom:1px solid #f0f2f7;
+  }
+  .device-row:hover { background:#f3f4f8; }
+
+  /* ── Equipment 패널 ──
+     cols: 상태(0.6fr) | 장비(1.4fr) | 13P(1.2fr) | ED(1.2fr) | EX(1.2fr) | BASE(0.7fr) | MICO(0.7fr) | Portion(0.6fr)
+  */
+  .EQP-ROW {
+    display:grid;
+    grid-template-columns: 0.6fr 1.4fr 1.2fr 1.2fr 1.2fr 0.7fr 0.7fr 0.6fr;
+    align-items:center;
+  }
+  .eqp-panel { background:#f3f5fb; }
+  .eqp-hdr {
+    padding:0.35rem 1.1rem 0.35rem 2.2rem;
+    font-size:0.67rem; font-weight:700; color:#8993a8; text-transform:uppercase;
+    border-bottom:1px dashed #e4e7ed; background:#eef0f8;
+    border-top:1px solid #e4e7ed;
+  }
+  .eqp-row {
+    padding:0.48rem 1.1rem 0.48rem 2.2rem;
+    border-bottom:1px solid #eaecf3; font-size:0.79rem;
+  }
+  .eqp-row:last-child { border-bottom:none; }
+
+  .eqp-metric {
+    display:flex; flex-direction:column; gap:1px;
+  }
+  .eqp-vals { font-size:0.74rem; color:#8993a8; }
+  .eqp-imp  { font-size:0.82rem; font-weight:700; }
+
+  /* ── 차트 패널 ── */
+  .chart-panel {
+    padding:1.1rem 1.5rem; border-top:1px solid #e4e7ed; background:#fafbfc;
+  }
 </style>
 
-<div class="d-flex align-items-center justify-content-between mb-3">
-  <div>
-    <h5 class="fw-bold mb-0" style="color:#1e2640;">산포 개선 현황</h5>
-    <small class="text-muted">MICO 적용 전/후 공정별 산포(Sigma) 비교</small>
+<!-- ── 요약 카드 ── -->
+<div class="summary-bar">
+  <div class="sum-card">
+    <div class="sum-icon" style="background:#eff6ff;"><i class="bi bi-calendar3" style="color:#4f8ef7;"></i></div>
+    <div>
+      <div class="sum-label">기준 날짜</div>
+      <div class="sum-value" style="font-size:1rem;">{{ latest_date }}</div>
+    </div>
+  </div>
+  <div class="sum-card">
+    <div class="sum-icon" style="background:#f0fdf4;"><i class="bi bi-check2-circle" style="color:#22c55e;"></i></div>
+    <div>
+      <div class="sum-label">장비 적용율</div>
+      <div class="sum-value">
+        {{ applied_eqp }}<span style="font-size:0.8rem;color:#8993a8;font-weight:500;">/{{ total_eqp }}</span>
+        <span style="font-size:0.78rem;color:#22c55e;margin-left:0.3rem;">({% widthratio applied_eqp total_eqp 100 %}%)</span>
+      </div>
+    </div>
+  </div>
+  <div class="sum-card">
+    <div class="sum-icon" style="background:#fdf4ff;"><i class="bi bi-layers" style="color:#a855f7;"></i></div>
+    <div>
+      <div class="sum-label">Wafer 적용율 (전체)</div>
+      <div class="sum-value">{{ total_wafer_portion }}<span style="font-size:0.8rem;color:#8993a8;font-weight:500;">%</span></div>
+    </div>
   </div>
 </div>
 
-<!-- DB 연동 안내 -->
-<div class="notice-banner">
-  <i class="bi bi-info-circle-fill" style="color:#d97706;"></i>
-  <div>
-    <strong>DB 연동 준비 중</strong><br>
-    현재 사내 DB가 연결되지 않아 샘플 데이터가 표시됩니다.
-    DB 연동 후 필터 조회 시 실제 산포 개선 데이터가 차트에 반영됩니다.
+<!-- ── 필터 바 ── -->
+<div class="filter-bar">
+  <div class="fam-btns">
+    <button class="btn-fam active" id="btn-all" onclick="setFamily('all')">전체</button>
+    <button class="btn-fam" id="btn-nand" onclick="setFamily('NAND')">NAND</button>
+    <button class="btn-fam" id="btn-dram" onclick="setFamily('DRAM')">DRAM</button>
   </div>
+  <div class="filter-sep"></div>
+  <input class="filter-input" id="inp-product" placeholder="Product 검색" oninput="applyFilter()">
+  <input class="filter-input" id="inp-oper" placeholder="Oper Desc 검색" oninput="applyFilter()">
+  <button class="btn-reset" onclick="resetFilter()"><i class="bi bi-x-circle"></i> 초기화</button>
+  <span id="filter-count" style="font-size:0.75rem;color:#8993a8;margin-left:auto;"></span>
 </div>
 
-<!-- 필터 -->
-<div class="filter-card">
-  <form method="get" action="{% url 'dispersion' %}">
-    <div class="filter-row">
-      <div class="filter-group">
-        <label><i class="bi bi-cpu me-1"></i>Product</label>
-        <select name="product" {% if not product_list %}disabled{% endif %}>
-          <option value="">— 전체 —</option>
-          {% for p in product_list %}
-          <option value="{{ p }}" {% if p == product %}selected{% endif %}>{{ p }}</option>
-          {% empty %}<option value="" disabled>DB 연동 후 사용 가능</option>
-          {% endfor %}
-        </select>
+<!-- ── 테이블 헤더 ── -->
+<div class="tbl-hdr ROW">
+  <div>Product</div>
+  <div>Oper Desc</div>
+  <div style="text-align:center;">13P 개선율</div>
+  <div style="text-align:center;">ED 개선율</div>
+  <div style="text-align:center;">EX 개선율</div>
+  <div style="text-align:center;">장비 적용</div>
+  <div>Wafer 적용율</div>
+  <div>Base / MICO</div>
+  <div></div>
+</div>
+
+<!-- ── 그룹 카드 목록 ── -->
+{% for g in groups %}
+<div class="group-card" id="gc-{{ g.id }}" data-family="{{ g.family }}" data-product="{{ g.product }}" data-oper="{{ g.oper_desc }}">
+
+  <!-- 그룹 요약 행 -->
+  <div class="group-hdr ROW">
+    <div style="display:flex;flex-direction:column;gap:3px;align-items:flex-start;">
+      <span class="family-badge {% if g.family == 'NAND' %}family-nand{% elif g.family == 'DRAM' %}family-dram{% endif %}">{{ g.family }}</span>
+      <span class="product-badge badge-{{ g.product|lower }}">{{ g.product }}</span>
+    </div>
+    <div style="font-size:0.87rem;font-weight:600;color:#1e2640;">{{ g.oper_desc }}</div>
+
+    <!-- 13P / ED / EX 개선율 -->
+    <div class="imp-item">
+      <span class="imp-lbl">13P</span>
+      {% if g.imp.13P %}<span class="imp-num{% if g.imp.13P < 0 %} neg{% endif %}">{{ g.imp.13P }}%</span>{% else %}<span class="imp-num na">—</span>{% endif %}
+    </div>
+    <div class="imp-item">
+      <span class="imp-lbl">ED</span>
+      {% if g.imp.ED %}<span class="imp-num{% if g.imp.ED < 0 %} neg{% endif %}">{{ g.imp.ED }}%</span>{% else %}<span class="imp-num na">—</span>{% endif %}
+    </div>
+    <div class="imp-item">
+      <span class="imp-lbl">EX</span>
+      {% if g.imp.EX %}<span class="imp-num{% if g.imp.EX < 0 %} neg{% endif %}">{{ g.imp.EX }}%</span>{% else %}<span class="imp-num na">—</span>{% endif %}
+    </div>
+
+    <div style="text-align:center;">
+      {% if g.eqp_applied == g.eqp_total %}
+        <span class="applied-badge badge-applied"><i class="bi bi-check-circle-fill"></i>{{ g.eqp_applied }}/{{ g.eqp_total }}</span>
+      {% elif g.eqp_applied > 0 %}
+        <span class="applied-badge badge-partial"><i class="bi bi-dash-circle"></i>{{ g.eqp_applied }}/{{ g.eqp_total }}</span>
+      {% else %}
+        <span class="applied-badge badge-unapplied"><i class="bi bi-x-circle"></i>{{ g.eqp_applied }}/{{ g.eqp_total }}</span>
+      {% endif %}
+    </div>
+    <div>
+      <div class="wafer-bar-wrap">
+        <div class="wafer-bar"><div class="wafer-fill" style="width:{{ g.wafer_portion }}%;"></div></div>
+        <span style="font-size:0.8rem;font-weight:600;color:#4f8ef7;">{{ g.wafer_portion }}%</span>
       </div>
-      <div class="filter-group">
-        <label><i class="bi bi-layers me-1"></i>Device</label>
-        <select name="device" {% if not device_list %}disabled{% endif %}>
-          <option value="">— 전체 —</option>
-          {% for d in device_list %}
-          <option value="{{ d }}" {% if d == device %}selected{% endif %}>{{ d }}</option>
-          {% empty %}<option value="" disabled>DB 연동 후 사용 가능</option>
-          {% endfor %}
-        </select>
-      </div>
-      <div class="filter-group">
-        <label><i class="bi bi-gear me-1"></i>공정 (Oper ID)</label>
-        <select name="process" {% if not process_list %}disabled{% endif %}>
-          <option value="">— 전체 —</option>
-          {% for pr in process_list %}
-          <option value="{{ pr }}" {% if pr == process %}selected{% endif %}>{{ pr }}</option>
-          {% empty %}<option value="" disabled>DB 연동 후 사용 가능</option>
-          {% endfor %}
-        </select>
+    </div>
+    <div style="font-size:0.77rem;color:#8993a8;">{{ g.wafer_base }} / {{ g.wafer_remico }}</div>
+    <div style="display:flex;gap:3px;">
+      <button class="btn-chart" id="btn-chart-{{ g.id }}" onclick="toggleChart('{{ g.id }}')">
+        <i class="bi bi-graph-up-arrow"></i>
+      </button>
+      <button class="btn-expand" id="btn-dev-{{ g.id }}" onclick="toggleDevices('{{ g.id }}')">
+        세부내역 <i class="bi bi-chevron-down" style="font-size:0.62rem;"></i>
+      </button>
+    </div>
+  </div>
+
+  <!-- 트렌드 차트 패널 -->
+  <div class="chart-panel" id="chart-panel-{{ g.id }}" style="display:none;">
+    <div style="font-size:0.75rem;font-weight:600;color:#344054;margin-bottom:0.75rem;display:flex;align-items:center;gap:0.4rem;">
+      <i class="bi bi-graph-up-arrow" style="color:#4f8ef7;"></i>
+      {{ g.product }} / {{ g.oper_desc }} — 산포 개선율 Trend (13P / ED / EX)
+    </div>
+    <div style="position:relative;height:200px;">
+      <canvas id="chart-canvas-{{ g.id }}"></canvas>
+    </div>
+  </div>
+
+  <!-- Device 서브테이블 패널 -->
+  <div class="device-panel" id="dev-panel-{{ g.id }}" style="display:none;">
+
+    {% for d in g.devices %}
+    <div class="device-row ROW" id="dr-{{ d.id }}">
+      <div style="font-size:0.72rem;color:#8993a8;padding-left:0.3rem;">
+        <i class="bi bi-hdd-stack" style="margin-right:3px;"></i>Device
       </div>
       <div>
-        <button type="submit" class="btn btn-primary w-100" style="border-radius:8px; padding:0.5rem 1.25rem;"
-          {% if not product_list and not device_list and not process_list %}disabled{% endif %}>
-          <i class="bi bi-search me-1"></i> 조회
+        <span style="font-size:0.82rem;font-weight:600;color:#344054;">{{ d.lot_code }}</span>
+        <span class="badge-pill ms-1" style="background:#f0f2f7;color:#8993a8;font-size:0.69rem;">{{ d.fab }}</span>
+      </div>
+      <div class="imp-item">
+        <span class="imp-lbl">13P</span>
+        {% if d.imp.13P %}<span class="imp-num{% if d.imp.13P < 0 %} neg{% endif %}" style="font-size:0.82rem;">{{ d.imp.13P }}%</span>{% else %}<span class="imp-num na">—</span>{% endif %}
+      </div>
+      <div class="imp-item">
+        <span class="imp-lbl">ED</span>
+        {% if d.imp.ED %}<span class="imp-num{% if d.imp.ED < 0 %} neg{% endif %}" style="font-size:0.82rem;">{{ d.imp.ED }}%</span>{% else %}<span class="imp-num na">—</span>{% endif %}
+      </div>
+      <div class="imp-item">
+        <span class="imp-lbl">EX</span>
+        {% if d.imp.EX %}<span class="imp-num{% if d.imp.EX < 0 %} neg{% endif %}" style="font-size:0.82rem;">{{ d.imp.EX }}%</span>{% else %}<span class="imp-num na">—</span>{% endif %}
+      </div>
+      <div style="text-align:center;">
+        {% if d.eqp_applied == d.eqp_total %}
+          <span class="applied-badge badge-applied" style="font-size:0.68rem;"><i class="bi bi-check-circle-fill"></i>{{ d.eqp_applied }}/{{ d.eqp_total }}</span>
+        {% elif d.eqp_applied > 0 %}
+          <span class="applied-badge badge-partial" style="font-size:0.68rem;"><i class="bi bi-dash-circle"></i>{{ d.eqp_applied }}/{{ d.eqp_total }}</span>
+        {% else %}
+          <span class="applied-badge badge-unapplied" style="font-size:0.68rem;"><i class="bi bi-x-circle"></i>{{ d.eqp_applied }}/{{ d.eqp_total }}</span>
+        {% endif %}
+      </div>
+      <div>
+        <div class="wafer-bar-wrap">
+          <div class="wafer-bar"><div class="wafer-fill" style="width:{{ d.wafer_portion }}%;"></div></div>
+          <span style="font-size:0.77rem;font-weight:600;color:#4f8ef7;">{{ d.wafer_portion }}%</span>
+        </div>
+      </div>
+      <div style="font-size:0.76rem;color:#8993a8;">{{ d.wafer_base }} / {{ d.wafer_remico }}</div>
+      <div>
+        <button class="btn-expand" id="btn-eqp-{{ d.id }}" onclick="toggleEquipments('{{ d.id }}')">
+          장비별 <i class="bi bi-chevron-down" style="font-size:0.62rem;"></i>
         </button>
       </div>
     </div>
-  </form>
-</div>
 
-{% if queried and chart_json == 'null' %}
-<!-- 샘플 데이터 표시 -->
-
-<!-- 요약 통계 (샘플) -->
-<div class="stat-row">
-  <div class="stat-card">
-    <div class="stat-label">평균 산포 개선율</div>
-    <div class="stat-value" style="color:#22c55e;">—</div>
-    <div class="stat-sub">DB 연동 후 표시</div>
-  </div>
-  <div class="stat-card">
-    <div class="stat-label">적용 전 평균 Sigma</div>
-    <div class="stat-value">—</div>
-    <div class="stat-sub">DB 연동 후 표시</div>
-  </div>
-  <div class="stat-card">
-    <div class="stat-label">적용 후 평균 Sigma</div>
-    <div class="stat-value">—</div>
-    <div class="stat-sub">DB 연동 후 표시</div>
-  </div>
-  <div class="stat-card">
-    <div class="stat-label">분석 공정 수</div>
-    <div class="stat-value">—</div>
-    <div class="stat-sub">DB 연동 후 표시</div>
-  </div>
-</div>
-
-<!-- 전/후 비교 Bar 차트 -->
-<div class="chart-card">
-  <div class="chart-header">
-    <div>
-      <span class="fw-bold" style="font-size:0.875rem; color:#1e2640;">공정별 산포(Sigma) 비교 — MICO 적용 전/후</span>
-      <div style="font-size:0.75rem; color:#8993a8; margin-top:2px;">
-        {% if product %}Product: <strong>{{ product }}</strong>{% endif %}
-        {% if device %}&nbsp;·&nbsp;Device: <strong>{{ device }}</strong>{% endif %}
-        {% if process %}&nbsp;·&nbsp;Oper: <strong>{{ process }}</strong>{% endif %}
+    <!-- Equipment 패널 -->
+    <div class="eqp-panel" id="eqp-panel-{{ d.id }}" style="display:none;">
+      <div class="eqp-hdr EQP-ROW">
+        <div>상태</div>
+        <div>장비</div>
+        <div style="text-align:center;">13P (BASE → MICO)</div>
+        <div style="text-align:center;">ED (BASE → MICO)</div>
+        <div style="text-align:center;">EX (BASE → MICO)</div>
+        <div style="text-align:center;">BASE</div>
+        <div style="text-align:center;">MICO</div>
+        <div style="text-align:center;">Portion</div>
       </div>
-    </div>
-    <span class="chip" style="background:#fff7ed; color:#f97316;">
-      <i class="bi bi-exclamation-circle me-1"></i>Sample
-    </span>
-  </div>
-  <div class="chart-body">
-    <div style="position:relative; height:340px;">
-      <canvas id="chart-sigma-compare"></canvas>
-    </div>
-  </div>
-</div>
-
-<!-- 개선율 + Trend -->
-<div class="two-col">
-  <div class="chart-card">
-    <div class="chart-header">
-      <span class="fw-bold" style="font-size:0.875rem; color:#1e2640;">공정별 산포 개선율 (%)</span>
-      <span class="chip" style="background:#fff7ed; color:#f97316; font-size:0.7rem;">Sample</span>
-    </div>
-    <div class="chart-body">
-      <div style="position:relative; height:260px;">
-        <canvas id="chart-improve-rate"></canvas>
+      {% for e in d.equipments %}
+      <div class="eqp-row EQP-ROW">
+        <div>
+          {% if e.applied %}
+            <span class="applied-badge badge-applied" style="font-size:0.67rem;"><i class="bi bi-check-circle-fill"></i> 적용</span>
+          {% else %}
+            <span class="applied-badge badge-unapplied" style="font-size:0.67rem;"><i class="bi bi-x-circle"></i> 미적용</span>
+          {% endif %}
+        </div>
+        <div style="font-size:0.82rem;font-weight:600;color:#344054;">{{ e.eqp_ch }}</div>
+        <!-- 13P -->
+        <div class="eqp-metric" style="text-align:center;">
+          <span class="eqp-vals">{{ e.base_vals.13P }} → <span style="color:#22c55e;">{{ e.remico_vals.13P }}</span></span>
+          {% if e.imp.13P %}<span class="eqp-imp" style="color:{% if e.imp.13P < 0 %}#ef4444{% elif e.applied %}#22c55e{% else %}#c8d0e0{% endif %};">{{ e.imp.13P }}%</span>{% else %}<span class="eqp-imp" style="color:#c8d0e0;">—</span>{% endif %}
+        </div>
+        <!-- ED -->
+        <div class="eqp-metric" style="text-align:center;">
+          <span class="eqp-vals">{{ e.base_vals.ED }} → <span style="color:#22c55e;">{{ e.remico_vals.ED }}</span></span>
+          {% if e.imp.ED %}<span class="eqp-imp" style="color:{% if e.imp.ED < 0 %}#ef4444{% elif e.applied %}#22c55e{% else %}#c8d0e0{% endif %};">{{ e.imp.ED }}%</span>{% else %}<span class="eqp-imp" style="color:#c8d0e0;">—</span>{% endif %}
+        </div>
+        <!-- EX -->
+        <div class="eqp-metric" style="text-align:center;">
+          <span class="eqp-vals">{{ e.base_vals.EX }} → <span style="color:#22c55e;">{{ e.remico_vals.EX }}</span></span>
+          {% if e.imp.EX %}<span class="eqp-imp" style="color:{% if e.imp.EX < 0 %}#ef4444{% elif e.applied %}#22c55e{% else %}#c8d0e0{% endif %};">{{ e.imp.EX }}%</span>{% else %}<span class="eqp-imp" style="color:#c8d0e0;">—</span>{% endif %}
+        </div>
+        <div style="font-size:0.8rem;color:#8993a8;text-align:center;">{{ e.base }}</div>
+        <div style="font-size:0.8rem;color:#4f8ef7;font-weight:600;text-align:center;">{{ e.remico }}</div>
+        <div style="text-align:center;">
+          <span style="font-size:0.8rem;font-weight:600;{% if e.applied %}color:#22c55e;{% else %}color:#ef4444;{% endif %}">
+            {% widthratio e.portion 1 100 %}%
+          </span>
+        </div>
       </div>
+      {% endfor %}
     </div>
-  </div>
-  <div class="chart-card">
-    <div class="chart-header">
-      <span class="fw-bold" style="font-size:0.875rem; color:#1e2640;">월별 산포 Trend</span>
-      <span class="chip" style="background:#fff7ed; color:#f97316; font-size:0.7rem;">Sample</span>
-    </div>
-    <div class="chart-body">
-      <div style="position:relative; height:260px;">
-        <canvas id="chart-sigma-trend"></canvas>
-      </div>
-    </div>
-  </div>
-</div>
+    {% endfor %}
 
-{% elif not queried %}
-<!-- 미조회 -->
-<div class="chart-card">
-  <div class="empty-state">
-    <i class="bi bi-graph-down-arrow"></i>
-    <div class="em-title">조회 조건을 입력하세요</div>
-    <div class="em-sub">Product · Device · 공정을 선택하고 조회 버튼을 누르면<br>산포 개선 현황 차트가 표시됩니다</div>
-  </div>
-</div>
-
-{% else %}
-<!-- DB 연동 후 실제 데이터 영역 -->
-<div class="chart-card">
-  <div class="chart-header">
-    <span class="fw-bold" style="font-size:0.875rem; color:#1e2640;">공정별 산포(Sigma) 비교</span>
-  </div>
-  <div class="chart-body">
-    <div style="position:relative; height:340px;">
-      <canvas id="chart-sigma-real"></canvas>
-    </div>
-  </div>
-</div>
-{% endif %}
+  </div><!-- /device-panel -->
+</div><!-- /group-card -->
+{% endfor %}
 
 {% endblock %}
 
 {% block scripts %}
 <script>
-const commonOpts = (yLabel) => ({
-  responsive: true,
-  maintainAspectRatio: false,
-  plugins: {
-    legend: { position: 'bottom', labels: { font: { size: 11 }, boxWidth: 12 } },
-    tooltip: { callbacks: {
-      label: ctx => ` ${ctx.dataset.label}: ${ctx.parsed.y}${yLabel || ''}`
-    }}
-  },
-  scales: {
-    x: { grid: { display: false }, ticks: { font: { size: 11 } } },
-    y: { grid: { color: '#f0f2f7' }, ticks: { font: { size: 11 } }, beginAtZero: true },
-  },
-});
+const GROUPS = {{ groups_json|safe }};
+let chartInstances = {};
 
-{% if queried and chart_json == 'null' %}
-/* ── 샘플 차트 ── */
-const PROCS  = ['A908740A','B123456B','C234567C','D345678D','E456789E','F567890F'];
-const MONTHS = ['Jan','Feb','Mar','Apr','May','Jun','Jul','Aug','Sep','Oct','Nov','Dec'];
+/* ── 필터 ── */
+let activeFamily = 'all';
 
-function rand(n, base, range) {
-  return Array.from({length: n}, () => +(base + (Math.random()-0.5)*range*2).toFixed(1));
+function setFamily(fam) {
+  activeFamily = fam;
+  document.getElementById('btn-all').classList.toggle('active', fam === 'all');
+  document.getElementById('btn-nand').classList.toggle('active-nand', fam === 'NAND');
+  document.getElementById('btn-dram').classList.toggle('active-dram', fam === 'DRAM');
+  applyFilter();
 }
 
-// 전/후 비교 grouped bar
-const before = rand(PROCS.length, 180, 40);
-const after  = before.map(v => +(v * (0.55 + Math.random() * 0.2)).toFixed(1));
+function applyFilter() {
+  const pQ = document.getElementById('inp-product').value.trim().toLowerCase();
+  const oQ = document.getElementById('inp-oper').value.trim().toLowerCase();
+  let visible = 0;
+  document.querySelectorAll('.group-card').forEach(card => {
+    const fam     = card.dataset.family || '';
+    const product = (card.dataset.product || '').toLowerCase();
+    const oper    = (card.dataset.oper || '').toLowerCase();
+    const famOk   = activeFamily === 'all' || fam === activeFamily;
+    const prodOk  = !pQ || product.includes(pQ);
+    const operOk  = !oQ || oper.includes(oQ);
+    const show = famOk && prodOk && operOk;
+    card.style.display = show ? '' : 'none';
+    if (show) visible++;
+  });
+  const countEl = document.getElementById('filter-count');
+  countEl.textContent = `${visible}건`;
+}
 
-new Chart(document.getElementById('chart-sigma-compare'), {
-  type: 'bar',
-  data: {
-    labels: PROCS,
-    datasets: [
-      { label: 'MICO 적용 전', data: before, backgroundColor: 'rgba(239,68,68,0.65)',   borderRadius: 4, borderSkipped: false },
-      { label: 'MICO 적용 후', data: after,  backgroundColor: 'rgba(34,197,94,0.75)',   borderRadius: 4, borderSkipped: false },
-    ],
-  },
-  options: commonOpts(' Å'),
-});
+function resetFilter() {
+  document.getElementById('inp-product').value = '';
+  document.getElementById('inp-oper').value = '';
+  activeFamily = 'all';
+  document.getElementById('btn-all').classList.add('active');
+  document.getElementById('btn-nand').classList.remove('active-nand');
+  document.getElementById('btn-dram').classList.remove('active-dram');
+  applyFilter();
+}
 
-// 개선율 가로 bar
-const rates = before.map((b, i) => +(((b - after[i]) / b) * 100).toFixed(1));
-new Chart(document.getElementById('chart-improve-rate'), {
-  type: 'bar',
-  data: {
-    labels: PROCS,
-    datasets: [{
-      label: '개선율',
-      data: rates,
-      backgroundColor: rates.map(r => r >= 0 ? 'rgba(34,197,94,0.75)' : 'rgba(239,68,68,0.65)'),
-      borderRadius: 4,
-      borderSkipped: false,
-    }],
-  },
-  options: {
-    ...commonOpts('%'),
-    indexAxis: 'y',
-    plugins: { legend: { display: false },
-      tooltip: { callbacks: { label: ctx => ` 개선율: ${ctx.parsed.x}%` } }
+// 초기 카운트 표시
+document.addEventListener('DOMContentLoaded', () => applyFilter());
+
+function toggleChart(gid) {
+  const panel = document.getElementById('chart-panel-' + gid);
+  const btn   = document.getElementById('btn-chart-' + gid);
+  const open  = panel.style.display === 'none';
+  panel.style.display = open ? '' : 'none';
+  btn.classList.toggle('open', open);
+  if (open) renderChart(gid);
+}
+
+function renderChart(gid) {
+  const group = GROUPS.find(g => g.id === gid);
+  if (!group) return;
+  if (chartInstances[gid]) { chartInstances[gid].destroy(); }
+
+  const trend = group.trend;
+  const typeColors = { '13P': '#4f8ef7', 'ED': '#f97316', 'EX': '#a855f7' };
+  const datasets = Object.entries(typeColors).map(([type, color]) => ({
+    label: type,
+    data:  trend[type],
+    borderColor: color,
+    backgroundColor: color + '22',
+    borderWidth: 2,
+    pointRadius: 4,
+    tension: 0.35, fill: false,
+  }));
+
+  chartInstances[gid] = new Chart(document.getElementById('chart-canvas-' + gid), {
+    type: 'line',
+    data: { labels: trend.dates, datasets },
+    options: {
+      responsive: true, maintainAspectRatio: false, animation: { duration: 300 },
+      plugins: {
+        legend: { position: 'bottom', labels: { font: { size: 10 }, boxWidth: 10, padding: 8 } },
+        tooltip: { callbacks: { label: item => `${item.dataset.label}: ${item.parsed.y}%` } },
+      },
+      scales: {
+        x: { grid: { display: false }, ticks: { font: { size: 9 } } },
+        y: {
+          grid: { color: '#f0f2f7' },
+          ticks: { font: { size: 9 }, callback: v => v + '%' },
+          title: { display: true, text: '개선율 (%)', font: { size: 9 }, color: '#8993a8' },
+        },
+      },
     },
-  },
-});
+  });
+}
 
-// 월별 Sigma Trend
-new Chart(document.getElementById('chart-sigma-trend'), {
-  type: 'line',
-  data: {
-    labels: MONTHS,
-    datasets: [
-      { label: 'MICO 적용 전', data: rand(12, 185, 15), borderColor: '#ef4444', backgroundColor: 'rgba(239,68,68,0.07)', fill: true, tension: 0.35, pointRadius: 3 },
-      { label: 'MICO 적용 후', data: rand(12, 110, 12), borderColor: '#22c55e', backgroundColor: 'rgba(34,197,94,0.07)', fill: true, tension: 0.35, pointRadius: 3 },
-    ],
-  },
-  options: commonOpts(' Å'),
-});
+function toggleDevices(gid) {
+  const panel = document.getElementById('dev-panel-' + gid);
+  const btn   = document.getElementById('btn-dev-' + gid);
+  const open  = panel.style.display === 'none';
+  panel.style.display = open ? '' : 'none';
+  btn.classList.toggle('open', open);
+  btn.innerHTML = open
+    ? '세부내역 <i class="bi bi-chevron-up" style="font-size:0.62rem;"></i>'
+    : '세부내역 <i class="bi bi-chevron-down" style="font-size:0.62rem;"></i>';
+}
 
-{% elif chart_json != 'null' %}
-/* ── 실제 DB 데이터 ── */
-const chartData = {{ chart_json|safe }};
-new Chart(document.getElementById('chart-sigma-real'), {
-  type: 'bar',
-  data: {
-    labels: chartData.labels,
-    datasets: [
-      { label: 'MICO 적용 전', data: chartData.before, backgroundColor: 'rgba(239,68,68,0.65)', borderRadius: 4 },
-      { label: 'MICO 적용 후', data: chartData.after,  backgroundColor: 'rgba(34,197,94,0.75)',  borderRadius: 4 },
-    ],
-  },
-  options: commonOpts(' Å'),
-});
-{% endif %}
+function toggleEquipments(did) {
+  const panel = document.getElementById('eqp-panel-' + did);
+  const btn   = document.getElementById('btn-eqp-' + did);
+  const open  = panel.style.display === 'none';
+  panel.style.display = open ? '' : 'none';
+  btn.classList.toggle('open', open);
+  btn.innerHTML = open
+    ? '장비별 <i class="bi bi-chevron-up" style="font-size:0.62rem;"></i>'
+    : '장비별 <i class="bi bi-chevron-down" style="font-size:0.62rem;"></i>';
+}
 </script>
 {% endblock %}

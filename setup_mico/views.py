@@ -234,7 +234,7 @@ def learning_values(request):
 
 
 @login_required
-def learning_values_data(request):
+def learning_pre_thk_data(request):
     """
     Pre_Thk 학습값 조회.
     Collection명: MICO_PRE_THK_{device}_{oper_desc}_{fab}_Period
@@ -310,7 +310,7 @@ def learning_rr_data(request):
     collection_name = f"MICO_Removal_Rate_{device}_{oper_desc}_{fab}"
 
     # ════════════════════════════════════════════════════════════════════
-    # [개발] 샘플 데이터 파일 사용
+    # [개발] 샘플 데이터 사용 — 사내 연결 시 이 블록 주석 처리
     # ════════════════════════════════════════════════════════════════════
     sample_path = os.path.join(os.path.dirname(__file__), 'sample_data', 'rr_sample.json')
     try:
@@ -319,34 +319,86 @@ def learning_rr_data(request):
         data = sample.get(collection_name, [])
     except FileNotFoundError:
         return JsonResponse({'error': '샘플 데이터 파일을 찾을 수 없습니다'}, status=500)
-
-    # Recipe_ID 목록 추출
-    recipe_ids = sorted(set(d['Recipe_ID'] for d in data if 'Recipe_ID' in d))
-
-    return JsonResponse({'collection': collection_name, 'data': data, 'recipe_ids': recipe_ids})
+    # ════════════════════════════════════════════════════════════════════
 
     # ════════════════════════════════════════════════════════════════════
-    # [사내] MongoDB 연결 시 위 블록 대신 아래 사용 (pip install pymongo)
+    # [사내] MongoDB 연결 — 위 샘플 블록 주석 처리 후 아래 블록 주석 해제
+    # pip install pymongo 필요
     # ════════════════════════════════════════════════════════════════════
     # from pymongo import MongoClient
-    #
     # MONGO_URI = 'mongodb://TODO_HOST:TODO_PORT'   # ← 실제 접속 정보 입력
     # MONGO_DB  = 'TODO_DB_NAME'                    # ← 실제 DB명 입력
-    #
     # try:
     #     client = MongoClient(MONGO_URI, serverSelectionTimeoutMS=5000)
-    #     db  = client[MONGO_DB]
-    #     col = db[collection_name]
-    #     docs = list(col.find({}, {'_id': 0}).sort('Date', 1))
+    #     db     = client[MONGO_DB]
+    #     col    = db[collection_name]
+    #     docs   = list(col.find({}, {'_id': 0}).sort('Date', 1))
     #     client.close()
     # except Exception as e:
     #     return JsonResponse({'error': f'DB 연결 오류: {str(e)}'}, status=500)
-    #
     # def serialize(doc):
     #     return {k: (v.isoformat() if hasattr(v, 'isoformat') else v) for k, v in doc.items()}
-    #
-    # recipe_ids = sorted(set(d['Recipe_ID'] for d in docs if 'Recipe_ID' in d))
-    # return JsonResponse({'collection': collection_name, 'data': [serialize(d) for d in docs], 'recipe_ids': recipe_ids})
+    # data = [serialize(d) for d in docs]
+    # ════════════════════════════════════════════════════════════════════
+
+    recipe_ids = sorted(set(d['Recipe_ID'] for d in data if 'Recipe_ID' in d))
+    return JsonResponse({'collection': collection_name, 'data': data, 'recipe_ids': recipe_ids})
+
+
+@login_required
+def learning_offset_data(request):
+    """
+    Offset 학습값 조회.
+    Collection명: MICO_OFFSET_{device}_{oper_desc}_{fab}
+
+    [현재] 로컬 샘플 파일(sample_data/offset_sample.json) 사용
+    [사내] 아래 MongoDB 블록 주석 해제 후 위 샘플 블록 주석 처리
+    """
+    import os, json
+
+    device    = request.GET.get('device', '').strip()
+    oper_desc = request.GET.get('oper_desc', '').strip()
+    fab       = request.GET.get('fab', '').strip()
+
+    if not all([device, oper_desc, fab]):
+        return JsonResponse({'error': 'device / oper_desc / fab 파라미터가 필요합니다'}, status=400)
+
+    collection_name = f"MICO_OFFSET_{device}_{oper_desc}_{fab}"
+
+    # ════════════════════════════════════════════════════════════════════
+    # [개발] 샘플 데이터 사용 — 사내 연결 시 이 블록 주석 처리
+    # ════════════════════════════════════════════════════════════════════
+    sample_path = os.path.join(os.path.dirname(__file__), 'sample_data', 'offset_sample.json')
+    try:
+        with open(sample_path, 'r', encoding='utf-8') as f:
+            sample = json.load(f)
+        data = sample.get(collection_name, [])
+    except FileNotFoundError:
+        return JsonResponse({'error': '샘플 데이터 파일을 찾을 수 없습니다'}, status=500)
+    # ════════════════════════════════════════════════════════════════════
+
+    # ════════════════════════════════════════════════════════════════════
+    # [사내] MongoDB 연결 — 위 샘플 블록 주석 처리 후 아래 블록 주석 해제
+    # pip install pymongo 필요
+    # ════════════════════════════════════════════════════════════════════
+    # from pymongo import MongoClient
+    # MONGO_URI = 'mongodb://TODO_HOST:TODO_PORT'   # ← 실제 접속 정보 입력
+    # MONGO_DB  = 'TODO_DB_NAME'                    # ← 실제 DB명 입력
+    # try:
+    #     client = MongoClient(MONGO_URI, serverSelectionTimeoutMS=5000)
+    #     db     = client[MONGO_DB]
+    #     col    = db[collection_name]
+    #     docs   = list(col.find({}, {'_id': 0}).sort('Date', 1))
+    #     client.close()
+    # except Exception as e:
+    #     return JsonResponse({'error': f'DB 연결 오류: {str(e)}'}, status=500)
+    # def serialize(doc):
+    #     return {k: (v.isoformat() if hasattr(v, 'isoformat') else v) for k, v in doc.items()}
+    # data = [serialize(d) for d in docs]
+    # ════════════════════════════════════════════════════════════════════
+
+    recipe_ids = sorted(set(d['recipe_id'] for d in data if 'recipe_id' in d))
+    return JsonResponse({'collection': collection_name, 'data': data, 'recipe_ids': recipe_ids})
 
 
 @login_required
@@ -820,37 +872,45 @@ def recipe_group_delete(request, pk):
 
 @login_required
 def apc_history(request):
-    import json
+    import os, json
 
-    product = request.GET.get('product', '').strip()
-    device  = request.GET.get('device', '').strip()
-    process = request.GET.get('process', '').strip()
+    # ════════════════════════════════════════════════════════════════════
+    # [개발] 샘플 데이터 — 사내 연결 시 이 블록 주석 처리
+    # ════════════════════════════════════════════════════════════════════
+    sample_path = os.path.join(os.path.dirname(__file__), 'sample_data', 'apc_modify_sample.json')
+    with open(sample_path, 'r', encoding='utf-8') as f:
+        raw_data = json.load(f).get('MICO_APC_modify', [])
+    # ════════════════════════════════════════════════════════════════════
 
-    queried = any([product, device, process])
+    # ════════════════════════════════════════════════════════════════════
+    # [사내] MongoDB 연결 — 위 샘플 블록 주석 처리 후 아래 블록 주석 해제
+    # ════════════════════════════════════════════════════════════════════
+    # from pymongo import MongoClient
+    # MONGO_URI = 'mongodb://TODO_HOST:TODO_PORT'
+    # try:
+    #     client   = MongoClient(MONGO_URI, serverSelectionTimeoutMS=5000)
+    #     col      = client['TODO_DB']['MICO_APC_modify']
+    #     raw_data = list(col.find({}, {'_id': 0}))
+    #     client.close()
+    # except Exception:
+    #     raw_data = []
+    # ════════════════════════════════════════════════════════════════════
 
-    # ── 외부 DB 연동 시 이 블록을 교체 ──────────────────────────────
-    # dropdown 선택지: DB 연동 후 실제 unique 값 목록으로 교체
-    # 예시:
-    #   product_list = list(db.execute("SELECT DISTINCT product FROM apc_table").fetchall())
-    product_list = []
-    device_list  = []
-    process_list = []
-
-    # 차트 데이터: DB 연동 후 실제 쿼리 결과로 교체
-    # chart_data 형식:
-    #   { "labels": ["Jan",...], "datasets": [{"label":"수정건수","data":[12,...]}] }
-    chart_data = None
-    # ────────────────────────────────────────────────────────────────
+    # 캐스케이딩 드롭다운 데이터 구성
+    products_by_family  = {}
+    devices_by_product  = {}
+    opers_by_device     = {}
+    for r in raw_data:
+        fam, prod, dev, oper = r['Family'], r['Product'], r['Device'], r['Oper_Desc']
+        products_by_family.setdefault(fam, set()).add(prod)
+        devices_by_product.setdefault(f"{fam}||{prod}", set()).add(dev)
+        opers_by_device.setdefault(f"{fam}||{prod}||{dev}", set()).add(oper)
 
     return render(request, 'setup_mico/apc_history.html', {
-        'queried':      queried,
-        'product':      product,
-        'device':       device,
-        'process':      process,
-        'product_list': product_list,
-        'device_list':  device_list,
-        'process_list': process_list,
-        'chart_json':   json.dumps(chart_data, ensure_ascii=False),
+        'raw_data_json':             json.dumps(raw_data, ensure_ascii=False),
+        'products_by_family_json':   json.dumps({k: sorted(v) for k, v in products_by_family.items()}, ensure_ascii=False),
+        'devices_by_product_json':   json.dumps({k: sorted(v) for k, v in devices_by_product.items()}, ensure_ascii=False),
+        'opers_by_device_json':      json.dumps({k: sorted(v) for k, v in opers_by_device.items()}, ensure_ascii=False),
     })
 
 
@@ -858,37 +918,185 @@ def apc_history(request):
 
 @login_required
 def dispersion(request):
-    import json
+    import os, json
+    from collections import defaultdict
 
-    product = request.GET.get('product', '').strip()
-    device  = request.GET.get('device', '').strip()
-    process = request.GET.get('process', '').strip()
+    # ════════════════════════════════════════════════════════════════════
+    # [개발] 샘플 데이터 사용 — 사내 연결 시 이 블록 주석 처리
+    # ════════════════════════════════════════════════════════════════════
+    sample_path = os.path.join(os.path.dirname(__file__), 'sample_data', 'dispersion_sample.json')
+    with open(sample_path, 'r', encoding='utf-8') as f:
+        raw_data = json.load(f).get('MICO_Report', [])
+    # ════════════════════════════════════════════════════════════════════
 
-    queried = any([product, device, process])
+    # ════════════════════════════════════════════════════════════════════
+    # [사내] MongoDB 연결 — 위 샘플 블록 주석 처리 후 아래 블록 주석 해제
+    # pip install pymongo 필요
+    # ════════════════════════════════════════════════════════════════════
+    # from pymongo import MongoClient
+    # MONGO_URI = 'mongodb://TODO_HOST:TODO_PORT'
+    # MONGO_DB  = 'TODO_DB_NAME'
+    # try:
+    #     client   = MongoClient(MONGO_URI, serverSelectionTimeoutMS=5000)
+    #     col      = client[MONGO_DB]['MICO_Report']
+    #     raw_data = list(col.find({}, {'_id': 0}).sort('Date', 1))
+    #     client.close()
+    # except Exception as e:
+    #     raw_data = []
+    # ════════════════════════════════════════════════════════════════════
 
-    # ── 외부 DB 연동 시 이 블록을 교체 ──────────────────────────────
-    # dropdown 선택지: DB 연동 후 실제 unique 값 목록으로 교체
-    product_list = []
-    device_list  = []
-    process_list = []
+    def safe_imp(base, remico):
+        """산포 개선율(%) = (BASE - Re_MICO) / BASE * 100"""
+        try:
+            b = float(base)
+            if b > 0:
+                return round((b - float(remico)) / b * 100, 1)
+        except Exception:
+            pass
+        return None
 
-    # 차트 데이터: DB 연동 후 실제 쿼리 결과로 교체
-    # chart_data 형식:
-    #   { "labels": ["공정1",...],
-    #     "before": [sigma_before,...],
-    #     "after":  [sigma_after,...] }
-    chart_data = None
-    # ────────────────────────────────────────────────────────────────
+    def avg(values):
+        vals = [v for v in values if v is not None]
+        return round(sum(vals) / len(vals), 1) if vals else None
+
+    raw_data.sort(key=lambda r: r['Date'])
+    all_dates  = sorted(set(r['Date'] for r in raw_data))
+    latest_dt  = all_dates[-1] if all_dates else ''
+
+    # 최신 날짜 기준 장비 적용 현황
+    latest_rows = [r for r in raw_data if r['Date'] == latest_dt]
+
+    # 계층 구조: (product, oper_desc) → (lot_code, fab) → eqp_ch
+    def build_hierarchy(rows):
+        h = defaultdict(lambda: defaultdict(lambda: defaultdict(list)))
+        for r in rows:
+            h[(r['Product'], r['OPER_DESC'])][(r['Lot_Code'], r['Fab'])][r['eqp_ch']].append(r)
+        return h
+
+    hierarchy_all    = build_hierarchy(raw_data)
+    hierarchy_latest = build_hierarchy(latest_rows)
+
+    # Category 모델에서 family 조회 (product + oper_desc 기준)
+    from .models import Category
+    cat_family_map = {
+        (c.product, c.oper_desc): c.family
+        for c in Category.objects.only('product', 'oper_desc', 'family')
+    }
+    # fallback: product prefix 기준 (CL/OP/PE → NAND, LC/CP → DRAM)
+    _nand_prefix = {'CL', 'OP', 'PE'}
+    _dram_prefix = {'LC', 'CP'}
+    def _family(product, oper_desc):
+        f = cat_family_map.get((product, oper_desc))
+        if f:
+            return f
+        return 'NAND' if product in _nand_prefix else ('DRAM' if product in _dram_prefix else '')
+
+    groups = []
+    for (product, oper_desc) in sorted(hierarchy_all):
+        gid = f"{product}_{oper_desc}".replace(' ', '_')
+
+        g_latest = [r for r in latest_rows if r['Product'] == product and r['OPER_DESC'] == oper_desc]
+        g_all    = [r for r in raw_data    if r['Product'] == product and r['OPER_DESC'] == oper_desc]
+
+        # 장비 적용율 (최신 날짜 기준, Portion >= 0.9 → 적용)
+        eqp_total   = len(set(r['eqp_ch'] for r in g_latest))
+        eqp_applied = sum(1 for r in g_latest if r.get('Portion', 0) >= 0.9)
+
+        # Wafer 적용율 (최신 날짜 기준)
+        w_base   = sum(r['BASE']    for r in g_latest)
+        w_remico = sum(r['Re_MICO'] for r in g_latest)
+        w_total  = w_base + w_remico
+        wafer_portion = round(w_remico / w_total * 100, 1) if w_total else 0
+
+        # 개선율 (최신 날짜, 장비 평균)
+        imp = {
+            '13P': avg([safe_imp(r['13P_BASE'], r['13P_Re_MICO']) for r in g_latest]),
+            'ED':  avg([safe_imp(r['ED_BASE'],  r['ED_Re_MICO'])  for r in g_latest]),
+            'EX':  avg([safe_imp(r['EX_BASE'],  r['EX_Re_MICO'])  for r in g_latest]),
+        }
+
+        # 트렌드 (날짜별 평균 개선율)
+        trend = {'dates': [], '13P': [], 'ED': [], 'EX': []}
+        for d in all_dates:
+            d_rows = [r for r in g_all if r['Date'] == d]
+            if not d_rows:
+                continue
+            trend['dates'].append(d)
+            trend['13P'].append(avg([safe_imp(r['13P_BASE'], r['13P_Re_MICO']) for r in d_rows]))
+            trend['ED'].append( avg([safe_imp(r['ED_BASE'],  r['ED_Re_MICO'])  for r in d_rows]))
+            trend['EX'].append( avg([safe_imp(r['EX_BASE'],  r['EX_Re_MICO'])  for r in d_rows]))
+
+        # Device 레벨
+        devices = []
+        for (lot_code, fab) in sorted(hierarchy_all[(product, oper_desc)]):
+            did = f"{gid}_{lot_code}_{fab}"
+
+            d_latest = [r for r in g_latest if r['Lot_Code'] == lot_code and r['Fab'] == fab]
+
+            d_eqp_total   = len(set(r['eqp_ch'] for r in d_latest))
+            d_eqp_applied = sum(1 for r in d_latest if r.get('Portion', 0) >= 0.9)
+            dw_base   = sum(r['BASE']    for r in d_latest)
+            dw_remico = sum(r['Re_MICO'] for r in d_latest)
+            dw_total  = dw_base + dw_remico
+            d_wafer_portion = round(dw_remico / dw_total * 100, 1) if dw_total else 0
+
+            d_imp = {
+                '13P': avg([safe_imp(r['13P_BASE'], r['13P_Re_MICO']) for r in d_latest]),
+                'ED':  avg([safe_imp(r['ED_BASE'],  r['ED_Re_MICO'])  for r in d_latest]),
+                'EX':  avg([safe_imp(r['EX_BASE'],  r['EX_Re_MICO'])  for r in d_latest]),
+            }
+
+            # Equipment 레벨
+            equipments = []
+            for eqp_ch, eqp_records in sorted(hierarchy_all[(product, oper_desc)][(lot_code, fab)].items()):
+                er = next((r for r in eqp_records if r['Date'] == latest_dt), eqp_records[-1])
+                equipments.append({
+                    'eqp_ch':  eqp_ch,
+                    'base':    er['BASE'],
+                    'remico':  er['Re_MICO'],
+                    'portion': er['Portion'],
+                    'applied': er['Portion'] >= 0.9,
+                    'imp': {
+                        '13P': safe_imp(er['13P_BASE'], er['13P_Re_MICO']),
+                        'ED':  safe_imp(er['ED_BASE'],  er['ED_Re_MICO']),
+                        'EX':  safe_imp(er['EX_BASE'],  er['EX_Re_MICO']),
+                    },
+                    'base_vals':   {'13P': er['13P_BASE'], 'ED': er['ED_BASE'],  'EX': er['EX_BASE']},
+                    'remico_vals': {'13P': er['13P_Re_MICO'], 'ED': er['ED_Re_MICO'], 'EX': er['EX_Re_MICO']},
+                })
+
+            devices.append({
+                'id': did, 'lot_code': lot_code, 'fab': fab,
+                'eqp_total': d_eqp_total, 'eqp_applied': d_eqp_applied,
+                'wafer_base': dw_base, 'wafer_remico': dw_remico,
+                'wafer_portion': d_wafer_portion,
+                'imp': d_imp, 'equipments': equipments,
+            })
+
+        groups.append({
+            'id': gid, 'product': product, 'oper_desc': oper_desc,
+            'family': _family(product, oper_desc),
+            'eqp_total': eqp_total, 'eqp_applied': eqp_applied,
+            'wafer_base': w_base, 'wafer_remico': w_remico,
+            'wafer_portion': wafer_portion,
+            'imp': imp, 'trend': trend, 'devices': devices,
+        })
+
+    # 전체 요약
+    total_eqp     = sum(g['eqp_total']   for g in groups)
+    applied_eqp   = sum(g['eqp_applied'] for g in groups)
+    total_base    = sum(g['wafer_base']   for g in groups)
+    total_remico  = sum(g['wafer_remico'] for g in groups)
+    total_wafer   = total_base + total_remico
+    total_wafer_p = round(total_remico / total_wafer * 100, 1) if total_wafer else 0
 
     return render(request, 'setup_mico/dispersion.html', {
-        'queried':      queried,
-        'product':      product,
-        'device':       device,
-        'process':      process,
-        'product_list': product_list,
-        'device_list':  device_list,
-        'process_list': process_list,
-        'chart_json':   json.dumps(chart_data, ensure_ascii=False),
+        'groups':      groups,
+        'groups_json': json.dumps(groups, ensure_ascii=False),
+        'latest_date': latest_dt,
+        'total_eqp':   total_eqp,
+        'applied_eqp': applied_eqp,
+        'total_wafer_portion': total_wafer_p,
     })
 
 

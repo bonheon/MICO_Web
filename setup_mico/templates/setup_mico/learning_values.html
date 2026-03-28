@@ -202,14 +202,8 @@
   <!-- RR: 동적 차트 -->
   <div id="tab-rr" style="display:none;"></div>
 
-  <!-- Offset: DB 미연결 -->
-  <div id="tab-offset" style="display:none;">
-    <div class="db-pending">
-      <i class="bi bi-plug" style="font-size:1.8rem; display:block; margin-bottom:0.75rem; color:#c8d0e0;"></i>
-      <div style="font-size:0.9rem; font-weight:600; color:#344054; margin-bottom:0.3rem;">DB 연동 대기 중</div>
-      <div style="font-size:0.82rem;">Offset 데이터는 사내 DB 연동 후 표시됩니다</div>
-    </div>
-  </div>
+  <!-- Offset: 동적 차트 -->
+  <div id="tab-offset" style="display:none;"></div>
 </div>
 {% endblock %}
 
@@ -219,8 +213,9 @@
 // 구조: { device: { oper_desc: [fab, ...] } }
 const CASCADE = {{ cascade_json|safe }};
 
-const DATA_URL    = '{% url "learning_values_data" %}';
-const RR_DATA_URL = '{% url "learning_rr_data" %}';
+const DATA_URL       = '{% url "learning_pre_thk_data" %}';
+const RR_DATA_URL    = '{% url "learning_rr_data" %}';
+const OFFSET_DATA_URL = '{% url "learning_offset_data" %}';
 const COLORS = [
   '#4f8ef7','#22c55e','#f97316','#a855f7','#ef4444',
   '#06b6d4','#eab308','#ec4899','#14b8a6','#8b5cf6',
@@ -236,7 +231,9 @@ const algoLabels = {
 let currentAlgo = 'pre_thk';
 let preThkCharts = [];   // Pre_Thk 탭 차트 인스턴스
 let rrCharts = [];       // RR 탭 차트 인스턴스
+let offsetCharts = [];   // Offset 탭 차트 인스턴스
 let rrAllData = [];      // RR 조회 결과 전체 보관
+let offsetAllData = []; // Offset 조회 결과 전체 보관
 
 function destroyPreThkCharts() {
   preThkCharts.forEach(c => { try { c.destroy(); } catch(_) {} });
@@ -245,6 +242,10 @@ function destroyPreThkCharts() {
 function destroyRRCharts() {
   rrCharts.forEach(c => { try { c.destroy(); } catch(_) {} });
   rrCharts = [];
+}
+function destroyOffsetCharts() {
+  offsetCharts.forEach(c => { try { c.destroy(); } catch(_) {} });
+  offsetCharts = [];
 }
 
 // ── 셀렉터 초기화 ──
@@ -306,6 +307,8 @@ btnSearch.addEventListener('click', () => {
     fetchAndRender(device, oper_desc, fab);
   } else if (currentAlgo === 'rr') {
     fetchAndRenderRR(device, oper_desc, fab);
+  } else if (currentAlgo === 'offset') {
+    fetchAndRenderOffset(device, oper_desc, fab);
   } else {
     showTabOnly(currentAlgo);
   }
@@ -336,6 +339,16 @@ document.querySelectorAll('.algo-tab').forEach(tab => {
         rrTab.style.display = '';
       } else if (selFab.value) {
         fetchAndRenderRR(selDevice.value, selOper.value, selFab.value);
+      } else {
+        showEmpty('조회 버튼을 눌러 데이터를 불러오세요');
+      }
+    } else if (currentAlgo === 'offset') {
+      const offTab = document.getElementById('tab-offset');
+      if (offTab.innerHTML.trim()) {
+        hideAllPanels();
+        offTab.style.display = '';
+      } else if (selFab.value) {
+        fetchAndRenderOffset(selDevice.value, selOper.value, selFab.value);
       } else {
         showEmpty('조회 버튼을 눌러 데이터를 불러오세요');
       }
@@ -398,9 +411,12 @@ async function fetchAndRender(device, oper_desc, fab) {
   showLoading(col);
   destroyPreThkCharts();
   destroyRRCharts();
+  destroyOffsetCharts();
   document.getElementById('tab-pre_thk').innerHTML = '';
   document.getElementById('tab-rr').innerHTML = '';
+  document.getElementById('tab-offset').innerHTML = '';
   rrAllData = [];
+  offsetAllData = [];
 
   try {
     const params = new URLSearchParams({ device, oper_desc, fab });
@@ -777,6 +793,132 @@ function renderRRCharts(data, recipeId) {
 
     if (row.children.length) area.appendChild(row);
   }
+}
+
+// ── Offset: Fetch ──
+async function fetchAndRenderOffset(device, oper_desc, fab) {
+  const col = `MICO_OFFSET_${device}_${oper_desc}_${fab}`;
+  showLoading(col);
+  destroyOffsetCharts();
+  document.getElementById('tab-offset').innerHTML = '';
+  offsetAllData = [];
+
+  try {
+    const params = new URLSearchParams({ device, oper_desc, fab });
+    const resp = await fetch(`${OFFSET_DATA_URL}?${params}`);
+    const json = await resp.json();
+    if (!resp.ok) throw new Error(json.error || '데이터 조회 실패');
+
+    updateInfoBar(device, oper_desc, fab, json.collection);
+
+    if (!json.data || !json.data.length) {
+      showEmpty(`데이터가 없습니다\n(${json.collection})`);
+      return;
+    }
+
+    offsetAllData = json.data;
+    renderOffsetContent(json.data, json.recipe_ids, json.collection);
+  } catch(e) {
+    showError(e.message);
+  }
+}
+
+// ── Offset: Render ──
+function renderOffsetContent(data, recipeIds, collectionName) {
+  const container = document.getElementById('tab-offset');
+  container.style.display = '';
+  document.getElementById('loading-state').style.display = 'none';
+
+  // 헤더
+  const hdr = document.createElement('div');
+  hdr.style.cssText = 'padding:0.55rem 1.5rem; font-size:0.72rem; color:#8993a8; background:#f8f9fc; border-bottom:1px solid #e4e7ed; display:flex; align-items:center; gap:0.5rem;';
+  hdr.innerHTML = `
+    <i class="bi bi-database"></i>
+    <code style="font-size:0.72rem;">${collectionName}</code>
+    <span style="color:#22c55e; margin-left:auto;">
+      <i class="bi bi-check-circle me-1"></i>${data.length}건
+    </span>`;
+  container.appendChild(hdr);
+
+  // Recipe_ID 선택 패널
+  const recipePanel = document.createElement('div');
+  recipePanel.style.cssText = 'padding:1rem 1.5rem; border-bottom:1px solid #e4e7ed; background:#fff;';
+  recipePanel.innerHTML = `
+    <div style="font-size:0.72rem; font-weight:600; color:#8993a8; text-transform:uppercase; letter-spacing:0.06em; margin-bottom:0.6rem;">
+      <i class="bi bi-card-list me-1"></i>Recipe ID 선택
+    </div>
+    <div id="offset-recipe-btns" style="display:flex; flex-wrap:wrap; gap:0.4rem;"></div>`;
+  container.appendChild(recipePanel);
+
+  const btnGroup = recipePanel.querySelector('#offset-recipe-btns');
+  recipeIds.forEach((rid, i) => {
+    const btn = document.createElement('button');
+    btn.className = 'btn btn-sm';
+    btn.style.cssText = i === 0
+      ? 'border-radius:8px; font-size:0.8rem; border:1px solid #4f8ef7; background:#4f8ef7; color:#fff; font-weight:600;'
+      : 'border-radius:8px; font-size:0.8rem; border:1px solid #e4e7ed; background:#f8f9fc; color:#344054;';
+    btn.textContent = rid;
+    btn.dataset.recipe = rid;
+    btn.addEventListener('click', function() {
+      btnGroup.querySelectorAll('button').forEach(b => {
+        b.style.cssText = 'border-radius:8px; font-size:0.8rem; border:1px solid #e4e7ed; background:#f8f9fc; color:#344054;';
+      });
+      this.style.cssText = 'border-radius:8px; font-size:0.8rem; border:1px solid #4f8ef7; background:#4f8ef7; color:#fff; font-weight:600;';
+      renderOffsetChart(offsetAllData.filter(d => d.recipe_id === this.dataset.recipe));
+    });
+    btnGroup.appendChild(btn);
+  });
+
+  // 차트 컨테이너
+  const chartArea = document.createElement('div');
+  chartArea.id = 'offset-chart-area';
+  chartArea.style.padding = '1.25rem 1.5rem';
+  container.appendChild(chartArea);
+
+  // 첫 번째 Recipe로 기본 렌더
+  if (recipeIds.length) {
+    renderOffsetChart(data.filter(d => d.recipe_id === recipeIds[0]));
+  }
+}
+
+// ── Offset: 차트 렌더링 ──
+function renderOffsetChart(data) {
+  destroyOffsetCharts();
+
+  const area = document.getElementById('offset-chart-area');
+  area.innerHTML = '';
+
+  if (!data.length) {
+    area.innerHTML = '<div style="text-align:center; padding:2rem; color:#8993a8; font-size:0.85rem;">해당 Recipe ID의 데이터가 없습니다</div>';
+    return;
+  }
+
+  // IDLE 컬러맵
+  const idleValues = [...new Set(data.map(d => d.IDLE).filter(Boolean))].sort();
+  const colorMap = {};
+  idleValues.forEach((idle, i) => { colorMap[idle] = COLORS[i % COLORS.length]; });
+
+  // OFFSET scatter (IDLE별 색상)
+  const datasets = idleValues.map(idle => {
+    const pts = data
+      .filter(d => d.IDLE === idle && d.OFFSET != null)
+      .map(d => ({ x: new Date(d.Date).getTime(), y: d.OFFSET }))
+      .sort((a, b) => a.x - b.x);
+    return {
+      label: idle,
+      data: pts,
+      backgroundColor: colorMap[idle] + 'cc',
+      pointRadius: 4, pointHoverRadius: 6,
+    };
+  }).filter(ds => ds.data.length > 0);
+
+  const totalPts = datasets.reduce((s, ds) => s + ds.data.length, 0);
+  const box = makeChartBox('OFFSET Trend', '#f97316', 'chart-offset-main', '280px', `${totalPts}pts`);
+  area.appendChild(box);
+
+  setTimeout(() => {
+    offsetCharts.push(new Chart(document.getElementById('chart-offset-main'), makeScatterConfig(datasets, false)));
+  }, 0);
 }
 
 // EQ 기준 scatter datasets 생성 (RR용)
