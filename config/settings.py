@@ -134,3 +134,33 @@ DEFAULT_AUTO_FIELD = 'django.db.models.BigAutoField'
 LOGIN_URL = '/login/'
 LOGIN_REDIRECT_URL = '/'
 LOGOUT_REDIRECT_URL = '/login/'
+
+# Logging — 터미널에 에러/경고 출력 (DEBUG=False 환경에서도 트레이스백 확인 가능)
+LOGGING = {
+    'version': 1,
+    'disable_existing_loggers': False,
+    'formatters': {
+        'verbose': {
+            'format': '[{asctime}] {levelname} {module}: {message}',
+            'style': '{',
+            'datefmt': '%H:%M:%S',
+        },
+    },
+    'handlers': {
+        'console': {
+            'class': 'logging.StreamHandler',
+            'formatter': 'verbose',
+        },
+    },
+    'loggers': {
+        'django': {
+            'handlers': ['console'],
+            'level': 'WARNING',   # WARNING / ERROR / CRITICAL 출력
+        },
+        'django.request': {
+            'handlers': ['console'],
+            'level': 'ERROR',     # 500 에러 트레이스백 출력
+            'propagate': False,
+        },
+    },
+}

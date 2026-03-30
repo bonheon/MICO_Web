@@ -97,6 +97,37 @@
   .error-state   { padding: 3rem 1.5rem; text-align: center; }
   .db-pending    { padding: 4rem 1.5rem; text-align: center; color: #8993a8; }
 
+  .date-filter-bar {
+    display: flex; align-items: center; gap: 0.5rem; flex-wrap: wrap;
+    background: #fff; border: 1px solid #e4e7ed; border-radius: 10px;
+    padding: 0.6rem 1rem; margin-bottom: 1rem;
+  }
+  .date-filter-label {
+    font-size: 0.72rem; font-weight: 600; color: #8993a8;
+    text-transform: uppercase; letter-spacing: 0.06em; white-space: nowrap;
+    margin-right: 0.25rem;
+  }
+  .date-quick-btn {
+    padding: 0.3rem 0.75rem; border-radius: 8px; font-size: 0.78rem;
+    border: 1px solid #e4e7ed; background: #f8f9fc; color: #344054;
+    cursor: pointer; transition: all 0.12s; white-space: nowrap;
+  }
+  .date-quick-btn:hover { border-color: #4f8ef7; color: #4f8ef7; }
+  .date-quick-btn.active { background: #4f8ef7; border-color: #4f8ef7; color: #fff; font-weight: 600; }
+  .date-divider { width: 1px; height: 20px; background: #e4e7ed; margin: 0 0.25rem; flex-shrink: 0; }
+  .date-input {
+    border: 1px solid #e4e7ed; border-radius: 7px; padding: 0.3rem 0.6rem;
+    font-size: 0.8rem; color: #344054; background: #f8f9fc; outline: none;
+    cursor: pointer;
+  }
+  .date-input:focus { border-color: #4f8ef7; background: #fff; }
+  .date-clear-btn {
+    padding: 0.25rem 0.5rem; border-radius: 7px; border: none;
+    background: none; color: #c8d0e0; cursor: pointer; font-size: 0.9rem;
+    transition: color 0.12s; line-height: 1;
+  }
+  .date-clear-btn:hover { color: #ef4444; }
+
   .chart-box {
     background: #f8f9fc; border: 1px solid #e4e7ed;
     border-radius: 10px; padding: 1rem 1.25rem; margin-bottom: 1rem;
@@ -134,6 +165,22 @@
   </div>
   <button id="btn-search" class="btn-search" disabled>
     <i class="bi bi-search me-1"></i> 조회
+  </button>
+</div>
+
+<!-- Date Filter Bar -->
+<div class="date-filter-bar">
+  <span class="date-filter-label"><i class="bi bi-calendar3 me-1"></i>날짜 범위</span>
+  <button class="date-quick-btn" data-days="1">최근 1일</button>
+  <button class="date-quick-btn" data-days="7">최근 7일</button>
+  <button class="date-quick-btn" data-days="14">최근 2주</button>
+  <button class="date-quick-btn" data-days="30">최근 30일</button>
+  <div class="date-divider"></div>
+  <input type="date" id="date-from" class="date-input">
+  <span style="color:#8993a8; font-size:0.82rem;">~</span>
+  <input type="date" id="date-to" class="date-input">
+  <button class="date-clear-btn" id="date-clear" title="날짜 초기화">
+    <i class="bi bi-x-circle"></i>
   </button>
 </div>
 
@@ -234,6 +281,54 @@ let rrCharts = [];       // RR 탭 차트 인스턴스
 let offsetCharts = [];   // Offset 탭 차트 인스턴스
 let rrAllData = [];      // RR 조회 결과 전체 보관
 let offsetAllData = []; // Offset 조회 결과 전체 보관
+let currentRRRecipe = null;  // RR 현재 선택된 Recipe_ID
+let currentRRApara  = null;  // RR 현재 선택된 APC_Para (null = 전체)
+
+// ── 날짜 필터 ──
+const selDateFrom = document.getElementById('date-from');
+const selDateTo   = document.getElementById('date-to');
+
+function toYMD(date) {
+  return date.toISOString().slice(0, 10);
+}
+
+function setQuickDate(days) {
+  const to   = new Date();
+  const from = new Date();
+  from.setDate(from.getDate() - (days - 1));
+  selDateFrom.value = toYMD(from);
+  selDateTo.value   = toYMD(to);
+}
+
+function getDateParams() {
+  const params = {};
+  if (selDateFrom.value) params.date_from = selDateFrom.value;
+  if (selDateTo.value)   params.date_to   = selDateTo.value;
+  return params;
+}
+
+// 퀵 버튼
+document.querySelectorAll('.date-quick-btn').forEach(btn => {
+  btn.addEventListener('click', function() {
+    document.querySelectorAll('.date-quick-btn').forEach(b => b.classList.remove('active'));
+    this.classList.add('active');
+    setQuickDate(parseInt(this.dataset.days));
+  });
+});
+
+// 날짜 직접 입력 시 퀵 버튼 해제
+[selDateFrom, selDateTo].forEach(el => {
+  el.addEventListener('change', () => {
+    document.querySelectorAll('.date-quick-btn').forEach(b => b.classList.remove('active'));
+  });
+});
+
+// 초기화 버튼
+document.getElementById('date-clear').addEventListener('click', () => {
+  selDateFrom.value = '';
+  selDateTo.value   = '';
+  document.querySelectorAll('.date-quick-btn').forEach(b => b.classList.remove('active'));
+});
 
 function destroyPreThkCharts() {
   preThkCharts.forEach(c => { try { c.destroy(); } catch(_) {} });
@@ -398,6 +493,30 @@ function updateInfoBar(device, oper_desc, fab, collection) {
   document.getElementById('info-oper').textContent   = oper_desc;
   document.getElementById('info-fab').textContent    = fab;
   document.getElementById('info-collection').textContent = collection;
+
+  // 날짜 범위 칩
+  let dateChip = document.getElementById('info-date');
+  const df = selDateFrom.value, dt = selDateTo.value;
+  if (df || dt) {
+    const label = (df && dt) ? `${df} ~ ${dt}` : (df ? `${df} 이후` : `${dt} 이전`);
+    if (!dateChip) {
+      dateChip = document.createElement('span');
+      dateChip.id = 'info-date';
+      dateChip.className = 'chip';
+      dateChip.style.cssText = 'background:#fff7ed; color:#f97316;';
+      const infoBar = document.getElementById('info-bar');
+      infoBar.appendChild(Object.assign(document.createElement('i'), {
+        className: 'bi bi-calendar3', style: 'color:#f97316;', id: 'info-date-icon'
+      }));
+      infoBar.appendChild(dateChip);
+    }
+    dateChip.textContent = label;
+    document.getElementById('info-date-icon').style.display = '';
+  } else if (dateChip) {
+    dateChip.textContent = '';
+    document.getElementById('info-date-icon').style.display = 'none';
+  }
+
   document.getElementById('data-status').innerHTML =
     '<i class="bi bi-check-circle me-1"></i> 조회 완료';
   document.getElementById('data-status').style.cssText = 'background:#f0fdf4; color:#22c55e;';
@@ -419,7 +538,7 @@ async function fetchAndRender(device, oper_desc, fab) {
   offsetAllData = [];
 
   try {
-    const params = new URLSearchParams({ device, oper_desc, fab });
+    const params = new URLSearchParams({ device, oper_desc, fab, ...getDateParams() });
     const resp = await fetch(`${DATA_URL}?${params}`);
     const json = await resp.json();
     if (!resp.ok) throw new Error(json.error || '데이터 조회 실패');
@@ -462,13 +581,14 @@ function renderPreThkContent(data, collectionName) {
   const colorMap = {};
   eqValues.forEach((eq, i) => { colorMap[eq] = COLORS[i % COLORS.length]; });
 
-  // ── Pre_Thk charts (Pre_THK_Para 별) ──
-  const paraValues = [...new Set(data.map(d => d.Pre_THK_Para).filter(Boolean))].sort();
+  // ── Pre_Thk charts (Pre_THK_Para 없으면 THK_Para로 fallback) ──
+  function getPara(d) { return d.Pre_THK_Para || d.THK_Para || null; }
+  const paraValues = [...new Set(data.map(d => getPara(d)).filter(Boolean))].sort();
 
   if (paraValues.length) {
     inner.appendChild(makeSectionTitle('Pre Thk Trend', 'bi-graph-up-arrow', '#4f8ef7'));
     paraValues.forEach((para, idx) => {
-      const paraData = data.filter(d => d.Pre_THK_Para === para);
+      const paraData = data.filter(d => getPara(d) === para);
       const datasets = buildDatasets(eqValues, paraData, colorMap, 'Pre_Thk');
       if (!datasets.length) return;
 
@@ -622,9 +742,11 @@ async function fetchAndRenderRR(device, oper_desc, fab) {
   destroyRRCharts();
   document.getElementById('tab-rr').innerHTML = '';
   rrAllData = [];
+  currentRRRecipe = null;
+  currentRRApara  = null;
 
   try {
-    const params = new URLSearchParams({ device, oper_desc, fab });
+    const params = new URLSearchParams({ device, oper_desc, fab, ...getDateParams() });
     const resp = await fetch(`${RR_DATA_URL}?${params}`);
     const json = await resp.json();
     if (!resp.ok) throw new Error(json.error || '데이터 조회 실패');
@@ -670,25 +792,15 @@ function renderRRContent(data, recipeIds, collectionName) {
     <div id="rr-recipe-btns" style="display:flex; flex-wrap:wrap; gap:0.4rem;"></div>`;
   container.appendChild(recipePanel);
 
-  const btnGroup = recipePanel.querySelector('#rr-recipe-btns');
-  recipeIds.forEach((rid, i) => {
-    const btn = document.createElement('button');
-    btn.className = 'btn btn-sm';
-    btn.style.cssText = 'border-radius:8px; font-size:0.8rem; border:1px solid #e4e7ed; background:#f8f9fc; color:#344054;';
-    btn.textContent = rid;
-    btn.dataset.recipe = rid;
-    if (i === 0) {
-      btn.style.cssText = 'border-radius:8px; font-size:0.8rem; border:1px solid #4f8ef7; background:#4f8ef7; color:#fff; font-weight:600;';
-    }
-    btn.addEventListener('click', function() {
-      btnGroup.querySelectorAll('button').forEach(b => {
-        b.style.cssText = 'border-radius:8px; font-size:0.8rem; border:1px solid #e4e7ed; background:#f8f9fc; color:#344054;';
-      });
-      this.style.cssText = 'border-radius:8px; font-size:0.8rem; border:1px solid #4f8ef7; background:#4f8ef7; color:#fff; font-weight:600;';
-      renderRRCharts(rrAllData.filter(d => d.Recipe_ID === this.dataset.recipe), this.dataset.recipe);
-    });
-    btnGroup.appendChild(btn);
-  });
+  // APC_Para 선택 패널
+  const aparaPanel = document.createElement('div');
+  aparaPanel.style.cssText = 'padding:0.75rem 1.5rem; border-bottom:1px solid #e4e7ed; background:#fafbfc;';
+  aparaPanel.innerHTML = `
+    <div style="font-size:0.72rem; font-weight:600; color:#8993a8; text-transform:uppercase; letter-spacing:0.06em; margin-bottom:0.6rem;">
+      <i class="bi bi-sliders me-1"></i>APC Para 선택
+    </div>
+    <div id="rr-apara-btns" style="display:flex; flex-wrap:wrap; gap:0.4rem;"></div>`;
+  container.appendChild(aparaPanel);
 
   // 차트 컨테이너
   const chartArea = document.createElement('div');
@@ -696,10 +808,85 @@ function renderRRContent(data, recipeIds, collectionName) {
   chartArea.style.padding = '1.25rem 1.5rem';
   container.appendChild(chartArea);
 
+  // ── 필터 적용 후 차트 렌더 ──
+  function applyRRFilters() {
+    let filtered = rrAllData.filter(d => d.Recipe_ID === currentRRRecipe);
+    if (currentRRApara) filtered = filtered.filter(d => d.APC_Para === currentRRApara);
+    renderRRCharts(filtered, currentRRRecipe);
+  }
+
+  // ── APC_Para 버튼 갱신 (Recipe 바뀔 때 호출) ──
+  function updateAparaButtons(recipeData) {
+    const aparaBtns = document.getElementById('rr-apara-btns');
+    aparaBtns.innerHTML = '';
+    const aparaValues = [...new Set(recipeData.map(d => d.APC_Para).filter(Boolean))].sort();
+
+    const btnStyle      = 'border-radius:8px; font-size:0.8rem; border:1px solid #e4e7ed; background:#f8f9fc; color:#344054;';
+    const btnStyleActive = 'border-radius:8px; font-size:0.8rem; border:1px solid #f97316; background:#f97316; color:#fff; font-weight:600;';
+
+    function activateApara(selectedBtn, apara) {
+      aparaBtns.querySelectorAll('button').forEach(b => { b.style.cssText = btnStyle; });
+      selectedBtn.style.cssText = btnStyleActive;
+      currentRRApara = apara;
+      applyRRFilters();
+    }
+
+    if (aparaValues.length > 1) {
+      // 전체 버튼
+      const allBtn = document.createElement('button');
+      allBtn.className = 'btn btn-sm';
+      allBtn.textContent = '전체';
+      allBtn.dataset.apara = '';
+      allBtn.addEventListener('click', function() { activateApara(this, null); });
+      aparaBtns.appendChild(allBtn);
+    }
+
+    aparaValues.forEach((ap, i) => {
+      const btn = document.createElement('button');
+      btn.className = 'btn btn-sm';
+      btn.style.cssText = btnStyle;
+      btn.textContent = ap;
+      btn.dataset.apara = ap;
+      btn.addEventListener('click', function() { activateApara(this, this.dataset.apara); });
+      aparaBtns.appendChild(btn);
+    });
+
+    // 기본 선택: APC_Para가 1개면 그것, 여러 개면 첫 번째
+    if (aparaValues.length) {
+      const firstBtn = aparaBtns.querySelector(`[data-apara="${aparaValues[0]}"]`);
+      if (firstBtn) { firstBtn.style.cssText = btnStyleActive; }
+      currentRRApara = aparaValues[0];
+    } else {
+      currentRRApara = null;
+    }
+  }
+
+  // ── Recipe_ID 버튼 ──
+  const btnGroup = recipePanel.querySelector('#rr-recipe-btns');
+  const recipeBtnStyle      = 'border-radius:8px; font-size:0.8rem; border:1px solid #e4e7ed; background:#f8f9fc; color:#344054;';
+  const recipeBtnStyleActive = 'border-radius:8px; font-size:0.8rem; border:1px solid #4f8ef7; background:#4f8ef7; color:#fff; font-weight:600;';
+
+  recipeIds.forEach((rid, i) => {
+    const btn = document.createElement('button');
+    btn.className = 'btn btn-sm';
+    btn.style.cssText = i === 0 ? recipeBtnStyleActive : recipeBtnStyle;
+    btn.textContent = rid;
+    btn.dataset.recipe = rid;
+    btn.addEventListener('click', function() {
+      btnGroup.querySelectorAll('button').forEach(b => { b.style.cssText = recipeBtnStyle; });
+      this.style.cssText = recipeBtnStyleActive;
+      currentRRRecipe = this.dataset.recipe;
+      updateAparaButtons(rrAllData.filter(d => d.Recipe_ID === currentRRRecipe));
+      applyRRFilters();
+    });
+    btnGroup.appendChild(btn);
+  });
+
   // 첫 번째 Recipe_ID로 기본 렌더
   if (recipeIds.length) {
-    const firstData = data.filter(d => d.Recipe_ID === recipeIds[0]);
-    renderRRCharts(firstData, recipeIds[0]);
+    currentRRRecipe = recipeIds[0];
+    updateAparaButtons(data.filter(d => d.Recipe_ID === currentRRRecipe));
+    applyRRFilters();
   }
 }
 
@@ -804,7 +991,7 @@ async function fetchAndRenderOffset(device, oper_desc, fab) {
   offsetAllData = [];
 
   try {
-    const params = new URLSearchParams({ device, oper_desc, fab });
+    const params = new URLSearchParams({ device, oper_desc, fab, ...getDateParams() });
     const resp = await fetch(`${OFFSET_DATA_URL}?${params}`);
     const json = await resp.json();
     if (!resp.ok) throw new Error(json.error || '데이터 조회 실패');

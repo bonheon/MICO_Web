@@ -180,57 +180,61 @@ def skynet_login_view(request):
 def learning_values(request):
     """
     Device / Oper Desc / FAB 드롭다운 옵션 제공.
-    샘플 데이터 파일에서 가용 컬렉션 목록을 파싱해 cascading 옵션을 생성.
+    Set-up DB(SubCategory → Category)에서 (device, oper_desc, fab) 조합을 조회해 cascading 옵션을 구성.
     """
-    import json, os
+    import json
 
-    # ── 샘플 데이터에서 옵션 파싱 ─────────────────────────────────────────
-    sample_path = os.path.join(os.path.dirname(__file__), 'sample_data', 'pre_thk_sample.json')
-    with open(sample_path, 'r', encoding='utf-8') as f:
-        sample_collections = json.load(f)
-
-    # Collection명 → (device, oper_desc, fab) 파싱
-    # 형식: MICO_PRE_THK_{device}_{oper_desc}_{fab}_Period
-    PREFIX, SUFFIX = 'MICO_PRE_THK_', '_Period'
-    options = []
-    for col_name in sample_collections:
-        inner = col_name[len(PREFIX):-len(SUFFIX)]   # "E2_SN BPSG CMP_M14"
-        parts = inner.split('_')                      # ['E2', 'SN BPSG CMP', 'M14']
-        if len(parts) < 3:
-            continue
-        options.append({
-            'device'   : parts[0],
-            'oper_desc': '_'.join(parts[1:-1]),       # 중간 전체 (언더스코어 포함 복원)
-            'fab'      : parts[-1],
-        })
-    # ─────────────────────────────────────────────────────────────────────
-
-    # ── 사내 MongoDB 사용 시: 위 파싱 대신 MongoDB 컬렉션 목록 조회
-    # from pymongo import MongoClient
-    # MONGO_URI = 'mongodb://TODO_HOST:TODO_PORT'
-    # MONGO_DB  = 'TODO_DB_NAME'
-    # client = MongoClient(MONGO_URI, serverSelectionTimeoutMS=5000)
-    # col_names = client[MONGO_DB].list_collection_names()
-    # client.close()
-    # options = []
-    # for col_name in col_names:
-    #     if not (col_name.startswith(PREFIX) and col_name.endswith(SUFFIX)):
-    #         continue
-    #     inner = col_name[len(PREFIX):-len(SUFFIX)]
-    #     parts = inner.split('_')
-    #     if len(parts) < 3:
-    #         continue
-    #     options.append({'device': parts[0], 'oper_desc': '_'.join(parts[1:-1]), 'fab': parts[-1]})
-    # ─────────────────────────────────────────────────────────────────────
+    # ── Set-up DB에서 옵션 구성 ───────────────────────────────────────────
+    # SubCategory.device / SubCategory.category.oper_desc / SubCategory.fab
+    rows = (
+        SubCategory.objects
+        .select_related('category')
+        .exclude(device='')
+        .exclude(fab='')
+        .values('device', 'category__oper_desc', 'fab')
+        .distinct()
+        .order_by('device', 'category__oper_desc', 'fab')
+    )
 
     # Cascading 구조: {device: {oper_desc: [fab, ...]}}
     cascade = {}
-    for o in options:
-        cascade.setdefault(o['device'], {}).setdefault(o['oper_desc'], []).append(o['fab'])
+    for r in rows:
+        device    = r['device']
+        oper_desc = r['category__oper_desc'] or ''
+        fab       = r['fab']
+        if not oper_desc:
+            continue
+        cascade.setdefault(device, {}).setdefault(oper_desc, [])
+        if fab not in cascade[device][oper_desc]:
+            cascade[device][oper_desc].append(fab)
+    # ─────────────────────────────────────────────────────────────────────
 
     return render(request, 'setup_mico/learning_values.html', {
         'cascade_json': json.dumps(cascade, ensure_ascii=False),
     })
+
+
+def _filter_by_date(data, date_from, date_to):
+    """Date 필드 기준 기간 필터링. date_from/date_to 모두 없으면 원본 반환."""
+    if not date_from and not date_to:
+        return data
+    from datetime import datetime
+    result = []
+    for row in data:
+        raw = row.get('Date', '')
+        if not raw:
+            result.append(row)
+            continue
+        try:
+            dt = datetime.fromisoformat(str(raw)[:10])
+            if date_from and dt < datetime.fromisoformat(date_from):
+                continue
+            if date_to and dt > datetime.fromisoformat(date_to):
+                continue
+            result.append(row)
+        except (ValueError, TypeError):
+            result.append(row)
+    return result
 
 
 @login_required
@@ -247,6 +251,8 @@ def learning_pre_thk_data(request):
     device    = request.GET.get('device', '').strip()
     oper_desc = request.GET.get('oper_desc', '').strip()
     fab       = request.GET.get('fab', '').strip()
+    date_from = request.GET.get('date_from', '').strip()
+    date_to   = request.GET.get('date_to', '').strip()
 
     if not all([device, oper_desc, fab]):
         return JsonResponse({'error': 'device / oper_desc / fab 파라미터가 필요합니다'}, status=400)
@@ -264,6 +270,7 @@ def learning_pre_thk_data(request):
     except FileNotFoundError:
         return JsonResponse({'error': '샘플 데이터 파일을 찾을 수 없습니다'}, status=500)
 
+    data = _filter_by_date(data, date_from, date_to)
     return JsonResponse({'collection': collection_name, 'data': data})
 
     # ════════════════════════════════════════════════════════════════════
@@ -303,6 +310,8 @@ def learning_rr_data(request):
     device    = request.GET.get('device', '').strip()
     oper_desc = request.GET.get('oper_desc', '').strip()
     fab       = request.GET.get('fab', '').strip()
+    date_from = request.GET.get('date_from', '').strip()
+    date_to   = request.GET.get('date_to', '').strip()
 
     if not all([device, oper_desc, fab]):
         return JsonResponse({'error': 'device / oper_desc / fab 파라미터가 필요합니다'}, status=400)
@@ -341,6 +350,7 @@ def learning_rr_data(request):
     # data = [serialize(d) for d in docs]
     # ════════════════════════════════════════════════════════════════════
 
+    data = _filter_by_date(data, date_from, date_to)
     recipe_ids = sorted(set(d['Recipe_ID'] for d in data if 'Recipe_ID' in d))
     return JsonResponse({'collection': collection_name, 'data': data, 'recipe_ids': recipe_ids})
 
@@ -359,6 +369,8 @@ def learning_offset_data(request):
     device    = request.GET.get('device', '').strip()
     oper_desc = request.GET.get('oper_desc', '').strip()
     fab       = request.GET.get('fab', '').strip()
+    date_from = request.GET.get('date_from', '').strip()
+    date_to   = request.GET.get('date_to', '').strip()
 
     if not all([device, oper_desc, fab]):
         return JsonResponse({'error': 'device / oper_desc / fab 파라미터가 필요합니다'}, status=400)
@@ -397,6 +409,7 @@ def learning_offset_data(request):
     # data = [serialize(d) for d in docs]
     # ════════════════════════════════════════════════════════════════════
 
+    data = _filter_by_date(data, date_from, date_to)
     recipe_ids = sorted(set(d['recipe_id'] for d in data if 'recipe_id' in d))
     return JsonResponse({'collection': collection_name, 'data': data, 'recipe_ids': recipe_ids})
 
@@ -919,7 +932,6 @@ def apc_history(request):
 @login_required
 def dispersion(request):
     import os, json
-    from collections import defaultdict
 
     # ════════════════════════════════════════════════════════════════════
     # [개발] 샘플 데이터 사용 — 사내 연결 시 이 블록 주석 처리
@@ -931,7 +943,6 @@ def dispersion(request):
 
     # ════════════════════════════════════════════════════════════════════
     # [사내] MongoDB 연결 — 위 샘플 블록 주석 처리 후 아래 블록 주석 해제
-    # pip install pymongo 필요
     # ════════════════════════════════════════════════════════════════════
     # from pymongo import MongoClient
     # MONGO_URI = 'mongodb://TODO_HOST:TODO_PORT'
@@ -946,12 +957,12 @@ def dispersion(request):
     # ════════════════════════════════════════════════════════════════════
 
     def safe_imp(base, remico):
-        """산포 개선율(%) = (BASE - Re_MICO) / BASE * 100"""
+        """산포 개선율(%) = (BASE - Re_MICO) / BASE * 100, 소수점 1자리"""
         try:
             b = float(base)
             if b > 0:
                 return round((b - float(remico)) / b * 100, 1)
-        except Exception:
+        except (TypeError, ValueError):
             pass
         return None
 
@@ -959,117 +970,122 @@ def dispersion(request):
         vals = [v for v in values if v is not None]
         return round(sum(vals) / len(vals), 1) if vals else None
 
-    raw_data.sort(key=lambda r: r['Date'])
-    all_dates  = sorted(set(r['Date'] for r in raw_data))
-    latest_dt  = all_dates[-1] if all_dates else ''
+    # TOTAL 행 vs 장비 행 분리
+    total_rows = [r for r in raw_data if r.get('eqp_ch') == 'TOTAL']
+    equip_rows = [r for r in raw_data if r.get('eqp_ch') != 'TOTAL']
 
-    # 최신 날짜 기준 장비 적용 현황
-    latest_rows = [r for r in raw_data if r['Date'] == latest_dt]
+    all_dates = sorted(set(r['Date'] for r in raw_data))
+    latest_dt = all_dates[-1] if all_dates else ''
 
-    # 계층 구조: (product, oper_desc) → (lot_code, fab) → eqp_ch
-    def build_hierarchy(rows):
-        h = defaultdict(lambda: defaultdict(lambda: defaultdict(list)))
-        for r in rows:
-            h[(r['Product'], r['OPER_DESC'])][(r['Lot_Code'], r['Fab'])][r['eqp_ch']].append(r)
-        return h
+    latest_total = [r for r in total_rows if r['Date'] == latest_dt]
+    latest_equip = [r for r in equip_rows if r['Date'] == latest_dt]
 
-    hierarchy_all    = build_hierarchy(raw_data)
-    hierarchy_latest = build_hierarchy(latest_rows)
+    # (Product, OPER_DESC) 고유 목록
+    group_keys = sorted(set((r['Product'], r['OPER_DESC']) for r in raw_data))
 
-    # Category 모델에서 family 조회 (product + oper_desc 기준)
+    # Category 모델의 oper_desc 기준으로 family 조회 (Set-up 등록 정보 사용)
     from .models import Category
     cat_family_map = {
-        (c.product, c.oper_desc): c.family
-        for c in Category.objects.only('product', 'oper_desc', 'family')
+        c.oper_desc: c.family
+        for c in Category.objects.only('oper_desc', 'family')
+        if c.oper_desc
     }
-    # fallback: product prefix 기준 (CL/OP/PE → NAND, LC/CP → DRAM)
-    _nand_prefix = {'CL', 'OP', 'PE'}
-    _dram_prefix = {'LC', 'CP'}
     def _family(product, oper_desc):
-        f = cat_family_map.get((product, oper_desc))
-        if f:
-            return f
-        return 'NAND' if product in _nand_prefix else ('DRAM' if product in _dram_prefix else '')
+        return cat_family_map.get(oper_desc, '')
 
     groups = []
-    for (product, oper_desc) in sorted(hierarchy_all):
+    for (product, oper_desc) in group_keys:
         gid = f"{product}_{oper_desc}".replace(' ', '_')
 
-        g_latest = [r for r in latest_rows if r['Product'] == product and r['OPER_DESC'] == oper_desc]
-        g_all    = [r for r in raw_data    if r['Product'] == product and r['OPER_DESC'] == oper_desc]
+        # 최신 날짜 TOTAL 행 (장비 적용 현황)
+        g_latest_total = [r for r in latest_total
+                          if r['Product'] == product and r['OPER_DESC'] == oper_desc]
+        # 최신 날짜 장비 행 (장비 count용)
+        g_latest_equip = [r for r in latest_equip
+                          if r['Product'] == product and r['OPER_DESC'] == oper_desc]
 
-        # 장비 적용율 (최신 날짜 기준, Portion >= 0.9 → 적용)
-        eqp_total   = len(set(r['eqp_ch'] for r in g_latest))
-        eqp_applied = sum(1 for r in g_latest if r.get('Portion', 0) >= 0.9)
+        # 장비 적용 수: 개별 장비 행 기준
+        eqp_total   = len(set(r['eqp_ch'] for r in g_latest_equip))
+        eqp_applied = sum(1 for r in g_latest_equip if r.get('Formula') == 'MICO')
 
-        # Wafer 적용율 (최신 날짜 기준)
-        w_base   = sum(r['BASE']    for r in g_latest)
-        w_remico = sum(r['Re_MICO'] for r in g_latest)
+        # Wafer 합산: 최신 TOTAL 행들의 합
+        w_base   = sum(r.get('BASE', 0)    for r in g_latest_total)
+        w_remico = sum(r.get('Re_MICO', 0) for r in g_latest_total)
         w_total  = w_base + w_remico
         wafer_portion = round(w_remico / w_total * 100, 1) if w_total else 0
 
-        # 개선율 (최신 날짜, 장비 평균)
+        # 그룹 개선율: 최신 TOTAL 행 평균
         imp = {
-            '13P': avg([safe_imp(r['13P_BASE'], r['13P_Re_MICO']) for r in g_latest]),
-            'ED':  avg([safe_imp(r['ED_BASE'],  r['ED_Re_MICO'])  for r in g_latest]),
-            'EX':  avg([safe_imp(r['EX_BASE'],  r['EX_Re_MICO'])  for r in g_latest]),
+            '13P': avg([safe_imp(r.get('13P_BASE'), r.get('13P_Re_MICO')) for r in g_latest_total]),
+            'ED':  avg([safe_imp(r.get('ED_BASE'),  r.get('ED_Re_MICO'))  for r in g_latest_total]),
+            'EX':  avg([safe_imp(r.get('EX_BASE'),  r.get('EX_Re_MICO'))  for r in g_latest_total]),
         }
 
-        # 트렌드 (날짜별 평균 개선율)
+        # 트렌드: 날짜별 TOTAL 행의 평균 개선율
+        g_all_total = [r for r in total_rows if r['Product'] == product and r['OPER_DESC'] == oper_desc]
         trend = {'dates': [], '13P': [], 'ED': [], 'EX': []}
         for d in all_dates:
-            d_rows = [r for r in g_all if r['Date'] == d]
+            d_rows = [r for r in g_all_total if r['Date'] == d]
             if not d_rows:
                 continue
             trend['dates'].append(d)
-            trend['13P'].append(avg([safe_imp(r['13P_BASE'], r['13P_Re_MICO']) for r in d_rows]))
-            trend['ED'].append( avg([safe_imp(r['ED_BASE'],  r['ED_Re_MICO'])  for r in d_rows]))
-            trend['EX'].append( avg([safe_imp(r['EX_BASE'],  r['EX_Re_MICO'])  for r in d_rows]))
+            trend['13P'].append(avg([safe_imp(r.get('13P_BASE'), r.get('13P_Re_MICO')) for r in d_rows]))
+            trend['ED'].append( avg([safe_imp(r.get('ED_BASE'),  r.get('ED_Re_MICO'))  for r in d_rows]))
+            trend['EX'].append( avg([safe_imp(r.get('EX_BASE'),  r.get('EX_Re_MICO'))  for r in d_rows]))
 
-        # Device 레벨
+        # 디바이스(Lot/Fab): 최신 TOTAL 행 한 줄씩
         devices = []
-        for (lot_code, fab) in sorted(hierarchy_all[(product, oper_desc)]):
-            did = f"{gid}_{lot_code}_{fab}"
-
-            d_latest = [r for r in g_latest if r['Lot_Code'] == lot_code and r['Fab'] == fab]
-
-            d_eqp_total   = len(set(r['eqp_ch'] for r in d_latest))
-            d_eqp_applied = sum(1 for r in d_latest if r.get('Portion', 0) >= 0.9)
-            dw_base   = sum(r['BASE']    for r in d_latest)
-            dw_remico = sum(r['Re_MICO'] for r in d_latest)
-            dw_total  = dw_base + dw_remico
-            d_wafer_portion = round(dw_remico / dw_total * 100, 1) if dw_total else 0
+        for tot_r in sorted(g_latest_total, key=lambda r: (r['Lot_Code'], r['Fab'])):
+            lot_code = tot_r['Lot_Code']
+            fab      = tot_r['Fab']
+            did      = f"{gid}_{lot_code}_{fab}"
 
             d_imp = {
-                '13P': avg([safe_imp(r['13P_BASE'], r['13P_Re_MICO']) for r in d_latest]),
-                'ED':  avg([safe_imp(r['ED_BASE'],  r['ED_Re_MICO'])  for r in d_latest]),
-                'EX':  avg([safe_imp(r['EX_BASE'],  r['EX_Re_MICO'])  for r in d_latest]),
+                '13P': safe_imp(tot_r.get('13P_BASE'), tot_r.get('13P_Re_MICO')),
+                'ED':  safe_imp(tot_r.get('ED_BASE'),  tot_r.get('ED_Re_MICO')),
+                'EX':  safe_imp(tot_r.get('EX_BASE'),  tot_r.get('EX_Re_MICO')),
             }
 
-            # Equipment 레벨
+            # 장비 목록: 최신 날짜 비-TOTAL 행
+            d_equip_rows = [r for r in g_latest_equip
+                            if r['Lot_Code'] == lot_code and r['Fab'] == fab]
+            d_eqp_total   = len(d_equip_rows)
+            d_eqp_applied = sum(1 for r in d_equip_rows if r.get('Formula') == 'MICO')
+
             equipments = []
-            for eqp_ch, eqp_records in sorted(hierarchy_all[(product, oper_desc)][(lot_code, fab)].items()):
-                er = next((r for r in eqp_records if r['Date'] == latest_dt), eqp_records[-1])
+            for er in sorted(d_equip_rows, key=lambda r: r['eqp_ch']):
                 equipments.append({
-                    'eqp_ch':  eqp_ch,
-                    'base':    er['BASE'],
-                    'remico':  er['Re_MICO'],
-                    'portion': er['Portion'],
-                    'applied': er['Portion'] >= 0.9,
+                    'eqp_ch':  er['eqp_ch'],
+                    'base':    er.get('BASE', 0),
+                    'remico':  er.get('Re_MICO', 0),
+                    'portion': er.get('Portion', 0),
+                    'formula': er.get('Formula', ''),
+                    'applied': er.get('Formula') == 'MICO',
                     'imp': {
-                        '13P': safe_imp(er['13P_BASE'], er['13P_Re_MICO']),
-                        'ED':  safe_imp(er['ED_BASE'],  er['ED_Re_MICO']),
-                        'EX':  safe_imp(er['EX_BASE'],  er['EX_Re_MICO']),
+                        '13P': safe_imp(er.get('13P_BASE'), er.get('13P_Re_MICO')),
+                        'ED':  safe_imp(er.get('ED_BASE'),  er.get('ED_Re_MICO')),
+                        'EX':  safe_imp(er.get('EX_BASE'),  er.get('EX_Re_MICO')),
                     },
-                    'base_vals':   {'13P': er['13P_BASE'], 'ED': er['ED_BASE'],  'EX': er['EX_BASE']},
-                    'remico_vals': {'13P': er['13P_Re_MICO'], 'ED': er['ED_Re_MICO'], 'EX': er['EX_Re_MICO']},
+                    'base_vals':   {
+                        '13P': er.get('13P_BASE'),
+                        'ED':  er.get('ED_BASE'),
+                        'EX':  er.get('EX_BASE'),
+                    },
+                    'remico_vals': {
+                        '13P': er.get('13P_Re_MICO'),
+                        'ED':  er.get('ED_Re_MICO'),
+                        'EX':  er.get('EX_Re_MICO'),
+                    },
                 })
 
             devices.append({
                 'id': did, 'lot_code': lot_code, 'fab': fab,
+                'base': tot_r.get('BASE', 0), 'remico': tot_r.get('Re_MICO', 0),
+                'portion': tot_r.get('Portion', 0),
+                'formula': tot_r.get('Formula', ''),
                 'eqp_total': d_eqp_total, 'eqp_applied': d_eqp_applied,
-                'wafer_base': dw_base, 'wafer_remico': dw_remico,
-                'wafer_portion': d_wafer_portion,
+                'wafer_base': tot_r.get('BASE', 0), 'wafer_remico': tot_r.get('Re_MICO', 0),
+                'wafer_portion': round(tot_r.get('Re_MICO', 0) / (tot_r.get('BASE', 0) + tot_r.get('Re_MICO', 0)) * 100, 1) if (tot_r.get('BASE', 0) + tot_r.get('Re_MICO', 0)) > 0 else 0,
                 'imp': d_imp, 'equipments': equipments,
             })
 
