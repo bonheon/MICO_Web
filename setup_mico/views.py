@@ -1009,9 +1009,7 @@ def dispersion(request):
             if dev_total:
                 dev_latest_dt = max(r['Date'] for r in dev_total)
                 g_latest_total.extend(r for r in dev_total if r['Date'] == dev_latest_dt)
-            if dev_equip:
-                dev_equip_latest_dt = max(r['Date'] for r in dev_equip)
-                g_latest_equip.extend(r for r in dev_equip if r['Date'] == dev_equip_latest_dt)
+                g_latest_equip.extend(r for r in dev_equip if r['Date'] == dev_latest_dt)
 
         # 장비 적용 수: 개별 장비 행 기준
         eqp_total   = len(set(r['eqp_ch'] for r in g_latest_equip))
