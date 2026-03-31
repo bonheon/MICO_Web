@@ -293,7 +293,9 @@ def learning_pre_thk_data(request):
     # def serialize(doc):
     #     return {k: (v.isoformat() if hasattr(v, 'isoformat') else v) for k, v in doc.items()}
     #
-    # return JsonResponse({'collection': collection_name, 'data': [serialize(d) for d in docs]})
+    # data = [serialize(d) for d in docs]
+    # data = _filter_by_date(data, date_from, date_to)
+    # return JsonResponse({'collection': collection_name, 'data': data})
 
 
 @login_required
@@ -932,6 +934,7 @@ def apc_history(request):
 @login_required
 def dispersion(request):
     import os, json
+    from django.core.serializers.json import DjangoJSONEncoder
 
     # ════════════════════════════════════════════════════════════════════
     # [개발] 샘플 데이터 사용 — 사내 연결 시 이 블록 주석 처리
@@ -977,36 +980,43 @@ def dispersion(request):
     all_dates = sorted(set(r['Date'] for r in raw_data))
     latest_dt = all_dates[-1] if all_dates else ''
 
-    latest_total = [r for r in total_rows if r['Date'] == latest_dt]
-    latest_equip = [r for r in equip_rows if r['Date'] == latest_dt]
-
     # (Product, OPER_DESC) 고유 목록
     group_keys = sorted(set((r['Product'], r['OPER_DESC']) for r in raw_data))
 
     # Category 모델의 oper_desc 기준으로 family 조회 (Set-up 등록 정보 사용)
     from .models import Category
     cat_family_map = {
-        c.oper_desc: c.family
-        for c in Category.objects.only('oper_desc', 'family')
+        (c.product, c.oper_desc): c.family
+        for c in Category.objects.only('product', 'oper_desc', 'family')
         if c.oper_desc
     }
     def _family(product, oper_desc):
-        return cat_family_map.get(oper_desc, '')
+        return cat_family_map.get((product, oper_desc), '')
 
     groups = []
     for (product, oper_desc) in group_keys:
         gid = f"{product}_{oper_desc}".replace(' ', '_')
 
-        # 최신 날짜 TOTAL 행 (장비 적용 현황)
-        g_latest_total = [r for r in latest_total
-                          if r['Product'] == product and r['OPER_DESC'] == oper_desc]
-        # 최신 날짜 장비 행 (장비 count용)
-        g_latest_equip = [r for r in latest_equip
-                          if r['Product'] == product and r['OPER_DESC'] == oper_desc]
+        # (product, oper_desc) 전체 행 먼저 추출
+        g_all_total_pre = [r for r in total_rows if r['Product'] == product and r['OPER_DESC'] == oper_desc]
+        g_all_equip_pre = [r for r in equip_rows if r['Product'] == product and r['OPER_DESC'] == oper_desc]
+
+        # (product, oper_desc, lot_code, fab) 조합별 최신 날짜를 각각 구해서 합산
+        device_keys_pre = sorted(set((r['Lot_Code'], r['Fab']) for r in g_all_total_pre))
+        g_latest_total = []
+        g_latest_equip = []
+        for (lot_code_pre, fab_pre) in device_keys_pre:
+            dev_total = [r for r in g_all_total_pre if r['Lot_Code'] == lot_code_pre and r['Fab'] == fab_pre]
+            dev_equip = [r for r in g_all_equip_pre if r['Lot_Code'] == lot_code_pre and r['Fab'] == fab_pre]
+            if dev_total:
+                dev_latest_dt = max(r['Date'] for r in dev_total)
+                g_latest_total.extend(r for r in dev_total if r['Date'] == dev_latest_dt)
+                g_latest_equip.extend(r for r in dev_equip if r['Date'] == dev_latest_dt)
 
         # 장비 적용 수: 개별 장비 행 기준
-        eqp_total   = len(set(r['eqp_ch'] for r in g_latest_equip))
-        eqp_applied = sum(1 for r in g_latest_equip if r.get('Formula') == 'MICO')
+        eqp_total   = len(set(r['eqp_ch'] for r in g_latest_equip
+                              if (r.get('BASE') or 0) + (r.get('Re_MICO') or 0) > 0))
+        eqp_applied = sum(1 for r in g_latest_equip if (r.get('Portion') or 0) >= 0.9)
 
         # Wafer 합산: 최신 TOTAL 행들의 합
         w_base   = sum(r.get('BASE', 0)    for r in g_latest_total)
@@ -1022,10 +1032,9 @@ def dispersion(request):
         }
 
         # 트렌드: 날짜별 TOTAL 행의 평균 개선율
-        g_all_total = [r for r in total_rows if r['Product'] == product and r['OPER_DESC'] == oper_desc]
         trend = {'dates': [], '13P': [], 'ED': [], 'EX': []}
         for d in all_dates:
-            d_rows = [r for r in g_all_total if r['Date'] == d]
+            d_rows = [r for r in g_all_total_pre if r['Date'] == d]
             if not d_rows:
                 continue
             trend['dates'].append(d)
@@ -1049,8 +1058,9 @@ def dispersion(request):
             # 장비 목록: 최신 날짜 비-TOTAL 행
             d_equip_rows = [r for r in g_latest_equip
                             if r['Lot_Code'] == lot_code and r['Fab'] == fab]
-            d_eqp_total   = len(d_equip_rows)
-            d_eqp_applied = sum(1 for r in d_equip_rows if r.get('Formula') == 'MICO')
+            d_eqp_total   = sum(1 for r in d_equip_rows
+                                if (r.get('BASE') or 0) + (r.get('Re_MICO') or 0) > 0)
+            d_eqp_applied = sum(1 for r in d_equip_rows if (r.get('Portion') or 0) >= 0.9)
 
             equipments = []
             for er in sorted(d_equip_rows, key=lambda r: r['eqp_ch']):
@@ -1060,7 +1070,7 @@ def dispersion(request):
                     'remico':  er.get('Re_MICO', 0),
                     'portion': er.get('Portion', 0),
                     'formula': er.get('Formula', ''),
-                    'applied': er.get('Formula') == 'MICO',
+                    'applied': (er.get('Portion') or 0) >= 0.9,
                     'imp': {
                         '13P': safe_imp(er.get('13P_BASE'), er.get('13P_Re_MICO')),
                         'ED':  safe_imp(er.get('ED_BASE'),  er.get('ED_Re_MICO')),
@@ -1108,7 +1118,7 @@ def dispersion(request):
 
     return render(request, 'setup_mico/dispersion.html', {
         'groups':      groups,
-        'groups_json': json.dumps(groups, ensure_ascii=False),
+        'groups_json': json.dumps(groups, ensure_ascii=False, cls=DjangoJSONEncoder),
         'latest_date': latest_dt,
         'total_eqp':   total_eqp,
         'applied_eqp': applied_eqp,
