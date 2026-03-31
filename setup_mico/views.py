@@ -959,6 +959,13 @@ def dispersion(request):
     #     raw_data = []
     # ════════════════════════════════════════════════════════════════════
 
+    def date_str(val):
+        """Date 필드가 datetime 객체이거나 문자열이어도 'YYYY-MM-DD' 반환"""
+        import datetime as _dt
+        if isinstance(val, (_dt.datetime, _dt.date)):
+            return val.strftime('%Y-%m-%d')
+        return str(val)[:10]
+
     def safe_imp(base, remico):
         """산포 개선율(%) = (BASE - Re_MICO) / BASE * 100, 소수점 1자리"""
         try:
@@ -977,7 +984,7 @@ def dispersion(request):
     total_rows = [r for r in raw_data if r.get('eqp_ch') == 'TOTAL']
     equip_rows = [r for r in raw_data if r.get('eqp_ch') != 'TOTAL']
 
-    all_dates = sorted(set(r['Date'][:10] for r in raw_data))
+    all_dates = sorted(set(date_str(r['Date']) for r in raw_data))
     latest_dt = all_dates[-1] if all_dates else ''
 
     # (Product, OPER_DESC) 고유 목록
@@ -1009,9 +1016,9 @@ def dispersion(request):
             dev_total = [r for r in g_all_total_pre if r['Lot_Code'] == lot_code_pre and r['Fab'] == fab_pre]
             dev_equip = [r for r in g_all_equip_pre if r['Lot_Code'] == lot_code_pre and r['Fab'] == fab_pre]
             if dev_total:
-                dev_latest_dt = max(r['Date'][:10] for r in dev_total)
-                g_latest_total.extend(r for r in dev_total if r['Date'][:10] == dev_latest_dt)
-                g_latest_equip.extend(r for r in dev_equip if r['Date'][:10] == dev_latest_dt)
+                dev_latest_dt = max(date_str(r['Date']) for r in dev_total)
+                g_latest_total.extend(r for r in dev_total if date_str(r['Date']) == dev_latest_dt)
+                g_latest_equip.extend(r for r in dev_equip if date_str(r['Date']) == dev_latest_dt)
 
         # 장비 적용 수: 개별 장비 행 기준
         eqp_total   = len(set(r['eqp_ch'] for r in g_latest_equip
@@ -1034,7 +1041,7 @@ def dispersion(request):
         # 트렌드: 날짜별 TOTAL 행의 평균 개선율
         trend = {'dates': [], '13P': [], 'ED': [], 'EX': []}
         for d in all_dates:
-            d_rows = [r for r in g_all_total_pre if r['Date'][:10] == d]
+            d_rows = [r for r in g_all_total_pre if date_str(r['Date']) == d]
             if not d_rows:
                 continue
             trend['dates'].append(d)
