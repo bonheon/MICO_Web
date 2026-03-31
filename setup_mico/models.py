@@ -181,6 +181,24 @@ class AccessLog(models.Model):
         return f'{self.user} | {self.path} | {self.accessed_at}'
 
 
+class SimulationLink(models.Model):
+    category = models.OneToOneField(
+        Category, on_delete=models.CASCADE,
+        related_name='simulation_link', verbose_name='공정 (Category)'
+    )
+    url = models.URLField(max_length=1000, verbose_name='Spotfire URL')
+    description = models.CharField(max_length=200, blank=True, verbose_name='설명')
+    updated_at = models.DateTimeField(auto_now=True, verbose_name='수정일')
+
+    class Meta:
+        verbose_name = 'Simulation Link'
+        verbose_name_plural = 'Simulation Links'
+        ordering = ['category__product', 'category__oper_desc']
+
+    def __str__(self):
+        return f'{self.category.product} / {self.category.oper_desc}'
+
+
 class Voc(models.Model):
     author = models.ForeignKey(User, on_delete=models.CASCADE, related_name='vocs', verbose_name='작성자')
     title = models.CharField(max_length=200, verbose_name='제목')

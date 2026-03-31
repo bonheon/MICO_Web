@@ -50,6 +50,12 @@ urlpatterns = [
     # 접속 현황 (superuser only)
     path('admin-stats/', views.access_stats, name='access_stats'),
 
+    # Simulation Link 관리 (superuser only)
+    path('simulation/links/', views.simulation_link_manage, name='simulation_link_manage'),
+    path('simulation/links/create/', views.simulation_link_create, name='simulation_link_create'),
+    path('simulation/links/<int:pk>/update/', views.simulation_link_update, name='simulation_link_update'),
+    path('simulation/links/<int:pk>/delete/', views.simulation_link_delete, name='simulation_link_delete'),
+
     # VOC
     path('voc/', views.voc_list, name='voc_list'),
     path('voc/create/', views.voc_create, name='voc_create'),

@@ -1,0 +1,192 @@
+{% extends 'setup_mico/base.html' %}
+{% block title %}| Simulation 관리{% endblock %}
+{% block nav_simulation_link %}active{% endblock %}
+
+{% block breadcrumb %}
+<li class="breadcrumb-item">Admin</li>
+<li class="breadcrumb-item active">Simulation 관리</li>
+{% endblock %}
+
+{% block content %}
+<style>
+  .url-text {
+    font-size: 0.8rem; color: #6b7a99; font-family: monospace;
+    max-width: 340px; overflow: hidden; text-overflow: ellipsis; white-space: nowrap;
+  }
+  .url-input {
+    font-size: 0.83rem; font-family: monospace;
+  }
+  .edit-row { background: #f0f6ff !important; }
+</style>
+
+<div class="d-flex align-items-center justify-content-between mb-3">
+  <div>
+    <h5 class="fw-bold mb-0" style="color:#1e2640;">Simulation 관리</h5>
+    <small class="text-muted">공정별 Spotfire URL 등록 · 수정 · 삭제</small>
+  </div>
+  <button class="btn btn-primary btn-sm" data-bs-toggle="modal" data-bs-target="#addModal">
+    <i class="bi bi-plus-lg me-1"></i>URL 등록
+  </button>
+</div>
+
+<!-- 등록된 목록 -->
+<div class="table-card">
+  {% if links %}
+  <table class="table table-hover mb-0" style="font-size:0.85rem;">
+    <thead>
+      <tr>
+        <th style="width:44px;">#</th>
+        <th>Product</th>
+        <th>Oper Desc</th>
+        <th>Spotfire URL</th>
+        <th>설명</th>
+        <th>수정일</th>
+        <th style="width:100px;"></th>
+      </tr>
+    </thead>
+    <tbody>
+      {% for link in links %}
+      <!-- 일반 row -->
+      <tr id="row-{{ link.pk }}">
+        <td class="text-muted">{{ forloop.counter }}</td>
+        <td class="fw-semibold">{{ link.category.product }}</td>
+        <td>{{ link.category.oper_desc }}</td>
+        <td>
+          <a href="{{ link.url }}" target="_blank" class="url-text d-block" title="{{ link.url }}">
+            {{ link.url }}
+          </a>
+        </td>
+        <td class="text-muted" style="font-size:0.8rem;">{{ link.description|default:"—" }}</td>
+        <td class="text-muted" style="font-size:0.78rem; white-space:nowrap;">
+          {{ link.updated_at|date:"Y-m-d" }}
+        </td>
+        <td class="text-end">
+          <button class="btn btn-sm btn-outline-secondary py-0 px-2 me-1"
+                  onclick="startEdit({{ link.pk }})">
+            <i class="bi bi-pencil"></i>
+          </button>
+          <button class="btn btn-sm btn-outline-danger py-0 px-2"
+                  onclick="confirmDelete({{ link.pk }}, '{{ link.category.product|escapejs }} / {{ link.category.oper_desc|escapejs }}')">
+            <i class="bi bi-trash"></i>
+          </button>
+        </td>
+      </tr>
+      <!-- 수정 row (숨김) -->
+      <tr id="edit-row-{{ link.pk }}" class="edit-row d-none">
+        <td colspan="7">
+          <form method="post" action="{% url 'simulation_link_update' link.pk %}" class="d-flex gap-2 align-items-end flex-wrap py-1">
+            {% csrf_token %}
+            <div style="flex:2; min-width:200px;">
+              <label class="form-label mb-1" style="font-size:0.72rem; font-weight:600; color:#8993a8; text-transform:uppercase;">
+                {{ link.category.product }} / {{ link.category.oper_desc }}
+              </label>
+              <input type="text" name="url" class="form-control form-control-sm url-input"
+                     value="{{ link.url }}" placeholder="https://..." required>
+            </div>
+            <div style="flex:1; min-width:140px;">
+              <label class="form-label mb-1" style="font-size:0.72rem; font-weight:600; color:#8993a8; text-transform:uppercase;">설명 (선택)</label>
+              <input type="text" name="description" class="form-control form-control-sm"
+                     value="{{ link.description }}" placeholder="간단한 설명">
+            </div>
+            <div class="d-flex gap-1">
+              <button type="submit" class="btn btn-sm btn-primary">저장</button>
+              <button type="button" class="btn btn-sm btn-outline-secondary" onclick="cancelEdit({{ link.pk }})">취소</button>
+            </div>
+          </form>
+        </td>
+      </tr>
+      {% endfor %}
+    </tbody>
+  </table>
+  {% else %}
+  <div style="padding:3rem; text-align:center; color:#8993a8;">
+    <i class="bi bi-link-45deg" style="font-size:2rem; display:block; margin-bottom:0.75rem; color:#c8d0e0;"></i>
+    <div style="font-size:0.9rem; font-weight:600; color:#344054; margin-bottom:0.3rem;">등록된 URL이 없습니다</div>
+    <div style="font-size:0.82rem;">상단 버튼으로 Spotfire URL을 등록하세요</div>
+  </div>
+  {% endif %}
+</div>
+
+<!-- 추가 모달 -->
+<div class="modal fade" id="addModal" tabindex="-1">
+  <div class="modal-dialog">
+    <div class="modal-content" style="border-radius:12px;">
+      <div class="modal-header" style="border-bottom:1px solid #e4e7ed;">
+        <h6 class="modal-title fw-bold">Spotfire URL 등록</h6>
+        <button type="button" class="btn-close" data-bs-dismiss="modal"></button>
+      </div>
+      <form method="post" action="{% url 'simulation_link_create' %}">
+        {% csrf_token %}
+        <div class="modal-body">
+          <div class="mb-3">
+            <label class="form-label" style="font-size:0.8rem; font-weight:600; color:#555f7a;">공정 선택</label>
+            <select name="category_id" class="form-select form-select-sm" required>
+              <option value="">— 선택하세요 —</option>
+              {% for cat in unregistered_cats %}
+              <option value="{{ cat.pk }}">{{ cat.product }} / {{ cat.oper_desc }}</option>
+              {% endfor %}
+            </select>
+            {% if not unregistered_cats %}
+            <div class="form-text text-muted">모든 공정에 URL이 등록되어 있습니다.</div>
+            {% endif %}
+          </div>
+          <div class="mb-3">
+            <label class="form-label" style="font-size:0.8rem; font-weight:600; color:#555f7a;">Spotfire URL</label>
+            <input type="url" name="url" class="form-control form-control-sm url-input"
+                   placeholder="https://spotfire.skhynix.com/..." required>
+          </div>
+          <div>
+            <label class="form-label" style="font-size:0.8rem; font-weight:600; color:#555f7a;">설명 <span class="text-muted fw-normal">(선택)</span></label>
+            <input type="text" name="description" class="form-control form-control-sm"
+                   placeholder="예) SN BPSG CMP Simulation v2">
+          </div>
+        </div>
+        <div class="modal-footer" style="border-top:1px solid #e4e7ed;">
+          <button type="button" class="btn btn-sm btn-outline-secondary" data-bs-dismiss="modal">취소</button>
+          <button type="submit" class="btn btn-sm btn-primary" {% if not unregistered_cats %}disabled{% endif %}>
+            <i class="bi bi-plus-lg me-1"></i>등록
+          </button>
+        </div>
+      </form>
+    </div>
+  </div>
+</div>
+
+<!-- 삭제 확인 모달 -->
+<div class="modal fade" id="deleteModal" tabindex="-1">
+  <div class="modal-dialog modal-sm">
+    <div class="modal-content" style="border-radius:12px;">
+      <div class="modal-body text-center py-4">
+        <i class="bi bi-exclamation-triangle text-warning" style="font-size:1.8rem;"></i>
+        <div class="mt-2 fw-semibold" id="delete-target-name" style="font-size:0.85rem;"></div>
+        <div class="text-muted mt-1" style="font-size:0.8rem;">이 URL을 삭제하시겠습니까?</div>
+      </div>
+      <div class="modal-footer justify-content-center" style="border-top:1px solid #e4e7ed;">
+        <button type="button" class="btn btn-sm btn-outline-secondary" data-bs-dismiss="modal">취소</button>
+        <form id="delete-form" method="post">
+          {% csrf_token %}
+          <button type="submit" class="btn btn-sm btn-danger">삭제</button>
+        </form>
+      </div>
+    </div>
+  </div>
+</div>
+{% endblock %}
+
+{% block scripts %}
+<script>
+function startEdit(pk) {
+  document.getElementById('row-' + pk).classList.add('d-none');
+  document.getElementById('edit-row-' + pk).classList.remove('d-none');
+}
+function cancelEdit(pk) {
+  document.getElementById('edit-row-' + pk).classList.add('d-none');
+  document.getElementById('row-' + pk).classList.remove('d-none');
+}
+function confirmDelete(pk, name) {
+  document.getElementById('delete-target-name').textContent = name;
+  document.getElementById('delete-form').action = `/simulation/links/${pk}/delete/`;
+  new bootstrap.Modal(document.getElementById('deleteModal')).show();
+}
+</script>
+{% endblock %}

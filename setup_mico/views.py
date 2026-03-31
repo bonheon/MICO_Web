@@ -9,7 +9,7 @@ from django.contrib.auth.decorators import login_required
 from django.contrib.auth.models import User
 from django.utils import timezone
 from datetime import timedelta
-from .models import Category, SubCategory, Detail, Voc, RecipeGroup, AccessLog, SetupHistory
+from .models import Category, SubCategory, Detail, Voc, RecipeGroup, AccessLog, SetupHistory, SimulationLink
 from .forms import CategoryForm, SubCategoryForm, DetailForm, VocForm, VocReplyForm
 
 
@@ -420,75 +420,112 @@ def learning_offset_data(request):
 def learning_history(request):
     import json
 
-    lot_id  = request.GET.get('lot_id', '').strip()
-    wafer_id = request.GET.get('wafer_id', '').strip()
-    process  = request.GET.get('process', '').strip()
+    device    = request.GET.get('device', '').strip()
+    oper_desc = request.GET.get('oper_desc', '').strip()
+    fab       = request.GET.get('fab', '').strip()
+    lot_id    = request.GET.get('lot_id', '').strip()
+    slot_id   = request.GET.get('slot_id', '').strip()
 
-    queried = any([lot_id, wafer_id, process])
+    queried = all([device, oper_desc, fab])
 
-    # ── 외부 DB 연동 시 이 블록을 교체 ──────────────────────────────
-    # 실제 조회 결과 rows를 리스트로 반환
-    # 예시 row 형식:
-    # { 'timestamp': '2026-03-17 14:23', 'lot_id': 'LOT001', 'wafer_id': 'W01',
-    #   'oper_id': 'A908740A', 'recipe_id': 'R03_AB', 'apc_para': 'PB_04_TIME',
-    #   'thk_para': 'EBARA_ITM_POST_THK1_AVG', 'pre_thk': 3012, 'target': 3000,
-    #   'apc_input': 95.2, 'apc_result': 94.8, 'modified': True }
+    # Cascade 옵션 (SubCategory DB 기준)
+    cascade_rows = (
+        SubCategory.objects
+        .select_related('category')
+        .exclude(device='')
+        .exclude(fab='')
+        .values('device', 'category__oper_desc', 'fab')
+        .distinct()
+        .order_by('device', 'category__oper_desc', 'fab')
+    )
+    cascade = {}
+    for r in cascade_rows:
+        d  = r['device']
+        od = r['category__oper_desc'] or ''
+        f  = r['fab']
+        if not od:
+            continue
+        cascade.setdefault(d, {}).setdefault(od, [])
+        if f not in cascade[d][od]:
+            cascade[d][od].append(f)
+
     rows = []
-    # ────────────────────────────────────────────────────────────────
+    ff_columns = []
+    collection_name = ''
+
+    if queried:
+        collection_name = f'MICO_Online_Simulation_{device}_{oper_desc}_{fab}'
+
+        # ── MongoDB 연동 시 아래 블록 해제, 샘플 블록 주석처리 ─────────────
+        # from pymongo import MongoClient
+        # client = MongoClient('mongodb://...')
+        # col = client['MICO'][collection_name]
+        # query = {}
+        # if lot_id:  query['LOT_ID']  = {'$regex': lot_id,  '$options': 'i'}
+        # if slot_id: query['SLOT_ID'] = {'$regex': slot_id, '$options': 'i'}
+        # docs = list(col.find(query, {'_id': 0}).sort('Date', -1).limit(500))
+        # rows = docs
+        # if rows:
+        #     all_keys = set()
+        #     for doc in rows:
+        #         all_keys.update(doc.keys())
+        #     ff_columns = sorted(k for k in all_keys if k.startswith('FF_'))
+        # ─────────────────────────────────────────────────────────────────
+
+        pass  # MongoDB 연동 후 위 블록 해제
 
     return render(request, 'setup_mico/learning_history.html', {
-        'queried':  queried,
-        'lot_id':   lot_id,
-        'wafer_id': wafer_id,
-        'process':  process,
-        'rows':     rows,
+        'cascade_json':    json.dumps(cascade, ensure_ascii=False),
+        'queried':         queried,
+        'device':          device,
+        'oper_desc':       oper_desc,
+        'fab':             fab,
+        'lot_id':          lot_id,
+        'slot_id':         slot_id,
+        'collection_name': collection_name,
+        'rows':            rows,
+        'ff_columns':      ff_columns,
     })
 
 
 @login_required
 def simulation(request):
     import json
-    categories = Category.objects.prefetch_related('subcategories__details').order_by('product', 'oper_id')
 
-    tree = []
-    for cat in categories:
-        subs = []
-        for sub in cat.subcategories.all():
-            details = []
-            for d in sub.details.all():
-                details.append({
-                    'pk': d.pk,
-                    'label': f'{d.apc_para} / {d.thk_para}',
-                    'apc_para': d.apc_para,
-                    'thk_para': d.thk_para,
-                    'target': d.target,
-                    'pre_target': d.pre_target,
-                    'pre_thk_period': d.pre_thk_period,
-                    'rr_para': d.rr_para or '',
-                    'rr_max': d.rr_max,
-                    'rr_period': d.rr_period,
-                    'rr_if': d.rr_if,
-                    'offset_group': d.offset_group or '',
-                })
-            subs.append({
-                'pk': sub.pk,
-                'label': f'{sub.fab} / {sub.device} / {sub.recipe_id}',
-                'fab': sub.fab,
-                'device': sub.device,
-                'recipe_id': sub.recipe_id,
-                'maker': sub.maker,
-                'details': details,
-            })
-        tree.append({
-            'pk': cat.pk,
-            'label': f'{cat.product} / {cat.oper_id}',
-            'product': cat.product,
-            'oper_id': cat.oper_id,
-            'subs': subs,
-        })
+    selected_product   = request.GET.get('product', '').strip()
+    selected_oper_desc = request.GET.get('oper_desc', '').strip()
+
+    # Cascade 옵션: {product: [oper_desc, ...]} — Set-up된 전체 Category
+    all_cats = (
+        Category.objects
+        .exclude(oper_desc='')
+        .order_by('product', 'oper_desc')
+        .values('product', 'oper_desc')
+        .distinct()
+    )
+    cascade = {}
+    for r in all_cats:
+        cascade.setdefault(r['product'], [])
+        if r['oper_desc'] not in cascade[r['product']]:
+            cascade[r['product']].append(r['oper_desc'])
+
+    # 선택된 공정의 Spotfire URL 조회
+    spotfire_url = None
+    if selected_product and selected_oper_desc:
+        try:
+            link = SimulationLink.objects.select_related('category').get(
+                category__product=selected_product,
+                category__oper_desc=selected_oper_desc,
+            )
+            spotfire_url = link.url
+        except SimulationLink.DoesNotExist:
+            pass
 
     return render(request, 'setup_mico/simulation.html', {
-        'tree_json': json.dumps(tree, ensure_ascii=False),
+        'cascade_json':       json.dumps(cascade, ensure_ascii=False),
+        'selected_product':   selected_product,
+        'selected_oper_desc': selected_oper_desc,
+        'spotfire_url':       spotfire_url,
     })
 
 
@@ -1182,6 +1219,67 @@ def voc_delete(request, pk):
         if request.user == voc.author or request.user.is_staff:
             voc.delete()
     return redirect('voc_list')
+
+
+# ── Simulation Link 관리 (superuser only) ──
+
+@login_required
+def simulation_link_manage(request):
+    if not request.user.is_superuser:
+        return redirect('dashboard')
+    links = SimulationLink.objects.select_related('category').order_by(
+        'category__product', 'category__oper_desc'
+    )
+    # URL 미등록 Category 목록 (등록 폼에서 선택 가능하도록)
+    registered_cat_ids = links.values_list('category_id', flat=True)
+    unregistered_cats = Category.objects.exclude(
+        pk__in=registered_cat_ids
+    ).exclude(oper_desc='').order_by('product', 'oper_desc')
+    return render(request, 'setup_mico/simulation_link_manage.html', {
+        'links': links,
+        'unregistered_cats': unregistered_cats,
+    })
+
+
+@login_required
+def simulation_link_create(request):
+    if not request.user.is_superuser:
+        return redirect('dashboard')
+    if request.method == 'POST':
+        cat_id = request.POST.get('category_id')
+        url    = request.POST.get('url', '').strip()
+        desc   = request.POST.get('description', '').strip()
+        if cat_id and url:
+            cat = get_object_or_404(Category, pk=cat_id)
+            SimulationLink.objects.update_or_create(
+                category=cat,
+                defaults={'url': url, 'description': desc},
+            )
+    return redirect('simulation_link_manage')
+
+
+@login_required
+def simulation_link_update(request, pk):
+    if not request.user.is_superuser:
+        return redirect('dashboard')
+    if request.method == 'POST':
+        link = get_object_or_404(SimulationLink, pk=pk)
+        url  = request.POST.get('url', '').strip()
+        desc = request.POST.get('description', '').strip()
+        if url:
+            link.url         = url
+            link.description = desc
+            link.save()
+    return redirect('simulation_link_manage')
+
+
+@login_required
+def simulation_link_delete(request, pk):
+    if not request.user.is_superuser:
+        return redirect('dashboard')
+    if request.method == 'POST':
+        get_object_or_404(SimulationLink, pk=pk).delete()
+    return redirect('simulation_link_manage')
 
 
 # ── 접속 현황 (superuser only) ──
