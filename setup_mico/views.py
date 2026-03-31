@@ -973,15 +973,15 @@ def dispersion(request):
         vals = [v for v in values if v is not None]
         return round(sum(vals) / len(vals), 1) if vals else None
 
-    # TOTAL 행 vs 장비 행 분리 (eqp_ch 대소문자 무관하게 처리)
-    total_rows = [r for r in raw_data if str(r.get('eqp_ch', '')).upper() == 'TOTAL']
-    equip_rows = [r for r in raw_data if str(r.get('eqp_ch', '')).upper() != 'TOTAL']
+    # TOTAL 행 vs 장비 행 분리
+    total_rows = [r for r in raw_data if r.get('eqp_ch') == 'TOTAL']
+    equip_rows = [r for r in raw_data if r.get('eqp_ch') != 'TOTAL']
 
     all_dates = sorted(set(r['Date'] for r in raw_data))
     latest_dt = all_dates[-1] if all_dates else ''
 
-    # (Product, OPER_DESC) 고유 목록 — TOTAL 행 기준으로만 구성 (equip만 있는 zombie 그룹 방지)
-    group_keys = sorted(set((r['Product'], r['OPER_DESC']) for r in total_rows))
+    # (Product, OPER_DESC) 고유 목록
+    group_keys = sorted(set((r['Product'], r['OPER_DESC']) for r in raw_data))
 
     # Category 모델의 oper_desc 기준으로 family 조회 (Set-up 등록 정보 사용)
     from .models import Category
