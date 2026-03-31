@@ -373,20 +373,20 @@
         <div style="font-size:0.82rem;font-weight:600;color:#344054;">{{ e.eqp_ch }}</div>
         <!-- 13P -->
         <div class="eqp-metric" style="text-align:center;">
-          <span class="eqp-vals">{{ e.base_vals.13P }} → <span style="color:#22c55e;">{{ e.remico_vals.13P }}</span></span>
+          <span class="eqp-vals">{{ e.base_vals.13P|floatformat:1 }} → <span style="color:#22c55e;">{{ e.remico_vals.13P|floatformat:1 }}</span></span>
           {% if e.imp.13P %}<span class="eqp-imp" style="color:{% if e.imp.13P < 0 %}#ef4444{% else %}#22c55e{% endif %};">{{ e.imp.13P }}%</span>{% else %}<span class="eqp-imp" style="color:#c8d0e0;">—</span>{% endif %}
         </div>
         <!-- ED -->
         <div class="eqp-metric" style="text-align:center;">
           {% if e.base_vals.ED is not None %}
-          <span class="eqp-vals">{{ e.base_vals.ED }} → <span style="color:#22c55e;">{{ e.remico_vals.ED }}</span></span>
+          <span class="eqp-vals">{{ e.base_vals.ED|floatformat:1 }} → <span style="color:#22c55e;">{{ e.remico_vals.ED|floatformat:1 }}</span></span>
           {% if e.imp.ED %}<span class="eqp-imp" style="color:{% if e.imp.ED < 0 %}#ef4444{% else %}#22c55e{% endif %};">{{ e.imp.ED }}%</span>{% else %}<span class="eqp-imp" style="color:#c8d0e0;">—</span>{% endif %}
           {% else %}<span class="eqp-imp" style="color:#c8d0e0;">미적용</span>{% endif %}
         </div>
         <!-- EX -->
         <div class="eqp-metric" style="text-align:center;">
           {% if e.base_vals.EX is not None %}
-          <span class="eqp-vals">{{ e.base_vals.EX }} → <span style="color:#22c55e;">{{ e.remico_vals.EX }}</span></span>
+          <span class="eqp-vals">{{ e.base_vals.EX|floatformat:1 }} → <span style="color:#22c55e;">{{ e.remico_vals.EX|floatformat:1 }}</span></span>
           {% if e.imp.EX %}<span class="eqp-imp" style="color:{% if e.imp.EX < 0 %}#ef4444{% else %}#22c55e{% endif %};">{{ e.imp.EX }}%</span>{% else %}<span class="eqp-imp" style="color:#c8d0e0;">—</span>{% endif %}
           {% else %}<span class="eqp-imp" style="color:#c8d0e0;">미적용</span>{% endif %}
         </div>

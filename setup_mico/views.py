@@ -1013,7 +1013,7 @@ def dispersion(request):
 
         # 장비 적용 수: 개별 장비 행 기준
         eqp_total   = len(set(r['eqp_ch'] for r in g_latest_equip))
-        eqp_applied = sum(1 for r in g_latest_equip if r.get('Formula') == 'MICO')
+        eqp_applied = sum(1 for r in g_latest_equip if (r.get('Portion') or 0) >= 0.9)
 
         # Wafer 합산: 최신 TOTAL 행들의 합
         w_base   = sum(r.get('BASE', 0)    for r in g_latest_total)
@@ -1056,7 +1056,7 @@ def dispersion(request):
             d_equip_rows = [r for r in g_latest_equip
                             if r['Lot_Code'] == lot_code and r['Fab'] == fab]
             d_eqp_total   = len(d_equip_rows)
-            d_eqp_applied = sum(1 for r in d_equip_rows if r.get('Formula') == 'MICO')
+            d_eqp_applied = sum(1 for r in d_equip_rows if (r.get('Portion') or 0) >= 0.9)
 
             equipments = []
             for er in sorted(d_equip_rows, key=lambda r: r['eqp_ch']):
@@ -1066,7 +1066,7 @@ def dispersion(request):
                     'remico':  er.get('Re_MICO', 0),
                     'portion': er.get('Portion', 0),
                     'formula': er.get('Formula', ''),
-                    'applied': er.get('Formula') == 'MICO',
+                    'applied': (er.get('Portion') or 0) >= 0.9,
                     'imp': {
                         '13P': safe_imp(er.get('13P_BASE'), er.get('13P_Re_MICO')),
                         'ED':  safe_imp(er.get('ED_BASE'),  er.get('ED_Re_MICO')),
