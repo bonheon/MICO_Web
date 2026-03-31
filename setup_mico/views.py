@@ -293,7 +293,9 @@ def learning_pre_thk_data(request):
     # def serialize(doc):
     #     return {k: (v.isoformat() if hasattr(v, 'isoformat') else v) for k, v in doc.items()}
     #
-    # return JsonResponse({'collection': collection_name, 'data': [serialize(d) for d in docs]})
+    # data = [serialize(d) for d in docs]
+    # data = _filter_by_date(data, date_from, date_to)
+    # return JsonResponse({'collection': collection_name, 'data': data})
 
 
 @login_required
