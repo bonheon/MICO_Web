@@ -984,12 +984,12 @@ def dispersion(request):
     # Category 모델의 oper_desc 기준으로 family 조회 (Set-up 등록 정보 사용)
     from .models import Category
     cat_family_map = {
-        c.oper_desc: c.family
-        for c in Category.objects.only('oper_desc', 'family')
+        (c.product, c.oper_desc): c.family
+        for c in Category.objects.only('product', 'oper_desc', 'family')
         if c.oper_desc
     }
     def _family(product, oper_desc):
-        return cat_family_map.get(oper_desc, '')
+        return cat_family_map.get((product, oper_desc), '')
 
     groups = []
     for (product, oper_desc) in group_keys:
