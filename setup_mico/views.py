@@ -932,6 +932,7 @@ def apc_history(request):
 @login_required
 def dispersion(request):
     import os, json
+    from django.core.serializers.json import DjangoJSONEncoder
 
     # ════════════════════════════════════════════════════════════════════
     # [개발] 샘플 데이터 사용 — 사내 연결 시 이 블록 주석 처리
@@ -1113,7 +1114,7 @@ def dispersion(request):
 
     return render(request, 'setup_mico/dispersion.html', {
         'groups':      groups,
-        'groups_json': json.dumps(groups, ensure_ascii=False),
+        'groups_json': json.dumps(groups, ensure_ascii=False, cls=DjangoJSONEncoder),
         'latest_date': latest_dt,
         'total_eqp':   total_eqp,
         'applied_eqp': applied_eqp,
