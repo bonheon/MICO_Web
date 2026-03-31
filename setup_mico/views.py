@@ -1012,7 +1012,8 @@ def dispersion(request):
                 g_latest_equip.extend(r for r in dev_equip if r['Date'] == dev_latest_dt)
 
         # 장비 적용 수: 개별 장비 행 기준
-        eqp_total   = len(set(r['eqp_ch'] for r in g_latest_equip))
+        eqp_total   = len(set(r['eqp_ch'] for r in g_latest_equip
+                              if (r.get('BASE') or 0) + (r.get('Re_MICO') or 0) > 0))
         eqp_applied = sum(1 for r in g_latest_equip if (r.get('Portion') or 0) >= 0.9)
 
         # Wafer 합산: 최신 TOTAL 행들의 합
@@ -1055,7 +1056,8 @@ def dispersion(request):
             # 장비 목록: 최신 날짜 비-TOTAL 행
             d_equip_rows = [r for r in g_latest_equip
                             if r['Lot_Code'] == lot_code and r['Fab'] == fab]
-            d_eqp_total   = len(d_equip_rows)
+            d_eqp_total   = sum(1 for r in d_equip_rows
+                                if (r.get('BASE') or 0) + (r.get('Re_MICO') or 0) > 0)
             d_eqp_applied = sum(1 for r in d_equip_rows if (r.get('Portion') or 0) >= 0.9)
 
             equipments = []
