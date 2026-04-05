@@ -9,6 +9,7 @@ class Category(models.Model):
     family = models.CharField(max_length=10, choices=FAMILY_CHOICES, verbose_name='Family', default='')
     oper_id = models.CharField(max_length=100, verbose_name='공정 ID', default='')
     oper_desc = models.CharField(max_length=100, verbose_name='공정 설명', default='')
+    channel_id = models.CharField(max_length=100, verbose_name='Channel ID', default='500019173')
     created_by = models.ForeignKey(
         User, on_delete=models.SET_NULL, null=True, blank=True,
         related_name='created_categories', verbose_name='등록자'
@@ -62,6 +63,10 @@ class Detail(models.Model):
         ('Y', 'Y'),
         ('N', 'N'),
     ]
+    FB_TYPE_CHOICES = [
+        ('TIME', 'TIME'),
+        ('PRESSURE', 'PRESSURE'),
+    ]
 
     subcategory = models.ForeignKey(
         SubCategory,
@@ -94,6 +99,10 @@ class Detail(models.Model):
     pre_oper_para4 = models.CharField(max_length=100, verbose_name='Pre Oper Para4', blank=True, default='')
     rr_weight = models.IntegerField(verbose_name='RR Weight', null=True, blank=True)
     rr_count = models.IntegerField(verbose_name='RR Count', null=True, blank=True)
+    # --- 추가 필드 ---
+    fb_type = models.CharField(max_length=10, choices=FB_TYPE_CHOICES, verbose_name='FB Type', default='TIME')
+    rr_alarm_sigma = models.IntegerField(verbose_name='RR Alarm Sigma', default=10)
+    # --- 추가 필드 끝 ---
     created_by = models.ForeignKey(
         User, on_delete=models.SET_NULL, null=True, blank=True,
         related_name='created_details', verbose_name='등록자'
@@ -104,6 +113,16 @@ class Detail(models.Model):
     class Meta:
         verbose_name = 'Detail'
         verbose_name_plural = 'Details'
+
+    # =====================================================================
+    # [fb_type 자동 기본값] apc_para에 '_A' 또는 '_Z'가 포함되면 PRESSURE로 설정
+    # 필요 없을 경우 아래 save() 메서드 전체를 주석 처리하세요.
+    def save(self, *args, **kwargs):
+        if not self.pk:  # 신규 생성 시에만 적용
+            if '_A' in (self.apc_para or '') or '_Z' in (self.apc_para or ''):
+                self.fb_type = 'PRESSURE'
+        super().save(*args, **kwargs)
+    # =====================================================================
 
     def __str__(self):
         return f'{self.subcategory} > {self.apc_para}'
