@@ -53,6 +53,8 @@
         <th class="text-center">RR Count</th>
         <th class="text-center">RR Period</th>
         <th class="text-center">RR IF</th>
+        <th class="text-center">FB Type</th>
+        <th class="text-center">RR Alarm Sigma</th>
         <th>등록자</th>
         <th style="width:100px;">관리</th>
       </tr>
@@ -85,6 +87,7 @@
         <th><input type="text" class="col-search form-control form-control-sm" placeholder="검색..." data-col="25"></th>
         <th><input type="text" class="col-search form-control form-control-sm" placeholder="검색..." data-col="26"></th>
         <th><input type="text" class="col-search form-control form-control-sm" placeholder="검색..." data-col="27"></th>
+        <th><input type="text" class="col-search form-control form-control-sm" placeholder="검색..." data-col="28"></th>
         <th></th>
       </tr>
     </thead>
@@ -131,6 +134,14 @@
         <td class="text-center">{{ d.rr_count|default:"—" }}</td>
         <td class="text-center">{{ d.rr_period|default:"—" }}</td>
         <td class="text-center">{{ d.rr_if|default:"—" }}</td>
+        <td class="text-center">
+          {% if d.fb_type == 'PRESSURE' %}
+            <span class="badge-pill" style="background:#fff7ed; color:#f97316;">PRESSURE</span>
+          {% else %}
+            <span class="badge-pill" style="background:#eff6ff; color:#4f8ef7;">TIME</span>
+          {% endif %}
+        </td>
+        <td class="text-center">{{ d.rr_alarm_sigma }}</td>
         <td class="text-muted" style="white-space:nowrap;">
           {% if d.created_by %}{{ d.created_by.username }}{% else %}—{% endif %}
         </td>
@@ -165,6 +176,8 @@
               data-pre_oper_para4="{{ d.pre_oper_para4 }}"
               data-rr_weight="{{ d.rr_weight|default:'' }}"
               data-rr_count="{{ d.rr_count|default:'' }}"
+              data-fb_type="{{ d.fb_type }}"
+              data-rr_alarm_sigma="{{ d.rr_alarm_sigma }}"
               data-bs-toggle="modal" data-bs-target="#detailModal">
               <i class="bi bi-pencil"></i>
             </button>
@@ -197,6 +210,8 @@
               data-pre_oper_para4="{{ d.pre_oper_para4 }}"
               data-rr_weight="{{ d.rr_weight|default:'' }}"
               data-rr_count="{{ d.rr_count|default:'' }}"
+              data-fb_type="{{ d.fb_type }}"
+              data-rr_alarm_sigma="{{ d.rr_alarm_sigma }}"
               data-bs-toggle="modal" data-bs-target="#detailModal">
               <i class="bi bi-copy"></i>
             </button>
@@ -212,7 +227,7 @@
       </tr>
       {% empty %}
       <tr>
-        <td colspan="29" class="text-center text-muted py-5">
+        <td colspan="31" class="text-center text-muted py-5">
           <i class="bi bi-inbox" style="font-size:1.5rem; display:block; margin-bottom:0.4rem;"></i>
           등록된 Detail이 없습니다
         </td>
@@ -304,6 +319,14 @@
             <div class="col-4">
               <label class="form-label fw-semibold" style="font-size:0.82rem;">Pre THK Para ITM</label>
               {{ form.pre_thk_para_itm }}
+            </div>
+            <div class="col-4">
+              <label class="form-label fw-semibold" style="font-size:0.82rem;">FB Type</label>
+              {{ form.fb_type }}
+            </div>
+            <div class="col-4">
+              <label class="form-label fw-semibold" style="font-size:0.82rem;">RR Alarm Sigma</label>
+              {{ form.rr_alarm_sigma }}
             </div>
           </div>
 
@@ -412,6 +435,8 @@ function fillDetailForm(data) {
   document.getElementById('id_pre_oper_para4').value    = data.pre_oper_para4 || '';
   document.getElementById('id_rr_weight').value         = data.rr_weight || '';
   document.getElementById('id_rr_count').value          = data.rr_count || '';
+  document.getElementById('id_fb_type').value           = data.fb_type || 'TIME';
+  document.getElementById('id_rr_alarm_sigma').value    = data.rr_alarm_sigma !== undefined ? data.rr_alarm_sigma : '10';
 }
 
 const emptyDetail = {
@@ -423,6 +448,7 @@ const emptyDetail = {
   pre_oper_code3:'', pre_oper_desc3:'', pre_oper_para3:'',
   pre_oper_code4:'', pre_oper_desc4:'', pre_oper_para4:'',
   rr_weight:'', rr_count:'',
+  fb_type:'TIME', rr_alarm_sigma:'10',
 };
 
 // 추가 버튼

@@ -5,18 +5,20 @@ from .models import Category, SubCategory, Detail, Voc
 class CategoryForm(forms.ModelForm):
     class Meta:
         model = Category
-        fields = ['family', 'product', 'oper_id', 'oper_desc']
+        fields = ['family', 'product', 'oper_id', 'oper_desc', 'channel_id']
         widgets = {
-            'family':    forms.Select(attrs={'class': 'form-select'}),
-            'product':   forms.TextInput(attrs={'class': 'form-control', 'placeholder': '제품명'}),
-            'oper_id':   forms.TextInput(attrs={'class': 'form-control', 'placeholder': '공정 ID'}),
-            'oper_desc': forms.Textarea(attrs={'class': 'form-control', 'rows': 3, 'placeholder': '공정 설명'}),
+            'family':     forms.Select(attrs={'class': 'form-select'}),
+            'product':    forms.TextInput(attrs={'class': 'form-control', 'placeholder': '제품명'}),
+            'oper_id':    forms.TextInput(attrs={'class': 'form-control', 'placeholder': '공정 ID'}),
+            'oper_desc':  forms.Textarea(attrs={'class': 'form-control', 'rows': 3, 'placeholder': '공정 설명'}),
+            'channel_id': forms.TextInput(attrs={'class': 'form-control', 'placeholder': 'Channel ID'}),
         }
         labels = {
-            'family':    'Family',
-            'product':   'Product',
-            'oper_id':   'Oper ID',
-            'oper_desc': 'Oper Desc',
+            'family':     'Family',
+            'product':    'Product',
+            'oper_id':    'Oper ID',
+            'oper_desc':  'Oper Desc',
+            'channel_id': 'Channel ID',
         }
 
 
@@ -53,6 +55,7 @@ class DetailForm(forms.ModelForm):
             'pre_oper_code3', 'pre_oper_desc3', 'pre_oper_para3',
             'pre_oper_code4', 'pre_oper_desc4', 'pre_oper_para4',
             'rr_weight', 'rr_count',
+            'fb_type', 'rr_alarm_sigma',
         ]
         widgets = {
             'subcategory':      forms.Select(attrs={'class': 'form-select'}),
@@ -81,6 +84,8 @@ class DetailForm(forms.ModelForm):
             'pre_oper_para4':   forms.TextInput(attrs={'class': 'form-control', 'placeholder': 'Oper Para'}),
             'rr_weight':        forms.NumberInput(attrs={'class': 'form-control'}),
             'rr_count':         forms.NumberInput(attrs={'class': 'form-control'}),
+            'fb_type':          forms.Select(attrs={'class': 'form-select'}),
+            'rr_alarm_sigma':   forms.NumberInput(attrs={'class': 'form-control'}),
         }
 
 
