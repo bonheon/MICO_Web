@@ -612,49 +612,184 @@ def setup_status(request):
 
 @login_required
 def dashboard(request):
-    import json
+    import json, os, datetime as _dt
+    from django.core.serializers.json import DjangoJSONEncoder
 
     # 상단 요약 카드
     category_count = Category.objects.count()
     subcategory_count = SubCategory.objects.count()
     detail_count = Detail.objects.count()
 
+    # DRAM / NAND 공정 수
+    dram_count = Category.objects.filter(family='DRAM').count()
+    nand_count = Category.objects.filter(family='NAND').count()
+
     # Product별 공정(Category) 수 + family 정보 → bar chart
-    product_counts = (
+    # 정렬 순서: DRAM [DA, CP, LC, SP] → NAND [PE, CL, OP, HE]
+    DRAM_ORDER = ['DA', 'CP', 'LC', 'SP']
+    NAND_ORDER = ['PE', 'CL', 'OP', 'HE']
+    PRODUCT_SORT = {p: i for i, p in enumerate(DRAM_ORDER + NAND_ORDER)}
+    product_counts_qs = (
         Category.objects.values('product', 'family')
         .annotate(count=Count('id'))
-        .order_by('family', 'product')
     )
-    bar_labels = [r['product'] for r in product_counts]
-    bar_data = [r['count'] for r in product_counts]
-    bar_families = [r['family'] for r in product_counts]
+    product_counts_list = sorted(
+        product_counts_qs,
+        key=lambda r: (
+            0 if r['family'] == 'DRAM' else 1,
+            PRODUCT_SORT.get(r['product'], 99),
+        )
+    )
+    bar_labels = [r['product'] for r in product_counts_list]
+    bar_data = [r['count'] for r in product_counts_list]
+    bar_families = [r['family'] for r in product_counts_list]
 
-    # Category별 상세 현황 → 클릭 시 테이블
-    # total_equip / applied_equip: 사내 DB 연동 후 채울 예정, 현재 0으로 초기화
+    # ════════════════════════════════════════════════════════════════════
+    # [개발] 샘플 데이터 사용 — 사내 연결 시 이 블록 주석 처리
+    # ════════════════════════════════════════════════════════════════════
+    sample_path = os.path.join(os.path.dirname(__file__), 'sample_data', 'dispersion_sample.json')
+    with open(sample_path, 'r', encoding='utf-8') as f:
+        disp_raw = json.load(f).get('MICO_Report', [])
+    # ════════════════════════════════════════════════════════════════════
+
+    # ════════════════════════════════════════════════════════════════════
+    # [사내] MongoDB 연결 — 위 샘플 블록 주석 처리 후 아래 블록 주석 해제
+    # ════════════════════════════════════════════════════════════════════
+    # from pymongo import MongoClient
+    # MONGO_URI = 'mongodb://TODO_HOST:TODO_PORT'
+    # MONGO_DB  = 'TODO_DB_NAME'
+    # try:
+    #     client   = MongoClient(MONGO_URI, serverSelectionTimeoutMS=5000)
+    #     col      = client[MONGO_DB]['MICO_Report']
+    #     disp_raw = list(col.find({}, {'_id': 0}).sort('Date', 1))
+    #     client.close()
+    # except Exception as e:
+    #     disp_raw = []
+    # ════════════════════════════════════════════════════════════════════
+
+    def _date_str(val):
+        if isinstance(val, (_dt.datetime, _dt.date)):
+            return val.strftime('%Y-%m-%d')
+        return str(val)[:10]
+
+    def _safe_imp(base, remico):
+        try:
+            b = float(base)
+            if b > 0:
+                return round((b - float(remico)) / b * 100, 1)
+        except (TypeError, ValueError):
+            pass
+        return None
+
+    def _avg(values):
+        vals = [v for v in values if v is not None]
+        return round(sum(vals) / len(vals), 1) if vals else None
+
+    disp_total = [r for r in disp_raw if r.get('eqp_ch') == 'TOTAL']
+    disp_equip = [r for r in disp_raw if r.get('eqp_ch') != 'TOTAL']
+    all_dates = sorted(set(_date_str(r['Date']) for r in disp_raw))
+
+    # (product, oper_desc) → 장비/개선율/트렌드 맵 생성
+    disp_stats = {}  # key: (product, oper_desc)
+    group_keys = sorted(set((r['Product'], r['OPER_DESC']) for r in disp_raw))
+    for (product, oper_desc) in group_keys:
+        g_total = [r for r in disp_total if r['Product'] == product and r['OPER_DESC'] == oper_desc]
+        g_equip = [r for r in disp_equip if r['Product'] == product and r['OPER_DESC'] == oper_desc]
+
+        # (Lot_Code, Fab) 별 최신 날짜 데이터 합산
+        device_keys = sorted(set((r['Lot_Code'], r['Fab']) for r in g_total))
+        latest_total, latest_equip = [], []
+        for (lc, fab) in device_keys:
+            dt_rows = [r for r in g_total if r['Lot_Code'] == lc and r['Fab'] == fab]
+            de_rows = [r for r in g_equip if r['Lot_Code'] == lc and r['Fab'] == fab]
+            if dt_rows:
+                latest_dt = max(_date_str(r['Date']) for r in dt_rows)
+                latest_total.extend(r for r in dt_rows if _date_str(r['Date']) == latest_dt)
+                latest_equip.extend(r for r in de_rows if _date_str(r['Date']) == latest_dt)
+
+        eqp_total = len(set(r['eqp_ch'] for r in latest_equip
+                            if (r.get('BASE') or 0) + (r.get('Re_MICO') or 0) > 0))
+        eqp_applied = sum(1 for r in latest_equip if (r.get('Portion') or 0) >= 0.9)
+        applied_rate = round(eqp_applied / eqp_total * 100) if eqp_total else 0
+
+        imp = {
+            '13P': _avg([_safe_imp(r.get('13P_BASE'), r.get('13P_Re_MICO')) for r in latest_total]),
+            'ED':  _avg([_safe_imp(r.get('ED_BASE'),  r.get('ED_Re_MICO'))  for r in latest_total]),
+            'EX':  _avg([_safe_imp(r.get('EX_BASE'),  r.get('EX_Re_MICO'))  for r in latest_total]),
+        }
+        imp_vals = [v for v in imp.values() if v is not None]
+        imp_avg = round(sum(imp_vals) / len(imp_vals), 1) if imp_vals else None
+
+        # 트렌드: 날짜별 평균 개선율 (최근 60일)
+        recent_dates = all_dates[-60:]
+        trend = {'dates': [], 'imp': []}
+        for d in recent_dates:
+            d_rows = [r for r in g_total if _date_str(r['Date']) == d]
+            if not d_rows:
+                continue
+            d_imp_vals = []
+            for r in d_rows:
+                for base_f, rem_f in [('13P_BASE','13P_Re_MICO'),('ED_BASE','ED_Re_MICO'),('EX_BASE','EX_Re_MICO')]:
+                    v = _safe_imp(r.get(base_f), r.get(rem_f))
+                    if v is not None:
+                        d_imp_vals.append(v)
+            trend['dates'].append(d)
+            trend['imp'].append(_avg(d_imp_vals))
+
+        # wafer 합산 (최신 TOTAL 행)
+        w_base   = sum(r.get('BASE', 0)    for r in latest_total)
+        w_remico = sum(r.get('Re_MICO', 0) for r in latest_total)
+
+        disp_stats[(product, oper_desc)] = {
+            'eqp_total': eqp_total,
+            'eqp_applied': eqp_applied,
+            'applied_rate': applied_rate,
+            'wafer_base': w_base,
+            'wafer_remico': w_remico,
+            'imp': imp,
+            'imp_avg': imp_avg,
+            'trend': trend,
+        }
+
+    # Category별 상세 현황 (dispersion 데이터 매핑)
     categories = Category.objects.order_by('family', 'product', 'oper_id')
     category_table = []
     for cat in categories:
-        total_equip = 0    # TODO: 사내 DB 연동 후 실제 전체 장비 대수로 교체
-        applied_equip = 0  # TODO: 사내 DB 연동 후 실제 적용 대수로 교체
-        applied_rate = round(applied_equip / total_equip * 100) if total_equip else 0
+        stats = disp_stats.get((cat.product, cat.oper_desc), {})
         category_table.append({
             'product': cat.product,
             'family': cat.family,
             'oper_id': cat.oper_id,
             'oper_desc': cat.oper_desc,
-            'total_equip': total_equip,
-            'applied_equip': applied_equip,
-            'applied_rate': applied_rate,
+            'total_equip': stats.get('eqp_total', 0),
+            'applied_equip': stats.get('eqp_applied', 0),
+            'applied_rate': stats.get('applied_rate', 0),
+            'imp_avg': stats.get('imp_avg'),
+            'trend': stats.get('trend', {'dates': [], 'imp': []}),
         })
 
+    # Total 장비 / wafer 요약
+    total_eqp_all   = sum(v['eqp_total']   for v in disp_stats.values())
+    applied_eqp_all = sum(v['eqp_applied'] for v in disp_stats.values())
+    total_wb  = sum(v['wafer_base']   for v in disp_stats.values())
+    total_wr  = sum(v['wafer_remico'] for v in disp_stats.values())
+    total_wafer_p = round(total_wr / (total_wb + total_wr) * 100, 1) if (total_wb + total_wr) else 0
+
+    # 전체 평균 산포 개선율
+    all_imp = [r['imp_avg'] for r in category_table if r['imp_avg'] is not None]
+    avg_improvement = round(sum(all_imp) / len(all_imp), 1) if all_imp else None
+
     context = {
-        'category_count': category_count,
-        'subcategory_count': subcategory_count,
-        'detail_count': detail_count,
+        'dram_count': dram_count,
+        'nand_count': nand_count,
+        'total_eqp_all': total_eqp_all,
+        'applied_eqp_all': applied_eqp_all,
+        'total_wafer_p': total_wafer_p,
+        'avg_improvement': avg_improvement,
         'bar_labels_json': json.dumps(bar_labels, ensure_ascii=False),
         'bar_data_json': json.dumps(bar_data),
         'bar_families_json': json.dumps(bar_families, ensure_ascii=False),
-        'category_table_json': json.dumps(category_table, ensure_ascii=False),
+        'category_table_json': json.dumps(category_table, ensure_ascii=False, cls=DjangoJSONEncoder),
     }
     return render(request, 'setup_mico/dashboard.html', context)
 
@@ -1160,13 +1295,22 @@ def dispersion(request):
     total_wafer   = total_base + total_remico
     total_wafer_p = round(total_remico / total_wafer * 100, 1) if total_wafer else 0
 
+    # 전체 평균 산포 개선율 (모든 그룹의 13P/ED/EX 평균)
+    all_imp_vals = []
+    for g in groups:
+        for k in ['13P', 'ED', 'EX']:
+            v = g['imp'].get(k)
+            if v is not None:
+                all_imp_vals.append(v)
+    total_avg_imp = round(sum(all_imp_vals) / len(all_imp_vals), 1) if all_imp_vals else None
+
     return render(request, 'setup_mico/dispersion.html', {
-        'groups':      groups,
-        'groups_json': json.dumps(groups, ensure_ascii=False, cls=DjangoJSONEncoder),
-        'latest_date': latest_dt,
-        'total_eqp':   total_eqp,
-        'applied_eqp': applied_eqp,
+        'groups':         groups,
+        'groups_json':    json.dumps(groups, ensure_ascii=False, cls=DjangoJSONEncoder),
+        'total_eqp':      total_eqp,
+        'applied_eqp':    applied_eqp,
         'total_wafer_portion': total_wafer_p,
+        'total_avg_imp':  total_avg_imp,
     })
 
 

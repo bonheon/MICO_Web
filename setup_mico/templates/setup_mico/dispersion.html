@@ -187,16 +187,9 @@
 <!-- ── 요약 카드 ── -->
 <div class="summary-bar">
   <div class="sum-card">
-    <div class="sum-icon" style="background:#eff6ff;"><i class="bi bi-calendar3" style="color:#4f8ef7;"></i></div>
-    <div>
-      <div class="sum-label">기준 날짜</div>
-      <div class="sum-value" style="font-size:1rem;">{{ latest_date }}</div>
-    </div>
-  </div>
-  <div class="sum-card">
     <div class="sum-icon" style="background:#f0fdf4;"><i class="bi bi-check2-circle" style="color:#22c55e;"></i></div>
     <div>
-      <div class="sum-label">장비 적용율</div>
+      <div class="sum-label">장비 적용율 (Total)</div>
       <div class="sum-value">
         {{ applied_eqp }}<span style="font-size:0.8rem;color:#8993a8;font-weight:500;">/{{ total_eqp }}</span>
         <span style="font-size:0.78rem;color:#22c55e;margin-left:0.3rem;">({% widthratio applied_eqp total_eqp 100 %}%)</span>
@@ -206,8 +199,21 @@
   <div class="sum-card">
     <div class="sum-icon" style="background:#fdf4ff;"><i class="bi bi-layers" style="color:#a855f7;"></i></div>
     <div>
-      <div class="sum-label">Wafer 적용율 (전체)</div>
+      <div class="sum-label">Wafer 적용율 (Total)</div>
       <div class="sum-value">{{ total_wafer_portion }}<span style="font-size:0.8rem;color:#8993a8;font-weight:500;">%</span></div>
+    </div>
+  </div>
+  <div class="sum-card">
+    <div class="sum-icon" style="background:#fff7ed;"><i class="bi bi-graph-up-arrow" style="color:#f97316;"></i></div>
+    <div>
+      <div class="sum-label">산포 개선율 (Total)</div>
+      <div class="sum-value">
+        {% if total_avg_imp is not None %}
+          <span style="color:#22c55e;">+{{ total_avg_imp }}</span><span style="font-size:0.8rem;color:#8993a8;font-weight:500;">%</span>
+        {% else %}
+          <span style="color:#c8d0e0;">—</span>
+        {% endif %}
+      </div>
     </div>
   </div>
 </div>
