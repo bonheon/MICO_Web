@@ -847,6 +847,7 @@ def category_copy(request, pk):
         original = get_object_or_404(Category, pk=pk)
         fields = _cat_fields(original)
         original.pk = None
+        original._state.adding = True
         original.created_by = request.user
         original.save()
         fields['copied_from'] = str(pk)
@@ -916,6 +917,7 @@ def subcategory_copy(request, pk):
             if request.POST.get('copy_details') == '1':
                 for detail in details:
                     detail.pk = None
+                    detail._state.adding = True
                     detail.subcategory = new_sub
                     detail.save()
                 fields['detail_count'] = len(details)
@@ -977,6 +979,7 @@ def detail_copy(request, pk):
         fields = _det_fields(original)
         fields['copied_from'] = str(pk)
         original.pk = None
+        original._state.adding = True
         original.created_by = request.user
         original.save()
         _record(request.user, 'create', 'Detail', _det_repr(original), original.pk, fields)
@@ -1193,8 +1196,8 @@ def dispersion(request):
                 g_latest_equip.extend(r for r in dev_equip if date_str(r['Date']) == dev_latest_dt)
 
         # 장비 적용 수: 개별 장비 행 기준
-        eqp_total   = len(set(r['eqp_ch'] for r in g_latest_equip
-                              if (r.get('BASE') or 0) + (r.get('Re_MICO') or 0) > 0))
+        eqp_total   = sum(1 for r in g_latest_equip
+                          if (r.get('BASE') or 0) + (r.get('Re_MICO') or 0) > 0)
         eqp_applied = sum(1 for r in g_latest_equip if (r.get('Portion') or 0) >= 0.9)
 
         # Wafer 합산: 최신 TOTAL 행들의 합
