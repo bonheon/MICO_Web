@@ -847,6 +847,7 @@ def category_copy(request, pk):
         original = get_object_or_404(Category, pk=pk)
         fields = _cat_fields(original)
         original.pk = None
+        original._state.adding = True
         original.created_by = request.user
         original.save()
         fields['copied_from'] = str(pk)
@@ -916,6 +917,7 @@ def subcategory_copy(request, pk):
             if request.POST.get('copy_details') == '1':
                 for detail in details:
                     detail.pk = None
+                    detail._state.adding = True
                     detail.subcategory = new_sub
                     detail.save()
                 fields['detail_count'] = len(details)
@@ -977,6 +979,7 @@ def detail_copy(request, pk):
         fields = _det_fields(original)
         fields['copied_from'] = str(pk)
         original.pk = None
+        original._state.adding = True
         original.created_by = request.user
         original.save()
         _record(request.user, 'create', 'Detail', _det_repr(original), original.pk, fields)
