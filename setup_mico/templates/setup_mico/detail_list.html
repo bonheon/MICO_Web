@@ -46,13 +46,13 @@
         <th>Pre Oper Code4</th>
         <th>Pre Oper Desc4</th>
         <th>Pre Oper Para4</th>
-        <th class="text-center">Pre THK Period</th>
-        <th class="text-center">RR Para</th>
-        <th class="text-center">RR Max</th>
+        <th class="text-center">Pre THK Period <i class="bi bi-info-circle text-muted ms-1" style="font-size:0.72rem; cursor:help;" data-bs-toggle="tooltip" data-bs-placement="top" title="Pre Thickness 학습 시 사전공정 기준 Moving Average의 기간"></i></th>
+        <th class="text-center">RR Para <i class="bi bi-info-circle text-muted ms-1" style="font-size:0.72rem; cursor:help;" data-bs-toggle="tooltip" data-bs-placement="top" title="RR 학습 시 학습할 Consumable Para"></i></th>
+        <th class="text-center">RR Max <i class="bi bi-info-circle text-muted ms-1" style="font-size:0.72rem; cursor:help;" data-bs-toggle="tooltip" data-bs-placement="top" data-bs-html="true" title="RR 학습 시 학습할 Consumable Para의 학습조건<br>(ex. 30이면 0 ~ 30Hr Data 검증)"></i></th>
         <th class="text-center">RR Weight</th>
         <th class="text-center">RR Count</th>
         <th class="text-center">RR Period</th>
-        <th class="text-center">RR IF</th>
+        <th class="text-center">RR IF <i class="bi bi-info-circle text-muted ms-1" style="font-size:0.72rem; cursor:help;" data-bs-toggle="tooltip" data-bs-placement="top" data-bs-html="true" title="RR 학습 시 Pad 시간을 분할해서 학습<br>(RR Para가 PAD인 경우만 사용 가능)"></i></th>
         <th class="text-center">FB Type</th>
         <th class="text-center">RR Alarm Sigma</th>
         <th>등록자</th>
@@ -278,7 +278,7 @@
               {{ form.pre_target }}
             </div>
             <div class="col-4">
-              <label class="form-label fw-semibold" style="font-size:0.82rem;">Pre THK Period <span class="text-danger">*</span></label>
+              <label class="form-label fw-semibold" style="font-size:0.82rem;">Pre THK Period <span class="text-danger">*</span> <i class="bi bi-info-circle text-muted ms-1" style="font-size:0.72rem; cursor:help;" data-bs-toggle="tooltip" data-bs-placement="top" title="Pre Thickness 학습 시 사전공정 기준 Moving Average의 기간"></i></label>
               {{ form.pre_thk_period }}
             </div>
           </div>
@@ -289,7 +289,7 @@
           </div>
           <div class="row g-3 mb-3">
             <div class="col-4">
-              <label class="form-label fw-semibold" style="font-size:0.82rem;">RR Para</label>
+              <label class="form-label fw-semibold" style="font-size:0.82rem;">RR Para <i class="bi bi-info-circle text-muted ms-1" style="font-size:0.72rem; cursor:help;" data-bs-toggle="tooltip" data-bs-placement="top" title="RR 학습 시 학습할 Consumable Para"></i></label>
               {{ form.rr_para }}
             </div>
             <div class="col-4">
@@ -297,7 +297,7 @@
               {{ form.offset_group }}
             </div>
             <div class="col-4">
-              <label class="form-label fw-semibold" style="font-size:0.82rem;">RR Max</label>
+              <label class="form-label fw-semibold" style="font-size:0.82rem;">RR Max <i class="bi bi-info-circle text-muted ms-1" style="font-size:0.72rem; cursor:help;" data-bs-toggle="tooltip" data-bs-placement="top" data-bs-html="true" title="RR 학습 시 학습할 Consumable Para의 학습조건<br>(ex. 30이면 0 ~ 30Hr Data 검증)"></i></label>
               {{ form.rr_max }}
             </div>
             <div class="col-4">
@@ -305,7 +305,7 @@
               {{ form.rr_period }}
             </div>
             <div class="col-4">
-              <label class="form-label fw-semibold" style="font-size:0.82rem;">RR IF</label>
+              <label class="form-label fw-semibold" style="font-size:0.82rem;">RR IF <i class="bi bi-info-circle text-muted ms-1" style="font-size:0.72rem; cursor:help;" data-bs-toggle="tooltip" data-bs-placement="top" data-bs-html="true" title="RR 학습 시 Pad 시간을 분할해서 학습<br>(RR Para가 PAD인 경우만 사용 가능)"></i></label>
               {{ form.rr_if }}
             </div>
             <div class="col-4">
@@ -406,6 +406,13 @@
 
 {% block scripts %}
 <script>
+// Bootstrap 툴팁 초기화
+document.addEventListener('DOMContentLoaded', function () {
+  document.querySelectorAll('[data-bs-toggle="tooltip"]').forEach(function (el) {
+    new bootstrap.Tooltip(el);
+  });
+});
+
 const createUrl = "{% url 'detail_create' %}";
 
 function fillDetailForm(data) {
