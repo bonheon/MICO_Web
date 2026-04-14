@@ -32,7 +32,7 @@
         <th>THK Para</th>
         <th class="text-center">Target</th>
         <th class="text-center">Pre Target</th>
-        <th class="text-center">Offset Group</th>
+        <th class="text-center">Offset Group <i class="bi bi-info-circle text-muted ms-1" style="font-size:0.72rem; cursor:help;" data-bs-toggle="tooltip" data-bs-placement="top" data-bs-html="true" title="Layer Change의 Offset 값을 학습할 시 제품들을 Grouping 하는 Option<br>(ex. Y → 해당 공정은 다른 Device 합쳐서 학습)"></i></th>
         <th>Pre THK Para ITM</th>
         <th>Pre Oper Code</th>
         <th>Pre Oper Desc</th>
@@ -46,13 +46,13 @@
         <th>Pre Oper Code4</th>
         <th>Pre Oper Desc4</th>
         <th>Pre Oper Para4</th>
-        <th class="text-center">Pre THK Period</th>
-        <th class="text-center">RR Para</th>
-        <th class="text-center">RR Max</th>
-        <th class="text-center">RR Weight</th>
-        <th class="text-center">RR Count</th>
-        <th class="text-center">RR Period</th>
-        <th class="text-center">RR IF</th>
+        <th class="text-center">Pre THK Period <i class="bi bi-info-circle text-muted ms-1" style="font-size:0.72rem; cursor:help;" data-bs-toggle="tooltip" data-bs-placement="top" title="Pre Thickness 학습 시 사전공정 기준 Moving Average의 기간"></i></th>
+        <th class="text-center">RR Para <i class="bi bi-info-circle text-muted ms-1" style="font-size:0.72rem; cursor:help;" data-bs-toggle="tooltip" data-bs-placement="top" title="RR 학습 시 학습할 Consumable Para"></i></th>
+        <th class="text-center">RR Max <i class="bi bi-info-circle text-muted ms-1" style="font-size:0.72rem; cursor:help;" data-bs-toggle="tooltip" data-bs-placement="top" data-bs-html="true" title="RR 학습 시 학습할 Consumable Para의 학습조건<br>(ex. 30이면 0 ~ 30Hr Data 검증)"></i></th>
+        <th class="text-center">RR Weight <i class="bi bi-info-circle text-muted ms-1" style="font-size:0.72rem; cursor:help;" data-bs-toggle="tooltip" data-bs-placement="top" title="Weight RR 학습 시 최근 Data에 가중치 (10 ~ 100)"></i></th>
+        <th class="text-center">RR Count <i class="bi bi-info-circle text-muted ms-1" style="font-size:0.72rem; cursor:help;" data-bs-toggle="tooltip" data-bs-placement="top" title="Current RR 학습 시 필요한 Wafer 최소 수량"></i></th>
+        <th class="text-center">RR Period <i class="bi bi-info-circle text-muted ms-1" style="font-size:0.72rem; cursor:help;" data-bs-toggle="tooltip" data-bs-placement="top" data-bs-html="true" title="Current RR 학습 시 Pad 기간<br>(ex. 12Hr → 현재 Pad 20Hr이면 8Hr ~ 20Hr)"></i></th>
+        <th class="text-center">RR IF <i class="bi bi-info-circle text-muted ms-1" style="font-size:0.72rem; cursor:help;" data-bs-toggle="tooltip" data-bs-placement="top" data-bs-html="true" title="RR 학습 시 Pad 시간을 분할해서 학습<br>(RR Para가 PAD인 경우만 사용 가능)<br>(ex. 3Hr → 0 ~ 3Hr if_b0, if_b1 값을 따로 학습)"></i></th>
         <th class="text-center">FB Type</th>
         <th class="text-center">RR Alarm Sigma</th>
         <th>등록자</th>
@@ -278,7 +278,7 @@
               {{ form.pre_target }}
             </div>
             <div class="col-4">
-              <label class="form-label fw-semibold" style="font-size:0.82rem;">Pre THK Period <span class="text-danger">*</span></label>
+              <label class="form-label fw-semibold" style="font-size:0.82rem;">Pre THK Period <span class="text-danger">*</span> <i class="bi bi-info-circle text-muted ms-1" style="font-size:0.72rem; cursor:help;" data-bs-toggle="tooltip" data-bs-placement="top" title="Pre Thickness 학습 시 사전공정 기준 Moving Average의 기간"></i></label>
               {{ form.pre_thk_period }}
             </div>
           </div>
@@ -289,31 +289,31 @@
           </div>
           <div class="row g-3 mb-3">
             <div class="col-4">
-              <label class="form-label fw-semibold" style="font-size:0.82rem;">RR Para</label>
+              <label class="form-label fw-semibold" style="font-size:0.82rem;">RR Para <i class="bi bi-info-circle text-muted ms-1" style="font-size:0.72rem; cursor:help;" data-bs-toggle="tooltip" data-bs-placement="top" title="RR 학습 시 학습할 Consumable Para"></i></label>
               {{ form.rr_para }}
             </div>
             <div class="col-4">
-              <label class="form-label fw-semibold" style="font-size:0.82rem;">Offset Group</label>
+              <label class="form-label fw-semibold" style="font-size:0.82rem;">Offset Group <i class="bi bi-info-circle text-muted ms-1" style="font-size:0.72rem; cursor:help;" data-bs-toggle="tooltip" data-bs-placement="top" data-bs-html="true" title="Layer Change의 Offset 값을 학습할 시 제품들을 Grouping 하는 Option<br>(ex. Y → 해당 공정은 다른 Device 합쳐서 학습)"></i></label>
               {{ form.offset_group }}
             </div>
             <div class="col-4">
-              <label class="form-label fw-semibold" style="font-size:0.82rem;">RR Max</label>
+              <label class="form-label fw-semibold" style="font-size:0.82rem;">RR Max <i class="bi bi-info-circle text-muted ms-1" style="font-size:0.72rem; cursor:help;" data-bs-toggle="tooltip" data-bs-placement="top" data-bs-html="true" title="RR 학습 시 학습할 Consumable Para의 학습조건<br>(ex. 30이면 0 ~ 30Hr Data 검증)"></i></label>
               {{ form.rr_max }}
             </div>
             <div class="col-4">
-              <label class="form-label fw-semibold" style="font-size:0.82rem;">RR Period</label>
+              <label class="form-label fw-semibold" style="font-size:0.82rem;">RR Period <i class="bi bi-info-circle text-muted ms-1" style="font-size:0.72rem; cursor:help;" data-bs-toggle="tooltip" data-bs-placement="top" data-bs-html="true" title="Current RR 학습 시 Pad 기간<br>(ex. 12Hr → 현재 Pad 20Hr이면 8Hr ~ 20Hr)"></i></label>
               {{ form.rr_period }}
             </div>
             <div class="col-4">
-              <label class="form-label fw-semibold" style="font-size:0.82rem;">RR IF</label>
+              <label class="form-label fw-semibold" style="font-size:0.82rem;">RR IF <i class="bi bi-info-circle text-muted ms-1" style="font-size:0.72rem; cursor:help;" data-bs-toggle="tooltip" data-bs-placement="top" data-bs-html="true" title="RR 학습 시 Pad 시간을 분할해서 학습<br>(RR Para가 PAD인 경우만 사용 가능)<br>(ex. 3Hr → 0 ~ 3Hr if_b0, if_b1 값을 따로 학습)"></i></label>
               {{ form.rr_if }}
             </div>
             <div class="col-4">
-              <label class="form-label fw-semibold" style="font-size:0.82rem;">RR Weight</label>
+              <label class="form-label fw-semibold" style="font-size:0.82rem;">RR Weight <i class="bi bi-info-circle text-muted ms-1" style="font-size:0.72rem; cursor:help;" data-bs-toggle="tooltip" data-bs-placement="top" title="Weight RR 학습 시 최근 Data에 가중치 (10 ~ 100)"></i></label>
               {{ form.rr_weight }}
             </div>
             <div class="col-4">
-              <label class="form-label fw-semibold" style="font-size:0.82rem;">RR Count</label>
+              <label class="form-label fw-semibold" style="font-size:0.82rem;">RR Count <i class="bi bi-info-circle text-muted ms-1" style="font-size:0.72rem; cursor:help;" data-bs-toggle="tooltip" data-bs-placement="top" title="Current RR 학습 시 필요한 Wafer 최소 수량"></i></label>
               {{ form.rr_count }}
             </div>
             <div class="col-4">
@@ -406,6 +406,67 @@
 
 {% block scripts %}
 <script>
+// Bootstrap 툴팁 초기화
+document.addEventListener('DOMContentLoaded', function () {
+  document.querySelectorAll('[data-bs-toggle="tooltip"]').forEach(function (el) {
+    new bootstrap.Tooltip(el);
+  });
+});
+
+// ── 플로팅 가로 스크롤바 ─────────────────────────────────────────────────────
+(function () {
+  const wrapper = document.querySelector('.table-card');
+  if (!wrapper) return;
+  const table   = wrapper.querySelector('table');
+
+  // 고정 스크롤바 컨테이너 생성
+  const floatBar = document.createElement('div');
+  floatBar.style.cssText = [
+    'position:fixed', 'bottom:0', 'overflow-x:auto', 'overflow-y:hidden',
+    'z-index:500', 'height:14px',
+    'background:#f0f2f7', 'border-top:1px solid #d1d5de',
+    'display:none',
+  ].join(';');
+
+  const floatInner = document.createElement('div');
+  floatInner.style.height = '1px';
+  floatBar.appendChild(floatInner);
+  document.body.appendChild(floatBar);
+
+  // 양방향 스크롤 동기화 (무한루프 방지)
+  let syncing = false;
+  floatBar.addEventListener('scroll', function () {
+    if (syncing) return; syncing = true;
+    wrapper.scrollLeft = floatBar.scrollLeft;
+    syncing = false;
+  });
+  wrapper.addEventListener('scroll', function () {
+    if (syncing) return; syncing = true;
+    floatBar.scrollLeft = wrapper.scrollLeft;
+    syncing = false;
+  });
+
+  function update() {
+    const rect = wrapper.getBoundingClientRect();
+    const vh   = window.innerHeight;
+
+    // 테이블이 화면에 보이고 네이티브 스크롤바(테이블 하단)가 뷰포트 밖일 때 표시
+    const visible = rect.top < vh && rect.bottom > vh;
+    if (visible) {
+      floatBar.style.display  = 'block';
+      floatBar.style.left     = rect.left + 'px';
+      floatBar.style.width    = rect.width + 'px';
+      floatInner.style.width  = table.offsetWidth + 'px';
+    } else {
+      floatBar.style.display  = 'none';
+    }
+  }
+
+  window.addEventListener('scroll',  update, { passive: true });
+  window.addEventListener('resize',  update);
+  update();
+})();
+
 const createUrl = "{% url 'detail_create' %}";
 
 function fillDetailForm(data) {
