@@ -413,6 +413,60 @@ document.addEventListener('DOMContentLoaded', function () {
   });
 });
 
+// ── 플로팅 가로 스크롤바 ─────────────────────────────────────────────────────
+(function () {
+  const wrapper = document.querySelector('.table-card');
+  if (!wrapper) return;
+  const table   = wrapper.querySelector('table');
+
+  // 고정 스크롤바 컨테이너 생성
+  const floatBar = document.createElement('div');
+  floatBar.style.cssText = [
+    'position:fixed', 'bottom:0', 'overflow-x:auto', 'overflow-y:hidden',
+    'z-index:500', 'height:14px',
+    'background:#f0f2f7', 'border-top:1px solid #d1d5de',
+    'display:none',
+  ].join(';');
+
+  const floatInner = document.createElement('div');
+  floatInner.style.height = '1px';
+  floatBar.appendChild(floatInner);
+  document.body.appendChild(floatBar);
+
+  // 양방향 스크롤 동기화 (무한루프 방지)
+  let syncing = false;
+  floatBar.addEventListener('scroll', function () {
+    if (syncing) return; syncing = true;
+    wrapper.scrollLeft = floatBar.scrollLeft;
+    syncing = false;
+  });
+  wrapper.addEventListener('scroll', function () {
+    if (syncing) return; syncing = true;
+    floatBar.scrollLeft = wrapper.scrollLeft;
+    syncing = false;
+  });
+
+  function update() {
+    const rect = wrapper.getBoundingClientRect();
+    const vh   = window.innerHeight;
+
+    // 테이블이 화면에 보이고 네이티브 스크롤바(테이블 하단)가 뷰포트 밖일 때 표시
+    const visible = rect.top < vh && rect.bottom > vh;
+    if (visible) {
+      floatBar.style.display  = 'block';
+      floatBar.style.left     = rect.left + 'px';
+      floatBar.style.width    = rect.width + 'px';
+      floatInner.style.width  = table.offsetWidth + 'px';
+    } else {
+      floatBar.style.display  = 'none';
+    }
+  }
+
+  window.addEventListener('scroll',  update, { passive: true });
+  window.addEventListener('resize',  update);
+  update();
+})();
+
 const createUrl = "{% url 'detail_create' %}";
 
 function fillDetailForm(data) {
