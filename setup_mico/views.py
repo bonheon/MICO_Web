@@ -1,6 +1,7 @@
 import requests
 from django.shortcuts import render, redirect, get_object_or_404
 from django.http import JsonResponse
+from django.contrib import messages
 from django.db.models import Count
 from django.db.models.functions import TruncDate
 from django.contrib.auth import authenticate, login, logout
@@ -946,6 +947,10 @@ def detail_create(request):
             obj.created_by = request.user
             obj.save()
             _record(request.user, 'create', 'Detail', _det_repr(obj), obj.pk, _det_fields(obj))
+            messages.success(request, 'Detail이 추가되었습니다.')
+        else:
+            error_fields = ', '.join(form.errors.keys())
+            messages.error(request, f'저장 실패: 입력값을 확인해 주세요. (오류 항목: {error_fields})')
     return redirect('detail_list')
 
 
@@ -960,6 +965,10 @@ def detail_update(request, pk):
             diff = _diff(old, _det_fields(obj))
             if diff:
                 _record(request.user, 'update', 'Detail', _det_repr(obj), obj.pk, diff)
+            messages.success(request, 'Detail이 수정되었습니다.')
+        else:
+            error_fields = ', '.join(form.errors.keys())
+            messages.error(request, f'저장 실패: 입력값을 확인해 주세요. (오류 항목: {error_fields})')
     return redirect('detail_list')
 
 
