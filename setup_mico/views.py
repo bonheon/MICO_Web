@@ -816,6 +816,10 @@ def category_create(request):
             obj.created_by = request.user
             obj.save()
             _record(request.user, 'create', 'Category', str(obj), obj.pk, _cat_fields(obj))
+            messages.success(request, 'Category가 추가되었습니다.')
+        else:
+            error_fields = ', '.join(form.errors.keys())
+            messages.error(request, f'저장 실패: 입력값을 확인해 주세요. (오류 항목: {error_fields})')
     return redirect('category_list')
 
 
@@ -830,6 +834,10 @@ def category_update(request, pk):
             diff = _diff(old, _cat_fields(obj))
             if diff:
                 _record(request.user, 'update', 'Category', str(obj), obj.pk, diff)
+            messages.success(request, 'Category가 수정되었습니다.')
+        else:
+            error_fields = ', '.join(form.errors.keys())
+            messages.error(request, f'저장 실패: 입력값을 확인해 주세요. (오류 항목: {error_fields})')
     return redirect('category_list')
 
 
@@ -839,6 +847,7 @@ def category_delete(request, pk):
         obj = get_object_or_404(Category, pk=pk)
         _record(request.user, 'delete', 'Category', str(obj))
         obj.delete()
+        messages.success(request, 'Category가 삭제되었습니다.')
     return redirect('category_list')
 
 
@@ -853,6 +862,7 @@ def category_copy(request, pk):
         original.save()
         fields['copied_from'] = str(pk)
         _record(request.user, 'create', 'Category', str(original), original.pk, fields)
+        messages.success(request, 'Category가 복사되었습니다.')
     return redirect('category_list')
 
 
@@ -877,6 +887,10 @@ def subcategory_create(request):
             obj.created_by = request.user
             obj.save()
             _record(request.user, 'create', 'SubCategory', _sub_repr(obj), obj.pk, _sub_fields(obj))
+            messages.success(request, 'SubCategory가 추가되었습니다.')
+        else:
+            error_fields = ', '.join(form.errors.keys())
+            messages.error(request, f'저장 실패: 입력값을 확인해 주세요. (오류 항목: {error_fields})')
     return redirect('subcategory_list')
 
 
@@ -891,6 +905,10 @@ def subcategory_update(request, pk):
             diff = _diff(old, _sub_fields(obj))
             if diff:
                 _record(request.user, 'update', 'SubCategory', _sub_repr(obj), obj.pk, diff)
+            messages.success(request, 'SubCategory가 수정되었습니다.')
+        else:
+            error_fields = ', '.join(form.errors.keys())
+            messages.error(request, f'저장 실패: 입력값을 확인해 주세요. (오류 항목: {error_fields})')
     return redirect('subcategory_list')
 
 
@@ -900,6 +918,7 @@ def subcategory_delete(request, pk):
         obj = get_object_or_404(SubCategory.objects.select_related('category'), pk=pk)
         _record(request.user, 'delete', 'SubCategory', _sub_repr(obj))
         obj.delete()
+        messages.success(request, 'SubCategory가 삭제되었습니다.')
     return redirect('subcategory_list')
 
 
@@ -923,6 +942,10 @@ def subcategory_copy(request, pk):
                     detail.save()
                 fields['detail_count'] = len(details)
             _record(request.user, 'create', 'SubCategory', _sub_repr(new_sub), new_sub.pk, fields)
+            messages.success(request, 'SubCategory가 복사되었습니다.')
+        else:
+            error_fields = ', '.join(form.errors.keys())
+            messages.error(request, f'복사 실패: 입력값을 확인해 주세요. (오류 항목: {error_fields})')
     return redirect('subcategory_list')
 
 
@@ -978,6 +1001,7 @@ def detail_delete(request, pk):
         obj = get_object_or_404(Detail.objects.select_related('subcategory__category'), pk=pk)
         _record(request.user, 'delete', 'Detail', _det_repr(obj))
         obj.delete()
+        messages.success(request, 'Detail이 삭제되었습니다.')
     return redirect('detail_list')
 
 
@@ -992,6 +1016,7 @@ def detail_copy(request, pk):
         original.created_by = request.user
         original.save()
         _record(request.user, 'create', 'Detail', _det_repr(original), original.pk, fields)
+        messages.success(request, 'Detail이 복사되었습니다.')
     return redirect('detail_list')
 
 
