@@ -608,7 +608,8 @@ def setup_status(request):
     ).annotate(
         detail_count=Count('subcategories__details')
     ).order_by('product', 'oper_id')
-    return render(request, 'setup_mico/setup_status.html', {'categories': categories})
+    form = DetailForm()
+    return render(request, 'setup_mico/setup_status.html', {'categories': categories, 'form': form})
 
 
 @login_required
@@ -992,7 +993,8 @@ def detail_update(request, pk):
         else:
             error_fields = ', '.join(form.errors.keys())
             messages.error(request, f'저장 실패: 입력값을 확인해 주세요. (오류 항목: {error_fields})')
-    return redirect('detail_list')
+    next_url = request.POST.get('next')
+    return redirect(next_url) if next_url else redirect('detail_list')
 
 
 @login_required
@@ -1002,6 +1004,54 @@ def detail_delete(request, pk):
         _record(request.user, 'delete', 'Detail', _det_repr(obj))
         obj.delete()
         messages.success(request, 'Detail이 삭제되었습니다.')
+    return redirect('detail_list')
+
+
+_BULK_ALLOWED = {
+    'target', 'pre_target', 'pre_thk_period',
+    'rr_para', 'offset_group',
+    'rr_max', 'rr_period', 'rr_if',
+    'rr_weight', 'rr_count',
+    'fb_type', 'rr_alarm_sigma',
+}
+_BULK_INT = {'target', 'pre_target', 'pre_thk_period', 'rr_max', 'rr_period', 'rr_if', 'rr_weight', 'rr_count', 'rr_alarm_sigma'}
+_BULK_INT_NULL = {'rr_max', 'rr_period', 'rr_if', 'rr_weight', 'rr_count'}
+
+
+@login_required
+def detail_bulk_update(request):
+    if request.method == 'POST':
+        pks = [p for p in request.POST.getlist('pks') if p]
+        update_fields = [f for f in request.POST.getlist('update_fields') if f in _BULK_ALLOWED]
+
+        if not pks or not update_fields:
+            messages.error(request, '수정할 항목 또는 필드를 선택해 주세요.')
+            return redirect('detail_list')
+
+        details = Detail.objects.select_related('subcategory__category').filter(pk__in=pks)
+        count = 0
+        for detail in details:
+            old = _det_fields(detail)
+            for field in update_fields:
+                raw = request.POST.get(f'bulk_{field}', '')
+                if field in _BULK_INT:
+                    if raw == '':
+                        val = None if field in _BULK_INT_NULL else old.get(field)
+                    else:
+                        try:
+                            val = int(raw)
+                        except ValueError:
+                            continue
+                else:
+                    val = raw
+                setattr(detail, field, val)
+            detail.save()
+            diff = _diff(old, _det_fields(detail))
+            if diff:
+                _record(request.user, 'update', 'Detail', _det_repr(detail), detail.pk, diff)
+            count += 1
+
+        messages.success(request, f'{count}개 Detail이 수정되었습니다.')
     return redirect('detail_list')
 
 

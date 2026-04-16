@@ -26,7 +26,8 @@
   <table class="table table-hover mb-0">
     <thead>
       <tr>
-        <th style="width:50px;">#</th>
+        <th style="width:90px;">관리</th>
+        <th style="width:44px;">#</th>
         <th>Category</th>
         <th>FAB</th>
         <th>Device</th>
@@ -34,37 +35,22 @@
         <th>Maker</th>
         <th>등록일</th>
         <th>등록자</th>
-        <th style="width:100px;">관리</th>
       </tr>
       <tr class="search-row">
         <th></th>
-        <th><input type="text" class="col-search form-control form-control-sm" placeholder="검색..." data-col="1"></th>
+        <th></th>
         <th><input type="text" class="col-search form-control form-control-sm" placeholder="검색..." data-col="2"></th>
         <th><input type="text" class="col-search form-control form-control-sm" placeholder="검색..." data-col="3"></th>
         <th><input type="text" class="col-search form-control form-control-sm" placeholder="검색..." data-col="4"></th>
         <th><input type="text" class="col-search form-control form-control-sm" placeholder="검색..." data-col="5"></th>
         <th><input type="text" class="col-search form-control form-control-sm" placeholder="검색..." data-col="6"></th>
         <th><input type="text" class="col-search form-control form-control-sm" placeholder="검색..." data-col="7"></th>
-        <th></th>
+        <th><input type="text" class="col-search form-control form-control-sm" placeholder="검색..." data-col="8"></th>
       </tr>
     </thead>
     <tbody>
       {% for sub in subcategories %}
       <tr>
-        <td class="text-muted">{{ forloop.counter }}</td>
-        <td>
-          <span class="badge-pill" style="background:#f0fdf4; color:#22c55e;">
-            {{ sub.category.product }} / {{ sub.category.oper_id }}{% if sub.category.oper_desc %} / {{ sub.category.oper_desc }}{% endif %}
-          </span>
-        </td>
-        <td class="fw-semibold">{{ sub.fab }}</td>
-        <td>{{ sub.device }}</td>
-        <td><span class="badge-pill" style="background:#eff6ff; color:#4f8ef7;">{{ sub.recipe_id }}</span></td>
-        <td>{{ sub.maker }}</td>
-        <td class="text-muted" style="white-space:nowrap;">{{ sub.created_at|date:"Y-m-d" }}</td>
-        <td class="text-muted" style="white-space:nowrap;">
-          {% if sub.created_by %}{{ sub.created_by.username }}{% else %}—{% endif %}
-        </td>
         <td>
           <div class="d-flex gap-1">
             <button class="btn btn-sm edit-btn"
@@ -99,6 +85,20 @@
               <i class="bi bi-trash3"></i>
             </button>
           </div>
+        </td>
+        <td class="text-muted">{{ forloop.counter }}</td>
+        <td>
+          <span class="badge-pill" style="background:#f0fdf4; color:#22c55e;">
+            {{ sub.category.product }} / {{ sub.category.oper_id }}{% if sub.category.oper_desc %} / {{ sub.category.oper_desc }}{% endif %}
+          </span>
+        </td>
+        <td class="fw-semibold">{{ sub.fab }}</td>
+        <td>{{ sub.device }}</td>
+        <td><span class="badge-pill" style="background:#eff6ff; color:#4f8ef7;">{{ sub.recipe_id }}</span></td>
+        <td>{{ sub.maker }}</td>
+        <td class="text-muted" style="white-space:nowrap;">{{ sub.created_at|date:"Y-m-d" }}</td>
+        <td class="text-muted" style="white-space:nowrap;">
+          {% if sub.created_by %}{{ sub.created_by.username }}{% else %}—{% endif %}
         </td>
       </tr>
       {% empty %}

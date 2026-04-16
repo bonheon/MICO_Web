@@ -43,6 +43,7 @@ urlpatterns = [
     # Detail CRUD
     path('setup/detail/', views.detail_list, name='detail_list'),
     path('setup/detail/create/', views.detail_create, name='detail_create'),
+    path('setup/detail/bulk-update/', views.detail_bulk_update, name='detail_bulk_update'),
     path('setup/detail/<int:pk>/update/', views.detail_update, name='detail_update'),
     path('setup/detail/<int:pk>/delete/', views.detail_delete, name='detail_delete'),
     path('setup/detail/<int:pk>/copy/', views.detail_copy, name='detail_copy'),
