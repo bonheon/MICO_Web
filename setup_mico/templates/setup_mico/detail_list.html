@@ -476,7 +476,15 @@ function fillDetailForm(data) {
   document.getElementById('id_target').value            = data.target;
   document.getElementById('id_pre_target').value        = data.pre_target;
   document.getElementById('id_pre_thk_period').value    = data.pre_thk_period;
-  document.getElementById('id_rr_para').value           = data.rr_para;
+  // rr_para: DB에 대문자(PAD/DISK/HEAD)로 저장된 구 데이터도 소문자 choice와 자동 매칭
+  (function() {
+    var sel = document.getElementById('id_rr_para');
+    var val = data.rr_para || '';
+    sel.value = val;
+    if (sel.value !== val && val) {
+      sel.value = val.toLowerCase();
+    }
+  })();
   document.getElementById('id_offset_group').value      = data.offset_group;
   document.getElementById('id_rr_max').value            = data.rr_max;
   document.getElementById('id_rr_period').value         = data.rr_period;
