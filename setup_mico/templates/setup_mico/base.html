@@ -201,6 +201,16 @@
       font-size: 0.72rem;
       font-weight: 500;
     }
+
+    /* ── 전역 스크롤바 (사이드바 포함 페이지 전체) ── */
+    ::-webkit-scrollbar { width: 6px; height: 6px; }
+    ::-webkit-scrollbar-track { background: transparent; }
+    ::-webkit-scrollbar-thumb { background: #c1c7d4; border-radius: 999px; }
+    ::-webkit-scrollbar-thumb:hover { background: #9aa0b0; }
+
+    /* 사이드바: 어두운 배경에 맞게 thumb 색상만 덮어쓰기 */
+    #sidebar::-webkit-scrollbar-thumb { background: rgba(255,255,255,0.2); }
+    #sidebar::-webkit-scrollbar-thumb:hover { background: rgba(255,255,255,0.35); }
   </style>
 </head>
 <body>
