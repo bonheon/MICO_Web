@@ -40,22 +40,19 @@
     height: fit-content;
   }
 
-  /* ── iframe 영역 ────────────────────────────────────────────────────── */
-  .iframe-wrap {
+  /* ── Spotfire 링크 카드 ─────────────────────────────────────────────── */
+  .spotfire-card {
     background: #fff; border: 1px solid #e4e7ed; border-radius: 12px;
-    overflow: hidden; position: relative;
+    padding: 3rem 2rem; text-align: center;
   }
-  .iframe-wrap iframe {
-    width: 100%; height: calc(100vh - 260px);
-    min-height: 500px; border: none; display: block;
+  .spotfire-card .sf-icon { font-size: 3rem; color: #4f8ef7; margin-bottom: 1rem; }
+  .spotfire-card .sf-title { font-size: 1rem; font-weight: 600; color: #1e2640; margin-bottom: 0.4rem; }
+  .spotfire-card .sf-desc  { font-size: 0.85rem; color: #8993a8; margin-bottom: 1.5rem; }
+  .spotfire-card .sf-note  {
+    display: inline-flex; align-items: center; gap: 0.4rem;
+    font-size: 0.75rem; color: #8993a8; margin-top: 1rem;
+    background: #f8f9fc; border-radius: 8px; padding: 0.4rem 0.85rem;
   }
-  .iframe-loading {
-    position: absolute; inset: 0;
-    display: flex; align-items: center; justify-content: center;
-    background: #f8f9fc; flex-direction: column; gap: 0.75rem;
-    font-size: 0.85rem; color: #8993a8;
-  }
-  .iframe-loading .spinner-border { width: 1.5rem; height: 1.5rem; }
 
   /* ── Empty state ────────────────────────────────────────────────────── */
   .empty-state {
@@ -130,19 +127,22 @@
     <span class="chip" style="background:#f0fdf4; color:#22c55e;">{{ selected_oper_desc }}</span>
   </div>
 
-  <!-- iframe -->
-  <div class="iframe-wrap">
-    <div class="iframe-loading" id="iframe-loading">
-      <div class="spinner-border text-primary"></div>
-      <span>Spotfire 로딩 중...</span>
+  <!-- Spotfire 열기 카드 -->
+  <div class="spotfire-card">
+    <div class="sf-icon"><i class="bi bi-bar-chart-steps"></i></div>
+    <div class="sf-title">Spotfire Simulation 준비됨</div>
+    <div class="sf-desc">
+      <strong>{{ selected_product }} / {{ selected_oper_desc }}</strong> 공정의 Simulation 화면을 엽니다.
     </div>
-    <iframe
-      id="spotfire-frame"
-      src="{{ spotfire_url }}"
-      allowfullscreen
-      sandbox="allow-scripts allow-same-origin allow-forms allow-popups allow-top-navigation"
-      onload="document.getElementById('iframe-loading').style.display='none';"
-    ></iframe>
+    <a href="{{ spotfire_url }}" target="_blank" rel="noopener" class="btn btn-primary px-4">
+      <i class="bi bi-box-arrow-up-right me-2"></i>Spotfire 열기
+    </a>
+    <div>
+      <span class="sf-note">
+        <i class="bi bi-info-circle"></i>
+        보안 정책상 새 탭에서 열립니다
+      </span>
+    </div>
   </div>
 
   {% else %}
