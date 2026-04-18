@@ -156,11 +156,11 @@
   </div>
   <div class="d-flex align-items-center gap-2">
     <div class="btn-group btn-group-sm" role="group">
-      <button type="button" class="btn btn-primary family-filter active" data-family="ALL"
+      <button type="button" class="btn family-filter active" data-family="ALL"
         style="font-size:0.78rem; border-radius:6px 0 0 6px;">전체</button>
-      <button type="button" class="btn btn-outline-primary family-filter" data-family="NAND"
+      <button type="button" class="btn family-filter" data-family="NAND"
         style="font-size:0.78rem;">NAND</button>
-      <button type="button" class="btn btn-outline-warning family-filter" data-family="DRAM"
+      <button type="button" class="btn family-filter" data-family="DRAM"
         style="font-size:0.78rem; border-radius:0 6px 6px 0;">DRAM</button>
     </div>
     <div style="width:1px; height:20px; background:#e4e7ed;"></div>
@@ -202,7 +202,7 @@
     <div>
       <div class="cat-title">
         {% if cat.family %}
-        <span class="badge-pill me-1" style="background:{% if cat.family == 'DRAM' %}#eff6ff; color:#4f8ef7;{% else %}#fff7ed; color:#f97316;{% endif %}; font-size:0.68rem; font-weight:700; vertical-align:middle;">{{ cat.family }}</span>
+        <span class="badge-pill me-1" style="background:{% if cat.family == 'DRAM' %}#fdeee6; color:#e55b1c;{% else %}#e8e8e8; color:#2c2d2c;{% endif %}; font-size:0.68rem; font-weight:700; vertical-align:middle;">{{ cat.family }}</span>
         {% endif %}
         {% if cat.oper_desc %}{{ cat.oper_desc }}{% else %}{{ cat.oper_id }}{% endif %}
       </div>
@@ -647,14 +647,20 @@ function applySearch() {
 }
 
 // Family 필터
+const FAM_STYLE = {
+  ALL:  { on: 'background:#4f8ef7;border-color:#4f8ef7;color:#fff;', off: 'background:transparent;border-color:#4f8ef7;color:#4f8ef7;' },
+  NAND: { on: 'background:#2c2d2c;border-color:#2c2d2c;color:#fff;', off: 'background:transparent;border-color:#2c2d2c;color:#2c2d2c;' },
+  DRAM: { on: 'background:#e55b1c;border-color:#e55b1c;color:#fff;', off: 'background:transparent;border-color:#e55b1c;color:#e55b1c;' },
+};
+function applyFamStyle(btn, isActive) {
+  btn.style.cssText += FAM_STYLE[btn.dataset.family][isActive ? 'on' : 'off'];
+}
 document.querySelectorAll('.family-filter').forEach(btn => {
+  applyFamStyle(btn, btn.classList.contains('active'));
   btn.addEventListener('click', function() {
-    document.querySelectorAll('.family-filter').forEach(b => {
-      b.classList.remove('active', 'btn-primary', 'btn-warning');
-      b.classList.add(b.dataset.family === 'DRAM' ? 'btn-outline-warning' : 'btn-outline-primary');
-    });
-    this.classList.remove('btn-outline-primary', 'btn-outline-warning');
-    this.classList.add('active', this.dataset.family === 'DRAM' ? 'btn-warning' : 'btn-primary');
+    document.querySelectorAll('.family-filter').forEach(b => { b.classList.remove('active'); applyFamStyle(b, false); });
+    this.classList.add('active');
+    applyFamStyle(this, true);
     activeFamily = this.dataset.family;
     applySearch();
   });
