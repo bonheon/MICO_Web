@@ -12,7 +12,7 @@
 <div class="row g-3 mb-4">
   <div class="col-sm-6 col-xl">
     <div class="card-box d-flex align-items-center gap-3">
-      <div class="stat-icon" style="background:#fdeee6; color:#e55b1c;">
+      <div class="stat-icon" style="background:#ffedd5; color:#ea580c;">
         <i class="bi bi-layers-half"></i>
       </div>
       <div>
@@ -23,7 +23,7 @@
   </div>
   <div class="col-sm-6 col-xl">
     <div class="card-box d-flex align-items-center gap-3">
-      <div class="stat-icon" style="background:#e8e8e8; color:#2c2d2c;">
+      <div class="stat-icon" style="background:#e0f2fe; color:#0284c7;">
         <i class="bi bi-layers-half"></i>
       </div>
       <div>
@@ -93,12 +93,12 @@
             <button type="button" class="btn family-filter" data-family="DRAM"
               style="font-size:0.78rem; border-radius:0 6px 6px 0;">DRAM</button>
           </div>
-          <span id="selected-od-badge" class="badge-pill d-none" style="background:#e8e8e8; color:#2c2d2c;"></span>
+          <span id="selected-od-badge" class="badge-pill d-none" style="background:#e0f2fe; color:#0284c7;"></span>
         </div>
       </div>
       <div class="d-flex gap-3 mb-2" style="font-size:0.78rem; color:#667085;">
-        <span><span style="display:inline-block;width:10px;height:10px;border-radius:3px;background:#2c2d2c;margin-right:4px;"></span>NAND</span>
-        <span><span style="display:inline-block;width:10px;height:10px;border-radius:3px;background:#e55b1c;margin-right:4px;"></span>DRAM</span>
+        <span><span style="display:inline-block;width:10px;height:10px;border-radius:3px;background:#0284c7;margin-right:4px;"></span>NAND</span>
+        <span><span style="display:inline-block;width:10px;height:10px;border-radius:3px;background:#ea580c;margin-right:4px;"></span>DRAM</span>
       </div>
       <div style="position:relative; height:260px;">
         <canvas id="processChart"></canvas>
@@ -174,8 +174,8 @@ const OD_DETAIL    = {{ oper_desc_detail_json|safe }};
 
 // ── Family 색상 ──
 const FAMILY_COLOR = {
-  NAND: { base: 'rgba(44,45,44,0.8)',   highlight: 'rgba(44,45,44,1)',   dim: 'rgba(44,45,44,0.2)'   },
-  DRAM: { base: 'rgba(229,91,28,0.8)',  highlight: 'rgba(229,91,28,1)',  dim: 'rgba(229,91,28,0.2)'  },
+  NAND: { base: 'rgba(2,132,199,0.8)',   highlight: 'rgba(2,132,199,1)',   dim: 'rgba(2,132,199,0.2)'   },
+  DRAM: { base: 'rgba(234,88,12,0.8)',  highlight: 'rgba(234,88,12,1)',  dim: 'rgba(234,88,12,0.2)'  },
 };
 
 function familyColor(family, mode='base') {
@@ -183,8 +183,8 @@ function familyColor(family, mode='base') {
 }
 
 function familyBadge(family) {
-  if (family === 'NAND') return `<span class="badge-pill" style="background:#e8e8e8;color:#2c2d2c;font-size:0.75rem;">NAND</span>`;
-  if (family === 'DRAM') return `<span class="badge-pill" style="background:#fdeee6;color:#e55b1c;font-size:0.75rem;">DRAM</span>`;
+  if (family === 'NAND') return `<span class="badge-pill" style="background:#e0f2fe;color:#0284c7;font-size:0.75rem;">NAND</span>`;
+  if (family === 'DRAM') return `<span class="badge-pill" style="background:#ffedd5;color:#ea580c;font-size:0.75rem;">DRAM</span>`;
   return `<span style="color:#9da8b8;">—</span>`;
 }
 
@@ -432,8 +432,8 @@ processChart._visibleFamilies = [...BAR_FAMILIES];
 // ── Family 필터 버튼 이벤트 ──
 const FAM_STYLE = {
   ALL:  { on: 'background:#4f8ef7;border-color:#4f8ef7;color:#fff;', off: 'background:transparent;border-color:#4f8ef7;color:#4f8ef7;' },
-  NAND: { on: 'background:#2c2d2c;border-color:#2c2d2c;color:#fff;', off: 'background:transparent;border-color:#2c2d2c;color:#2c2d2c;' },
-  DRAM: { on: 'background:#e55b1c;border-color:#e55b1c;color:#fff;', off: 'background:transparent;border-color:#e55b1c;color:#e55b1c;' },
+  NAND: { on: 'background:#0284c7;border-color:#0284c7;color:#fff;', off: 'background:transparent;border-color:#0284c7;color:#0284c7;' },
+  DRAM: { on: 'background:#ea580c;border-color:#ea580c;color:#fff;', off: 'background:transparent;border-color:#ea580c;color:#ea580c;' },
 };
 function applyFamStyle(btn, isActive) {
   const s = FAM_STYLE[btn.dataset.family][isActive ? 'on' : 'off'];
