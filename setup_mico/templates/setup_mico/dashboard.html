@@ -12,7 +12,7 @@
 <div class="row g-3 mb-4">
   <div class="col-sm-6 col-xl">
     <div class="card-box d-flex align-items-center gap-3">
-      <div class="stat-icon" style="background:#ffedd5; color:#ea580c;">
+      <div class="stat-icon" style="background:#fff1f2; color:#f43f5e;">
         <i class="bi bi-layers-half"></i>
       </div>
       <div>
@@ -23,7 +23,7 @@
   </div>
   <div class="col-sm-6 col-xl">
     <div class="card-box d-flex align-items-center gap-3">
-      <div class="stat-icon" style="background:#e0f2fe; color:#0284c7;">
+      <div class="stat-icon" style="background:#eef2ff; color:#6366f1;">
         <i class="bi bi-layers-half"></i>
       </div>
       <div>
@@ -93,12 +93,12 @@
             <button type="button" class="btn family-filter" data-family="DRAM"
               style="font-size:0.78rem; border-radius:0 6px 6px 0;">DRAM</button>
           </div>
-          <span id="selected-od-badge" class="badge-pill d-none" style="background:#e0f2fe; color:#0284c7;"></span>
+          <span id="selected-od-badge" class="badge-pill d-none" style="background:#eef2ff; color:#6366f1;"></span>
         </div>
       </div>
       <div class="d-flex gap-3 mb-2" style="font-size:0.78rem; color:#667085;">
-        <span><span style="display:inline-block;width:10px;height:10px;border-radius:3px;background:#0284c7;margin-right:4px;"></span>NAND</span>
-        <span><span style="display:inline-block;width:10px;height:10px;border-radius:3px;background:#ea580c;margin-right:4px;"></span>DRAM</span>
+        <span><span style="display:inline-block;width:10px;height:10px;border-radius:3px;background:#6366f1;margin-right:4px;"></span>NAND</span>
+        <span><span style="display:inline-block;width:10px;height:10px;border-radius:3px;background:#f43f5e;margin-right:4px;"></span>DRAM</span>
       </div>
       <div style="position:relative; height:260px;">
         <canvas id="processChart"></canvas>
@@ -174,8 +174,8 @@ const OD_DETAIL    = {{ oper_desc_detail_json|safe }};
 
 // ── Family 색상 ──
 const FAMILY_COLOR = {
-  NAND: { base: 'rgba(2,132,199,0.8)',   highlight: 'rgba(2,132,199,1)',   dim: 'rgba(2,132,199,0.2)'   },
-  DRAM: { base: 'rgba(234,88,12,0.8)',  highlight: 'rgba(234,88,12,1)',  dim: 'rgba(234,88,12,0.2)'  },
+  NAND: { base: 'rgba(99,102,241,0.8)',   highlight: 'rgba(99,102,241,1)',   dim: 'rgba(99,102,241,0.2)'   },
+  DRAM: { base: 'rgba(244,63,94,0.8)',  highlight: 'rgba(244,63,94,1)',  dim: 'rgba(244,63,94,0.2)'  },
 };
 
 function familyColor(family, mode='base') {
@@ -183,14 +183,14 @@ function familyColor(family, mode='base') {
 }
 
 function familyBadge(family) {
-  if (family === 'NAND') return `<span class="badge-pill" style="background:#e0f2fe;color:#0284c7;font-size:0.75rem;">NAND</span>`;
-  if (family === 'DRAM') return `<span class="badge-pill" style="background:#ffedd5;color:#ea580c;font-size:0.75rem;">DRAM</span>`;
+  if (family === 'NAND') return `<span class="badge-pill" style="background:#eef2ff;color:#6366f1;font-size:0.75rem;">NAND</span>`;
+  if (family === 'DRAM') return `<span class="badge-pill" style="background:#fff1f2;color:#f43f5e;font-size:0.75rem;">DRAM</span>`;
   return `<span style="color:#9da8b8;">—</span>`;
 }
 
 function rateBadge(total, applied, rate) {
   if (!total) return `<span style="color:#9da8b8;font-size:0.82rem;">—</span>`;
-  const c = rate >= 80 ? {bg:'#f0fdf4',col:'#16a34a'} : rate >= 50 ? {bg:'#fff7ed',col:'#ea580c'} : {bg:'#fef2f2',col:'#dc2626'};
+  const c = rate >= 80 ? {bg:'#f0fdf4',col:'#16a34a'} : rate >= 50 ? {bg:'#fff7ed',col:'#f43f5e'} : {bg:'#fef2f2',col:'#dc2626'};
   return `<span class="badge-pill" style="background:${c.bg};color:${c.col};font-size:0.78rem;">${rate}%</span>`;
 }
 
@@ -432,8 +432,8 @@ processChart._visibleFamilies = [...BAR_FAMILIES];
 // ── Family 필터 버튼 이벤트 ──
 const FAM_STYLE = {
   ALL:  { on: 'background:#4f8ef7;border-color:#4f8ef7;color:#fff;', off: 'background:transparent;border-color:#4f8ef7;color:#4f8ef7;' },
-  NAND: { on: 'background:#0284c7;border-color:#0284c7;color:#fff;', off: 'background:transparent;border-color:#0284c7;color:#0284c7;' },
-  DRAM: { on: 'background:#ea580c;border-color:#ea580c;color:#fff;', off: 'background:transparent;border-color:#ea580c;color:#ea580c;' },
+  NAND: { on: 'background:#6366f1;border-color:#6366f1;color:#fff;', off: 'background:transparent;border-color:#6366f1;color:#6366f1;' },
+  DRAM: { on: 'background:#f43f5e;border-color:#f43f5e;color:#fff;', off: 'background:transparent;border-color:#f43f5e;color:#f43f5e;' },
 };
 function applyFamStyle(btn, isActive) {
   const s = FAM_STYLE[btn.dataset.family][isActive ? 'on' : 'off'];
