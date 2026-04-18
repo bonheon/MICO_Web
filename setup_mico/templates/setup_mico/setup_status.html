@@ -204,9 +204,9 @@
         {% if cat.family %}
         <span class="badge-pill me-1" style="background:{% if cat.family == 'DRAM' %}#eff6ff; color:#4f8ef7;{% else %}#fff7ed; color:#f97316;{% endif %}; font-size:0.68rem; font-weight:700; vertical-align:middle;">{{ cat.family }}</span>
         {% endif %}
-        {{ cat.product }}
+        {% if cat.oper_desc %}{{ cat.oper_desc }}{% else %}{{ cat.oper_id }}{% endif %}
       </div>
-      <div class="cat-meta">Oper ID: {{ cat.oper_id }}{% if cat.oper_desc %} · {{ cat.oper_desc|truncatechars:50 }}{% endif %}</div>
+      <div class="cat-meta">{{ cat.product }} · Oper ID: {{ cat.oper_id }}</div>
     </div>
     <div class="cat-counts">
       <span class="badge-pill" style="background:#eff6ff; color:#4f8ef7;">

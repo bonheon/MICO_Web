@@ -81,11 +81,10 @@
     <div class="card-box">
       <div class="d-flex align-items-center justify-content-between mb-3">
         <div>
-          <div class="card-box-title">Product별 공정 적용 현황</div>
+          <div class="card-box-title">Oper Desc별 공정 적용 현황</div>
           <div class="card-box-sub">막대를 클릭하면 세부 현황을 확인합니다</div>
         </div>
         <div class="d-flex align-items-center gap-2">
-          <!-- Family 필터 버튼 -->
           <div class="btn-group btn-group-sm" role="group">
             <button type="button" class="btn btn-primary family-filter active" data-family="ALL"
               style="font-size:0.78rem; border-radius:6px 0 0 6px;">전체</button>
@@ -94,10 +93,9 @@
             <button type="button" class="btn btn-outline-warning family-filter" data-family="DRAM"
               style="font-size:0.78rem; border-radius:0 6px 6px 0;">DRAM</button>
           </div>
-          <span id="selected-product-badge" class="badge-pill d-none" style="background:#eff6ff; color:#4f8ef7;"></span>
+          <span id="selected-od-badge" class="badge-pill d-none" style="background:#eff6ff; color:#4f8ef7;"></span>
         </div>
       </div>
-      <!-- 범례 -->
       <div class="d-flex gap-3 mb-2" style="font-size:0.78rem; color:#667085;">
         <span><span style="display:inline-block;width:10px;height:10px;border-radius:3px;background:#4f8ef7;margin-right:4px;"></span>NAND</span>
         <span><span style="display:inline-block;width:10px;height:10px;border-radius:3px;background:#f97316;margin-right:4px;"></span>DRAM</span>
@@ -109,7 +107,7 @@
   </div>
 </div>
 
-<!-- 클릭 시: 세부 테이블(좌) + 산포 개선 Trend(우) -->
+<!-- 클릭 시: 세부 테이블(좌) + Trend(우) -->
 <div class="row g-3 mb-3" id="process-detail-section" style="display:none;">
 
   <!-- 세부 내역 테이블 -->
@@ -119,7 +117,7 @@
         <div class="d-flex align-items-center gap-2">
           <i class="bi bi-table" style="color:#4f8ef7;"></i>
           <span class="fw-semibold" style="font-size:0.875rem;">
-            <span id="table-product-name"></span> 공정 세부 현황
+            <span id="table-od-name"></span> 공정 세부 현황
           </span>
         </div>
         <button class="btn btn-sm btn-outline-secondary" onclick="clearSelection()" style="font-size:0.78rem;">
@@ -130,8 +128,10 @@
         <table class="table table-hover mb-0">
           <thead>
             <tr>
-              <th>Oper ID</th>
-              <th>Oper Desc</th>
+              <th>Family</th>
+              <th>Product</th>
+              <th>Device</th>
+              <th>FAB</th>
               <th class="text-center">전체 장비</th>
               <th class="text-center">적용 대수</th>
               <th class="text-center">적용률</th>
@@ -144,12 +144,12 @@
     </div>
   </div>
 
-  <!-- 산포 개선 Trend 차트 -->
+  <!-- Trend 차트 -->
   <div class="col-xl-5">
     <div class="card-box h-100">
       <div class="d-flex align-items-center justify-content-between mb-3">
         <div>
-          <div class="card-box-title">산포 개선 Trend</div>
+          <div class="card-box-title" id="trend-chart-title">Trend</div>
           <div class="card-box-sub" id="trend-chart-sub">공정 선택 시 표시</div>
         </div>
         <span id="trend-date-badge" class="badge-pill d-none"
@@ -163,7 +163,6 @@
 
 </div>
 
-
 {% endblock %}
 
 {% block scripts %}
@@ -171,7 +170,7 @@
 const BAR_LABELS   = {{ bar_labels_json|safe }};
 const BAR_DATA     = {{ bar_data_json|safe }};
 const BAR_FAMILIES = {{ bar_families_json|safe }};
-const CAT_TABLE    = {{ category_table_json|safe }};
+const OD_DETAIL    = {{ oper_desc_detail_json|safe }};
 
 // ── Family 색상 ──
 const FAMILY_COLOR = {
@@ -189,14 +188,12 @@ function familyBadge(family) {
   return `<span style="color:#9da8b8;">—</span>`;
 }
 
-// ── 적용률 배지 ──
 function rateBadge(total, applied, rate) {
   if (!total) return `<span style="color:#9da8b8;font-size:0.82rem;">—</span>`;
   const c = rate >= 80 ? {bg:'#f0fdf4',col:'#16a34a'} : rate >= 50 ? {bg:'#fff7ed',col:'#ea580c'} : {bg:'#fef2f2',col:'#dc2626'};
   return `<span class="badge-pill" style="background:${c.bg};color:${c.col};font-size:0.78rem;">${rate}%</span>`;
 }
 
-// ── 개선율 표시 ──
 function impDisplay(val) {
   if (val === null || val === undefined) return `<span style="color:#9da8b8;font-size:0.82rem;">—</span>`;
   const color = val >= 0 ? '#16a34a' : '#dc2626';
@@ -204,73 +201,88 @@ function impDisplay(val) {
   return `<span style="color:${color};font-weight:600;font-size:0.85rem;">${sign}${val}%</span>`;
 }
 
-
-// ── 산포 Trend 차트 ──
+// ── Trend 차트 ──
 let trendChartInstance = null;
 
-function renderTrendChart(rows) {
-  // rows: CAT_TABLE에서 선택된 product의 행들 (각각 trend.dates, trend.imp 보유)
-  // product 내 모든 oper_desc의 trend를 날짜 기준으로 합산 평균
-  const dateSet = new Set();
-  rows.forEach(r => (r.trend.dates || []).forEach(d => dateSet.add(d)));
-  const dates = [...dateSet].sort();
-
-  const impData = dates.map(d => {
-    const vals = [];
-    rows.forEach(r => {
-      const idx = (r.trend.dates || []).indexOf(d);
-      if (idx >= 0 && r.trend.imp[idx] !== null) vals.push(r.trend.imp[idx]);
-    });
-    return vals.length ? Math.round(vals.reduce((a,b)=>a+b,0)/vals.length*10)/10 : null;
-  });
-
-  // 표시할 날짜 레이블: MM/DD 형식
-  const labels = dates.map(d => d.slice(5).replace('-','/'));
-
+// mode: 'setup' | 'dispersion'
+function renderTrendChart(mode, data) {
   const ctx = document.getElementById('trendChart');
   if (trendChartInstance) trendChartInstance.destroy();
+
+  let labels, dataset, yCallback, tooltipCallback, chartTitle, chartSub;
+
+  if (mode === 'setup') {
+    // 누적 Set-up 장비 수
+    labels = (data.dates || []).map(d => d.slice(5).replace('-', '/'));
+    const counts = data.counts || [];
+    chartTitle = 'Set-up 장비 누적 현황';
+    chartSub   = '신규 SubCategory 등록 누적';
+    dataset = {
+      label: '누적 Set-up 수',
+      data: counts,
+      borderColor: '#4f8ef7',
+      backgroundColor: 'rgba(79,142,247,0.08)',
+      fill: true,
+      tension: 0.35,
+      pointRadius: labels.length > 30 ? 2 : 4,
+      pointHoverRadius: 5,
+      borderWidth: 2,
+    };
+    yCallback     = v => v + '개';
+    tooltipCallback = ctx => ` ${ctx.parsed.y}개`;
+
+    const latestDate = (data.dates || []).slice(-1)[0] || '';
+    const badge = document.getElementById('trend-date-badge');
+    if (latestDate) { badge.textContent = `최신: ${latestDate}`; badge.classList.remove('d-none'); }
+    else { badge.classList.add('d-none'); }
+
+  } else {
+    // 산포 개선율 Trend
+    labels = (data.dates || []).map(d => d.slice(5).replace('-', '/'));
+    const impArr = data.imp || [];
+    chartTitle = '산포 개선 Trend';
+    chartSub   = '선택된 Device 산포 개선율';
+    dataset = {
+      label: '산포 개선율',
+      data: impArr,
+      borderColor: '#22c55e',
+      backgroundColor: 'rgba(34,197,94,0.08)',
+      fill: true,
+      tension: 0.35,
+      pointRadius: labels.length > 30 ? 2 : 4,
+      pointHoverRadius: 5,
+      borderWidth: 2,
+    };
+    yCallback     = v => v + '%';
+    tooltipCallback = ctx => ` ${ctx.parsed.y !== null ? ctx.parsed.y + '%' : '—'}`;
+
+    const latestDate = (data.dates || []).slice(-1)[0] || '';
+    const badge = document.getElementById('trend-date-badge');
+    if (latestDate) { badge.textContent = `최신: ${latestDate}`; badge.classList.remove('d-none'); }
+    else { badge.classList.add('d-none'); }
+  }
+
+  document.getElementById('trend-chart-title').textContent = chartTitle;
+  document.getElementById('trend-chart-sub').textContent   = chartSub;
+
   trendChartInstance = new Chart(ctx, {
     type: 'line',
-    data: {
-      labels,
-      datasets: [{
-        label: '평균 산포 개선율',
-        data: impData,
-        borderColor: '#4f8ef7',
-        backgroundColor: 'rgba(79,142,247,0.08)',
-        fill: true,
-        tension: 0.35,
-        pointRadius: dates.length > 30 ? 2 : 4,
-        pointHoverRadius: 5,
-        borderWidth: 2,
-      }]
-    },
+    data: { labels, datasets: [dataset] },
     options: {
       responsive: true,
       maintainAspectRatio: false,
       plugins: {
         legend: { display: false },
-        tooltip: {
-          callbacks: {
-            label: ctx => ` ${ctx.parsed.y !== null ? ctx.parsed.y + '%' : '—'}`
-          }
-        }
+        tooltip: { callbacks: { label: tooltipCallback } }
       },
       scales: {
         y: {
           grid: { color: '#f0f2f7' },
-          ticks: {
-            font: { size: 11 },
-            callback: v => v + '%'
-          }
+          ticks: { font: { size: 11 }, callback: yCallback }
         },
         x: {
           grid: { display: false },
-          ticks: {
-            font: { size: 10 },
-            maxTicksLimit: 10,
-            maxRotation: 0,
-          }
+          ticks: { font: { size: 10 }, maxTicksLimit: 10, maxRotation: 0 }
         }
       }
     }
@@ -278,47 +290,74 @@ function renderTrendChart(rows) {
 }
 
 // ── 클릭 시 세부 패널 ──
-let selectedIdx = null;
-let activeFamily = 'ALL';
+let selectedIdx   = null;
+let activeFamily  = 'ALL';
+let currentOd     = null;
+let selectedRowEl = null;
 
-function showDetailPanel(product) {
-  const rows = CAT_TABLE.filter(r => r.product === product);
-  document.getElementById('process-detail-tbody').innerHTML = rows.map(r => `<tr>
-    <td style="font-size:0.85rem;">${r.oper_id}</td>
-    <td style="font-size:0.82rem;color:#667085;">${r.oper_desc || '—'}</td>
-    <td class="text-center" style="font-size:0.85rem;">${r.total_equip || '—'}</td>
-    <td class="text-center" style="font-size:0.85rem;">${r.applied_equip || '—'}</td>
-    <td class="text-center">${rateBadge(r.total_equip, r.applied_equip, r.applied_rate)}</td>
-    <td class="text-center">${impDisplay(r.imp_avg)}</td>
-  </tr>`).join('');
+function showDetailPanel(od) {
+  currentOd = od;
+  const detail = OD_DETAIL[od] || { devices: [], setup_trend: { dates: [], counts: [] } };
+  const devices = detail.devices || [];
 
-  document.getElementById('table-product-name').textContent = product;
-  document.getElementById('selected-product-badge').textContent = product;
-  document.getElementById('selected-product-badge').classList.remove('d-none');
-  document.getElementById('trend-chart-sub').textContent = `${product} · 산포 개선율 Trend`;
-
-  const latestDate = rows.reduce((acc, r) => {
-    const last = (r.trend.dates || []).slice(-1)[0] || '';
-    return last > acc ? last : acc;
-  }, '');
-  const dateBadge = document.getElementById('trend-date-badge');
-  if (latestDate) {
-    dateBadge.textContent = `최신: ${latestDate}`;
-    dateBadge.classList.remove('d-none');
+  const tbody = document.getElementById('process-detail-tbody');
+  if (devices.length === 0) {
+    tbody.innerHTML = `<tr><td colspan="9" class="text-center text-muted py-4">
+      <i class="bi bi-inbox" style="font-size:1.3rem;display:block;margin-bottom:.3rem;"></i>등록된 Device가 없습니다
+    </td></tr>`;
   } else {
-    dateBadge.classList.add('d-none');
+    tbody.innerHTML = devices.map((d, idx) => `
+      <tr class="device-row" data-idx="${idx}" style="cursor:pointer;">
+        <td>${familyBadge(d.family)}</td>
+        <td style="font-size:0.85rem; font-weight:600;">${d.product || '—'}</td>
+        <td style="font-size:0.85rem;">${d.device || '—'}</td>
+        <td style="font-size:0.82rem; color:#667085;">${d.fab || '—'}</td>
+        <td class="text-center" style="font-size:0.85rem;">${d.eqp_total || '—'}</td>
+        <td class="text-center" style="font-size:0.85rem;">${d.eqp_applied || '—'}</td>
+        <td class="text-center">${rateBadge(d.eqp_total, d.eqp_applied, d.applied_rate)}</td>
+        <td class="text-center">${impDisplay(d.imp_avg)}</td>
+      </tr>`).join('');
+
+    // Device row 클릭 → 산포 개선 Trend
+    tbody.querySelectorAll('.device-row').forEach(tr => {
+      tr.addEventListener('click', function() {
+        if (selectedRowEl) selectedRowEl.style.background = '';
+        selectedRowEl = this;
+        this.style.background = '#eff6ff';
+        const idx = parseInt(this.dataset.idx);
+        const dev = devices[idx];
+        showDeviceTrend(dev);
+      });
+    });
   }
+
+  document.getElementById('table-od-name').textContent = od;
+  document.getElementById('selected-od-badge').textContent = od;
+  document.getElementById('selected-od-badge').classList.remove('d-none');
+
+  selectedRowEl = null;
 
   const section = document.getElementById('process-detail-section');
   section.style.display = 'flex';
-  renderTrendChart(rows);
-  section.scrollIntoView({ behavior:'smooth', block:'nearest' });
+
+  // 기본 Trend: Set-up 누적
+  renderTrendChart('setup', detail.setup_trend);
+  section.scrollIntoView({ behavior: 'smooth', block: 'nearest' });
+}
+
+function showDeviceTrend(dev) {
+  const trend = dev.trend || { dates: [], imp: [] };
+  document.getElementById('trend-chart-sub').textContent =
+    `${dev.product} · ${dev.device} (${dev.fab})`;
+  renderTrendChart('dispersion', trend);
 }
 
 function clearSelection() {
   selectedIdx = null;
+  currentOd   = null;
+  selectedRowEl = null;
   document.getElementById('process-detail-section').style.display = 'none';
-  document.getElementById('selected-product-badge').classList.add('d-none');
+  document.getElementById('selected-od-badge').classList.add('d-none');
   if (trendChartInstance) { trendChartInstance.destroy(); trendChartInstance = null; }
   applyFamilyFilter(activeFamily);
 }
@@ -326,11 +365,14 @@ function clearSelection() {
 // ── Family 필터링 → bar chart 갱신 ──
 function applyFamilyFilter(family) {
   activeFamily = family;
-  selectedIdx = null;
+  selectedIdx  = null;
   document.getElementById('process-detail-section').style.display = 'none';
-  document.getElementById('selected-product-badge').classList.add('d-none');
+  document.getElementById('selected-od-badge').classList.add('d-none');
 
-  const visibleIdx = BAR_LABELS.map((_, i) => (family === 'ALL' || BAR_FAMILIES[i] === family) ? i : null).filter(i => i !== null);
+  const visibleIdx = BAR_LABELS.map((_, i) =>
+    (family === 'ALL' || BAR_FAMILIES[i] === family) ? i : null
+  ).filter(i => i !== null);
+
   const newLabels = visibleIdx.map(i => BAR_LABELS[i]);
   const newData   = visibleIdx.map(i => BAR_DATA[i]);
   const newFams   = visibleIdx.map(i => BAR_FAMILIES[i]);
@@ -350,7 +392,7 @@ const processChart = new Chart(processCtx, {
   data: {
     labels: BAR_LABELS,
     datasets: [{
-      label: '공정 수',
+      label: 'Set-up 장비 수',
       data: BAR_DATA,
       backgroundColor: BAR_FAMILIES.map(f => familyColor(f, 'base')),
       borderRadius: 6,
@@ -362,16 +404,16 @@ const processChart = new Chart(processCtx, {
     maintainAspectRatio: false,
     plugins: {
       legend: { display: false },
-      tooltip: { callbacks: { label: ctx => ` ${ctx.parsed.y}개 공정` } }
+      tooltip: { callbacks: { label: ctx => ` ${ctx.parsed.y}개` } }
     },
     scales: {
-      y: { beginAtZero:true, ticks:{ stepSize:1, font:{size:11} }, grid:{ color:'#f0f2f7' } },
-      x: { grid:{ display:false }, ticks:{ font:{size:11} } }
+      y: { beginAtZero: true, ticks: { stepSize: 1, font: { size: 11 } }, grid: { color: '#f0f2f7' } },
+      x: { grid: { display: false }, ticks: { font: { size: 11 } } }
     },
     onClick(evt, elements) {
       if (!elements.length) return;
       const clickedIdx = elements[0].index;
-      const product = processChart.data.labels[clickedIdx];
+      const od   = processChart.data.labels[clickedIdx];
       const fams = processChart._visibleFamilies || BAR_FAMILIES;
 
       if (selectedIdx === clickedIdx) { clearSelection(); return; }
@@ -381,7 +423,7 @@ const processChart = new Chart(processCtx, {
         i === clickedIdx ? familyColor(fams[i], 'highlight') : familyColor(fams[i], 'dim')
       );
       processChart.update();
-      showDetailPanel(product);
+      showDetailPanel(od);
     }
   }
 });
@@ -399,6 +441,5 @@ document.querySelectorAll('.family-filter').forEach(btn => {
     applyFamilyFilter(this.dataset.family);
   });
 });
-
 </script>
 {% endblock %}

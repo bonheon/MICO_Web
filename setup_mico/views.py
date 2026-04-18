@@ -607,7 +607,7 @@ def setup_status(request):
         'subcategories__details'
     ).annotate(
         detail_count=Count('subcategories__details')
-    ).order_by('product', 'oper_id')
+    ).order_by('family', 'oper_desc', 'product')
     form = DetailForm()
     return render(request, 'setup_mico/setup_status.html', {'categories': categories, 'form': form})
 
@@ -616,35 +616,10 @@ def setup_status(request):
 def dashboard(request):
     import json, os, datetime as _dt
     from django.core.serializers.json import DjangoJSONEncoder
+    from collections import defaultdict
 
-    # 상단 요약 카드
-    category_count = Category.objects.count()
-    subcategory_count = SubCategory.objects.count()
-    detail_count = Detail.objects.count()
-
-    # DRAM / NAND 공정 수
     dram_count = Category.objects.filter(family='DRAM').count()
     nand_count = Category.objects.filter(family='NAND').count()
-
-    # Product별 공정(Category) 수 + family 정보 → bar chart
-    # 정렬 순서: DRAM [DA, CP, LC, SP] → NAND [PE, CL, OP, HE]
-    DRAM_ORDER = ['DA', 'CP', 'LC', 'SP']
-    NAND_ORDER = ['PE', 'CL', 'OP', 'HE']
-    PRODUCT_SORT = {p: i for i, p in enumerate(DRAM_ORDER + NAND_ORDER)}
-    product_counts_qs = (
-        Category.objects.values('product', 'family')
-        .annotate(count=Count('id'))
-    )
-    product_counts_list = sorted(
-        product_counts_qs,
-        key=lambda r: (
-            0 if r['family'] == 'DRAM' else 1,
-            PRODUCT_SORT.get(r['product'], 99),
-        )
-    )
-    bar_labels = [r['product'] for r in product_counts_list]
-    bar_data = [r['count'] for r in product_counts_list]
-    bar_families = [r['family'] for r in product_counts_list]
 
     # ════════════════════════════════════════════════════════════════════
     # [개발] 샘플 데이터 사용 — 사내 연결 시 이 블록 주석 처리
@@ -689,109 +664,161 @@ def dashboard(request):
 
     disp_total = [r for r in disp_raw if r.get('eqp_ch') == 'TOTAL']
     disp_equip = [r for r in disp_raw if r.get('eqp_ch') != 'TOTAL']
-    all_dates = sorted(set(_date_str(r['Date']) for r in disp_raw))
+    all_dates  = sorted(set(_date_str(r['Date']) for r in disp_raw))
+    recent_dates = all_dates[-60:]
 
-    # (product, oper_desc) → 장비/개선율/트렌드 맵 생성
-    disp_stats = {}  # key: (product, oper_desc)
-    group_keys = sorted(set((r['Product'], r['OPER_DESC']) for r in disp_raw))
-    for (product, oper_desc) in group_keys:
-        g_total = [r for r in disp_total if r['Product'] == product and r['OPER_DESC'] == oper_desc]
-        g_equip = [r for r in disp_equip if r['Product'] == product and r['OPER_DESC'] == oper_desc]
+    # ── Device별 dispersion stats 계산 (product, oper_desc, lot_code, fab) ──
+    dev_keys = set(
+        (r['Product'], r['OPER_DESC'], r['Lot_Code'], r['Fab'])
+        for r in disp_raw
+    )
+    device_disp = {}
+    for (product, od, lot_code, fab) in dev_keys:
+        g_tot = [r for r in disp_total if r['Product']==product and r['OPER_DESC']==od and r['Lot_Code']==lot_code and r['Fab']==fab]
+        g_eq  = [r for r in disp_equip if r['Product']==product and r['OPER_DESC']==od and r['Lot_Code']==lot_code and r['Fab']==fab]
+        if not g_tot:
+            continue
+        latest = max(_date_str(r['Date']) for r in g_tot)
+        lat_tot = [r for r in g_tot if _date_str(r['Date']) == latest]
+        lat_eq  = [r for r in g_eq  if _date_str(r['Date']) == latest]
 
-        # (Lot_Code, Fab) 별 최신 날짜 데이터 합산
-        device_keys = sorted(set((r['Lot_Code'], r['Fab']) for r in g_total))
-        latest_total, latest_equip = [], []
-        for (lc, fab) in device_keys:
-            dt_rows = [r for r in g_total if r['Lot_Code'] == lc and r['Fab'] == fab]
-            de_rows = [r for r in g_equip if r['Lot_Code'] == lc and r['Fab'] == fab]
-            if dt_rows:
-                latest_dt = max(_date_str(r['Date']) for r in dt_rows)
-                latest_total.extend(r for r in dt_rows if _date_str(r['Date']) == latest_dt)
-                latest_equip.extend(r for r in de_rows if _date_str(r['Date']) == latest_dt)
-
-        eqp_total = len(set(r['eqp_ch'] for r in latest_equip
-                            if (r.get('BASE') or 0) + (r.get('Re_MICO') or 0) > 0))
-        eqp_applied = sum(1 for r in latest_equip if (r.get('Portion') or 0) >= 0.9)
+        # 전체 장비: 최신일 기준 장비 row가 있는 고유 eqp_ch
+        eqp_total   = len(set(r['eqp_ch'] for r in lat_eq
+                               if (r.get('BASE') or 0) + (r.get('Re_MICO') or 0) > 0))
+        # 적용 대수: Portion >= 0.9 인 고유 eqp_ch (rows 수가 아닌 장비 수로 수정)
+        eqp_applied = len(set(r['eqp_ch'] for r in lat_eq
+                               if (r.get('Portion') or 0) >= 0.9))
         applied_rate = round(eqp_applied / eqp_total * 100) if eqp_total else 0
 
-        imp = {
-            '13P': _avg([_safe_imp(r.get('13P_BASE'), r.get('13P_Re_MICO')) for r in latest_total]),
-            'ED':  _avg([_safe_imp(r.get('ED_BASE'),  r.get('ED_Re_MICO'))  for r in latest_total]),
-            'EX':  _avg([_safe_imp(r.get('EX_BASE'),  r.get('EX_Re_MICO'))  for r in latest_total]),
-        }
-        imp_vals = [v for v in imp.values() if v is not None]
-        imp_avg = round(sum(imp_vals) / len(imp_vals), 1) if imp_vals else None
+        imp_vals_all = [
+            _safe_imp(r.get(bf), r.get(rf))
+            for r in lat_tot
+            for bf, rf in [('13P_BASE','13P_Re_MICO'), ('ED_BASE','ED_Re_MICO'), ('EX_BASE','EX_Re_MICO')]
+        ]
+        imp_avg = _avg(imp_vals_all)
 
-        # 트렌드: 날짜별 평균 개선율 (최근 60일)
-        recent_dates = all_dates[-60:]
+        # 산포 개선 Trend (최근 60일)
         trend = {'dates': [], 'imp': []}
         for d in recent_dates:
-            d_rows = [r for r in g_total if _date_str(r['Date']) == d]
+            d_rows = [r for r in g_tot if _date_str(r['Date']) == d]
             if not d_rows:
                 continue
-            d_imp_vals = []
-            for r in d_rows:
-                for base_f, rem_f in [('13P_BASE','13P_Re_MICO'),('ED_BASE','ED_Re_MICO'),('EX_BASE','EX_Re_MICO')]:
-                    v = _safe_imp(r.get(base_f), r.get(rem_f))
-                    if v is not None:
-                        d_imp_vals.append(v)
+            d_vals = [
+                _safe_imp(r.get(bf), r.get(rf))
+                for r in d_rows
+                for bf, rf in [('13P_BASE','13P_Re_MICO'), ('ED_BASE','ED_Re_MICO'), ('EX_BASE','EX_Re_MICO')]
+            ]
             trend['dates'].append(d)
-            trend['imp'].append(_avg(d_imp_vals))
+            trend['imp'].append(_avg(d_vals))
 
-        # wafer 합산 (최신 TOTAL 행)
-        w_base   = sum(r.get('BASE', 0)    for r in latest_total)
-        w_remico = sum(r.get('Re_MICO', 0) for r in latest_total)
-
-        disp_stats[(product, oper_desc)] = {
-            'eqp_total': eqp_total,
+        device_disp[(product, od, lot_code, fab)] = {
+            'eqp_total':   eqp_total,
             'eqp_applied': eqp_applied,
             'applied_rate': applied_rate,
-            'wafer_base': w_base,
-            'wafer_remico': w_remico,
-            'imp': imp,
-            'imp_avg': imp_avg,
-            'trend': trend,
+            'imp_avg':     imp_avg,
+            'trend':       trend,
         }
 
-    # Category별 상세 현황 (dispersion 데이터 매핑)
-    categories = Category.objects.order_by('family', 'product', 'oper_id')
-    category_table = []
-    for cat in categories:
-        stats = disp_stats.get((cat.product, cat.oper_desc), {})
-        category_table.append({
-            'product': cat.product,
-            'family': cat.family,
-            'oper_id': cat.oper_id,
-            'oper_desc': cat.oper_desc,
-            'total_equip': stats.get('eqp_total', 0),
-            'applied_equip': stats.get('eqp_applied', 0),
-            'applied_rate': stats.get('applied_rate', 0),
-            'imp_avg': stats.get('imp_avg'),
-            'trend': stats.get('trend', {'dates': [], 'imp': []}),
-        })
+    # ── Bar chart: oper_desc별 Set-up 장비(SubCategory) 수 ──
+    subs_list = list(
+        SubCategory.objects.select_related('category')
+        .order_by('category__family', 'category__product', 'device', 'fab')
+    )
 
-    # Total 장비 / wafer 요약
-    total_eqp_all   = sum(v['eqp_total']   for v in disp_stats.values())
-    applied_eqp_all = sum(v['eqp_applied'] for v in disp_stats.values())
-    total_wb  = sum(v['wafer_base']   for v in disp_stats.values())
-    total_wr  = sum(v['wafer_remico'] for v in disp_stats.values())
+    od_info = defaultdict(lambda: {'count': 0, 'family': ''})
+    for sub in subs_list:
+        od = sub.category.oper_desc or ''
+        if not od:
+            continue
+        od_info[od]['count'] += 1
+        if sub.category.family:
+            od_info[od]['family'] = sub.category.family
+
+    # oper_desc가 없는 Category도 bar에 포함 (count=0으로)
+    for cat in Category.objects.all():
+        od = cat.oper_desc or ''
+        if od and od not in od_info:
+            od_info[od] = {'count': 0, 'family': cat.family}
+
+    sorted_ods = sorted(
+        od_info.items(),
+        key=lambda x: (0 if x[1]['family'] == 'DRAM' else 1, x[0])
+    )
+    bar_labels   = [od for od, _ in sorted_ods]
+    bar_data     = [info['count'] for _, info in sorted_ods]
+    bar_families = [info['family'] for _, info in sorted_ods]
+
+    # ── oper_desc별 device 목록 + setup trend ──
+    subs_by_od = defaultdict(list)
+    for sub in subs_list:
+        od = sub.category.oper_desc or ''
+        if od:
+            subs_by_od[od].append(sub)
+
+    oper_desc_detail = {}
+    for od in bar_labels:
+        subs = subs_by_od.get(od, [])
+
+        seen_devices = set()
+        devices = []
+        for sub in subs:
+            product = sub.category.product
+            family  = sub.category.family
+            device  = sub.device
+            fab     = sub.fab
+            key = (product, family, device, fab)
+            if key in seen_devices:
+                continue
+            seen_devices.add(key)
+            d_stats = device_disp.get((product, od, device, fab), {})
+            devices.append({
+                'product':      product,
+                'family':       family,
+                'device':       device,
+                'fab':          fab,
+                'eqp_total':    d_stats.get('eqp_total', 0),
+                'eqp_applied':  d_stats.get('eqp_applied', 0),
+                'applied_rate': d_stats.get('applied_rate', 0),
+                'imp_avg':      d_stats.get('imp_avg'),
+                'trend':        d_stats.get('trend', {'dates': [], 'imp': []}),
+            })
+
+        # Setup trend: 날짜별 누적 SubCategory 등록 수
+        date_cnt = defaultdict(int)
+        for sub in subs:
+            if sub.created_at:
+                date_cnt[str(sub.created_at.date())] += 1
+        cumul, s_dates, s_counts = 0, [], []
+        for d in sorted(date_cnt):
+            cumul += date_cnt[d]
+            s_dates.append(d)
+            s_counts.append(cumul)
+
+        oper_desc_detail[od] = {
+            'devices':     devices,
+            'setup_trend': {'dates': s_dates, 'counts': s_counts},
+        }
+
+    # ── 요약 통계 ──
+    total_eqp_all   = sum(v['eqp_total']   for v in device_disp.values())
+    applied_eqp_all = sum(v['eqp_applied'] for v in device_disp.values())
+    total_wb  = sum(r.get('BASE', 0)    for r in disp_total)
+    total_wr  = sum(r.get('Re_MICO', 0) for r in disp_total)
     total_wafer_p = round(total_wr / (total_wb + total_wr) * 100, 1) if (total_wb + total_wr) else 0
-
-    # 전체 평균 산포 개선율
-    all_imp = [r['imp_avg'] for r in category_table if r['imp_avg'] is not None]
+    all_imp = [v['imp_avg'] for v in device_disp.values() if v['imp_avg'] is not None]
     avg_improvement = round(sum(all_imp) / len(all_imp), 1) if all_imp else None
 
     context = {
         'dram_count': dram_count,
         'nand_count': nand_count,
-        'total_eqp_all': total_eqp_all,
+        'total_eqp_all':   total_eqp_all,
         'applied_eqp_all': applied_eqp_all,
-        'total_wafer_p': total_wafer_p,
+        'total_wafer_p':   total_wafer_p,
         'avg_improvement': avg_improvement,
-        'bar_labels_json': json.dumps(bar_labels, ensure_ascii=False),
-        'bar_data_json': json.dumps(bar_data),
-        'bar_families_json': json.dumps(bar_families, ensure_ascii=False),
-        'category_table_json': json.dumps(category_table, ensure_ascii=False, cls=DjangoJSONEncoder),
+        'bar_labels_json':       json.dumps(bar_labels,       ensure_ascii=False),
+        'bar_data_json':         json.dumps(bar_data),
+        'bar_families_json':     json.dumps(bar_families,     ensure_ascii=False),
+        'oper_desc_detail_json': json.dumps(oper_desc_detail, ensure_ascii=False, cls=DjangoJSONEncoder),
     }
     return render(request, 'setup_mico/dashboard.html', context)
 
