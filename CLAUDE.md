@@ -1,6 +1,6 @@
 # MICO Web 프로젝트 컨텍스트
 
-Django 기반 MICO (Manufacturing Intelligence Control) 웹 애플리케이션.
+Django 기반 MICO (Model Integrated Process Control Optimization) 웹 애플리케이션.
 반도체 CMP 공정의 APC(Advanced Process Control) 파라미터 관리 및 학습값 모니터링을 위한 내부 웹툴.
 
 ---
