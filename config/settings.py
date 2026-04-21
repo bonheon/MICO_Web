@@ -135,6 +135,9 @@ LOGIN_URL = '/login/'
 LOGIN_REDIRECT_URL = '/'
 LOGOUT_REDIRECT_URL = '/login/'
 
+# X-Frame-Options: 같은 도메인에서의 iframe 허용 (기본값 DENY → SAMEORIGIN)
+X_FRAME_OPTIONS = 'SAMEORIGIN'
+
 # Logging — 터미널에 에러/경고 출력 (DEBUG=False 환경에서도 트레이스백 확인 가능)
 LOGGING = {
     'version': 1,
