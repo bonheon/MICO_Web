@@ -170,6 +170,7 @@
 const BAR_LABELS   = {{ bar_labels_json|safe }};
 const BAR_DATA     = {{ bar_data_json|safe }};
 const BAR_FAMILIES = {{ bar_families_json|safe }};
+const BAR_KEYS     = {{ bar_keys_json|safe }};
 const OD_DETAIL    = {{ oper_desc_detail_json|safe }};
 
 // ── Family 색상 ──
@@ -295,9 +296,9 @@ let activeFamily  = 'ALL';
 let currentOd     = null;
 let selectedRowEl = null;
 
-function showDetailPanel(od) {
-  currentOd = od;
-  const detail = OD_DETAIL[od] || { devices: [], setup_trend: { dates: [], counts: [] } };
+function showDetailPanel(odKey, odLabel) {
+  currentOd = odKey;
+  const detail = OD_DETAIL[odKey] || { devices: [], setup_trend: { dates: [], counts: [] } };
   const devices = detail.devices || [];
 
   const tbody = document.getElementById('process-detail-tbody');
@@ -331,8 +332,8 @@ function showDetailPanel(od) {
     });
   }
 
-  document.getElementById('table-od-name').textContent = od;
-  document.getElementById('selected-od-badge').textContent = od;
+  document.getElementById('table-od-name').textContent = odLabel;
+  document.getElementById('selected-od-badge').textContent = odLabel;
   document.getElementById('selected-od-badge').classList.remove('d-none');
 
   selectedRowEl = null;
@@ -376,12 +377,14 @@ function applyFamilyFilter(family) {
   const newLabels = visibleIdx.map(i => BAR_LABELS[i]);
   const newData   = visibleIdx.map(i => BAR_DATA[i]);
   const newFams   = visibleIdx.map(i => BAR_FAMILIES[i]);
+  const newKeys   = visibleIdx.map(i => BAR_KEYS[i]);
   const newColors = newFams.map(f => familyColor(f, 'base'));
 
   processChart.data.labels = newLabels;
   processChart.data.datasets[0].data = newData;
   processChart.data.datasets[0].backgroundColor = newColors;
   processChart._visibleFamilies = newFams;
+  processChart._visibleKeys = newKeys;
   processChart.update();
 }
 
@@ -413,8 +416,9 @@ const processChart = new Chart(processCtx, {
     onClick(evt, elements) {
       if (!elements.length) return;
       const clickedIdx = elements[0].index;
-      const od   = processChart.data.labels[clickedIdx];
-      const fams = processChart._visibleFamilies || BAR_FAMILIES;
+      const odLabel = processChart.data.labels[clickedIdx];
+      const odKey   = (processChart._visibleKeys || BAR_KEYS)[clickedIdx];
+      const fams    = processChart._visibleFamilies || BAR_FAMILIES;
 
       if (selectedIdx === clickedIdx) { clearSelection(); return; }
       selectedIdx = clickedIdx;
@@ -423,11 +427,12 @@ const processChart = new Chart(processCtx, {
         i === clickedIdx ? familyColor(fams[i], 'highlight') : familyColor(fams[i], 'dim')
       );
       processChart.update();
-      showDetailPanel(od);
+      showDetailPanel(odKey, odLabel);
     }
   }
 });
 processChart._visibleFamilies = [...BAR_FAMILIES];
+processChart._visibleKeys = [...BAR_KEYS];
 
 // ── Family 필터 버튼 이벤트 ──
 const FAM_STYLE = {

@@ -725,55 +725,61 @@ def dashboard(request):
         .order_by('category__family', 'category__product', 'device', 'fab')
     )
 
+    # (family, oper_desc) 복합 키로 그룹핑 — 동일 oper_desc가 DRAM/NAND에 중복 존재해도 분리
     od_info = defaultdict(lambda: {'count': 0, 'family': ''})
     for sub in subs_list:
         od = sub.category.oper_desc or ''
+        family = sub.category.family or ''
         if not od:
             continue
-        od_info[od]['count'] += 1
-        if sub.category.family:
-            od_info[od]['family'] = sub.category.family
+        od_info[(family, od)]['count'] += 1
+        od_info[(family, od)]['family'] = family
 
-    # oper_desc가 없는 Category도 bar에 포함 (count=0으로)
     for cat in Category.objects.all():
         od = cat.oper_desc or ''
-        if od and od not in od_info:
-            od_info[od] = {'count': 0, 'family': cat.family}
+        family = cat.family or ''
+        if od:
+            key = (family, od)
+            if key not in od_info:
+                od_info[key] = {'count': 0, 'family': family}
 
     sorted_ods = sorted(
         od_info.items(),
-        key=lambda x: (0 if x[1]['family'] == 'DRAM' else 1, x[0])
+        key=lambda x: (0 if x[0][0] == 'DRAM' else 1, x[0][1])
     )
-    bar_labels   = [od for od, _ in sorted_ods]
+    bar_labels   = [od for (family, od), _ in sorted_ods]
     bar_data     = [info['count'] for _, info in sorted_ods]
     bar_families = [info['family'] for _, info in sorted_ods]
+    bar_keys     = [f"{family}|||{od}" for (family, od), _ in sorted_ods]
 
-    # ── oper_desc별 device 목록 + setup trend ──
+    # ── (family, oper_desc)별 device 목록 + setup trend ──
     subs_by_od = defaultdict(list)
     for sub in subs_list:
         od = sub.category.oper_desc or ''
+        family = sub.category.family or ''
         if od:
-            subs_by_od[od].append(sub)
+            subs_by_od[(family, od)].append(sub)
 
     oper_desc_detail = {}
-    for od in bar_labels:
-        subs = subs_by_od.get(od, [])
+    for (family, od), _ in sorted_ods:
+        composite_key = f"{family}|||{od}"
+        subs = subs_by_od.get((family, od), [])
 
         seen_devices = set()
         devices = []
         for sub in subs:
             product = sub.category.product
-            family  = sub.category.family
+            fam     = sub.category.family
             device  = sub.device
             fab     = sub.fab
-            key = (product, family, device, fab)
+            key = (product, fam, device, fab)
             if key in seen_devices:
                 continue
             seen_devices.add(key)
             d_stats = device_disp.get((product, od, device, fab), {})
             devices.append({
                 'product':      product,
-                'family':       family,
+                'family':       fam,
                 'device':       device,
                 'fab':          fab,
                 'eqp_total':    d_stats.get('eqp_total', 0),
@@ -794,7 +800,7 @@ def dashboard(request):
             s_dates.append(d)
             s_counts.append(cumul)
 
-        oper_desc_detail[od] = {
+        oper_desc_detail[composite_key] = {
             'devices':     devices,
             'setup_trend': {'dates': s_dates, 'counts': s_counts},
         }
@@ -818,6 +824,7 @@ def dashboard(request):
         'bar_labels_json':       json.dumps(bar_labels,       ensure_ascii=False),
         'bar_data_json':         json.dumps(bar_data),
         'bar_families_json':     json.dumps(bar_families,     ensure_ascii=False),
+        'bar_keys_json':         json.dumps(bar_keys,         ensure_ascii=False),
         'oper_desc_detail_json': json.dumps(oper_desc_detail, ensure_ascii=False, cls=DjangoJSONEncoder),
     }
     return render(request, 'setup_mico/dashboard.html', context)
