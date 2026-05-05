@@ -9,7 +9,7 @@ from sklearn.linear_model import LinearRegression
 
 class PRE_THK_VM_Get:
 
-    def pre_thk_vm_detrend(merge_df, APC_Para_merge, Thk_Para, Pre_Target, Post_Target, Pad_Para, use_pressure=False):
+    def compute_detrend(merge_df, APC_Para_merge, Thk_Para, Pre_Target, Post_Target, Pad_Para, use_pressure=False):
         # EQP/Recipe 조합별 Detrend_Thk 산출.
         # 패드 교체 주기(pad_cycle)로 구간을 분리한 뒤 rolling MA로 추세를 제거하여 CMP 두께 편차(0-centered) 반환.
 
@@ -60,7 +60,7 @@ class PRE_THK_VM_Get:
         return pre_thk_df
 
 
-    def rolling_pre_thk(df, value_col, Pre_Thk_Period, min_count):
+    def rolling_mean(df, value_col, Pre_Thk_Period, min_count):
         # pre_eq_ch 구성 + time-window rolling. ITM(value_col='BIAS')·detrend(value_col='Detrend_Thk') 공통 사용
         df = df.drop(df[df['pre_eqp_ch'].isna()].index)
         if df['pre_eqp_ch'].dtype != 'object':

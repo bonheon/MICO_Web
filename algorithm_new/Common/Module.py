@@ -24,10 +24,51 @@ _MONGO_URL = 'mongodb://cncmico : ....'
 _MONGO_DB  = 'mico-platform-mongodb'
 
 
-def _setup_mongo(Lot_Code, Oper_Desc, Fab):
+def _make_pre_thk_mongo(Lot_Code, Oper_Desc, Fab):
     # Pre_Thk_VM 결과를 저장할 MongoDB 컬렉션 이름 구성 후 controller 반환
     collection = 'MICO_PRE_THK_' + Lot_Code + '_' + Oper_Desc + '_' + Fab + '_Period'
     return mongodb_controller(_MONGO_URL, _MONGO_DB, collection)
+
+
+def _make_rr_mongo(Lot_Code, Oper_Desc, Fab):
+    # Removal Rate 결과를 저장할 MongoDB 컬렉션 이름 구성 후 controller 반환
+    collection = 'MICO_Removal_Rate_' + Lot_Code + '_' + Oper_Desc + '_' + Fab
+    return mongodb_controller(_MONGO_URL, _MONGO_DB, collection)
+
+
+def _build_eqpm_df(merge_df_rr, Maker, Fab):
+    # Maker별 EQP 채널 컬럼 구성 후 PM 이벤트 기준 pad rank 산출하여 EQPM_df 반환
+    if Maker == 'AMAT':
+        eqp_id_list = tuple(merge_df_rr['eqp_id'].unique())
+    elif Maker == 'EBARA':
+        merge_df_rr['CH'] = merge_df_rr['recipe_id'].apply(lambda x: 'AB' if 'AB' in x else 'CD')
+        merge_df_rr['eqp_id_ch'] = merge_df_rr['eqp_id'] + '_' + merge_df_rr['CH']
+        eqp_id_list = tuple(merge_df_rr['eqp_id_ch'].unique())
+    elif Maker == 'KCT':
+        merge_df_rr['CH'] = merge_df_rr['recipe_id'].apply(lambda x: 'L' if '_L' in x else 'R')
+        merge_df_rr['eqp_id_ch'] = merge_df_rr['eqp_id'] + '_' + merge_df_rr['CH']
+        eqp_id_list = tuple(merge_df_rr['eqp_id_ch'].unique())
+
+    recipe_id_list = tuple(merge_df_rr['recipe_id'].unique())
+    EQPM_df = Get_data.EQPMGetData_HUB(Fab, eqp_id_list, recipe_id_list)
+    EQPM_df = EQPM_df.sort_values(by=['EQP_ID', 'EVENT_TM']).reset_index(drop=True)
+
+    def compute_rank(group):
+        event_pm_index = group[group['EVENT_CD'].str.contains('PM')].index
+        ranks = []
+        current_rank = 0
+        for idx in group.index:
+            if idx in event_pm_index:
+                current_rank = 0
+            else:
+                if group.loc[idx, 'EVENT_CD'] in ['EndLot', 'JobEnd']:
+                    current_rank += 1
+            ranks.append(current_rank)
+        return ranks
+
+    EQPM_df['rank'] = EQPM_df.groupby('EQP_ID').apply(lambda x: pd.Series(compute_rank(x))).reset_index(level=0, drop=True).values.reshape(-1)
+    EQPM_df['EVENT_TM'] = pd.to_datetime(EQPM_df['EVENT_TM'])
+    return EQPM_df
 
 
 def _extract_latest(pre_thk_df_merge, cols):
@@ -44,7 +85,7 @@ def _extract_latest(pre_thk_df_merge, cols):
 
 class Module_Get:
 
-    def Module_Get_Merge(mico_info_key):
+    def fetch_merge_data(mico_info_key):
         # Set-up 키(Family/Fab/Lot_Code/Oper_Desc)로 MongoDB에서 CMP 실측 데이터를 조회하여 merge_df 반환.
         Fab       = mico_info_key['Fab'].unique()[0]
         Lot_Code  = mico_info_key['Lot_Code'].unique()[0]
@@ -57,7 +98,7 @@ class Module_Get:
             tb = traceback.format_exc()
             c.sendMsg('', '506204179', f'{Fab} {Lot_Code} {Oper_Desc} Module Merge Failed : {e}, {tb}')
 
-    def Module_Get_Pre_VM(merge_df, mico_info_key, pol_type):
+    def compute_pre_thk_vm(merge_df, mico_info_key, pol_type):
         """
         ITM set-up 여부에 따라 자동 분기:
           - Pre_Thk_Para_ITM 있음 → ITM moving avg (detrend 없음),  Y(회귀) = BIAS (0-centered)
@@ -68,7 +109,7 @@ class Module_Get:
         Lot_Code  = mico_info_key['Lot_Code'].unique()[0]
         Oper_Desc = mico_info_key['Oper_Desc'].unique()[0]
 
-        mongo = _setup_mongo(Lot_Code, Oper_Desc, Fab)
+        mongo = _make_pre_thk_mongo(Lot_Code, Oper_Desc, Fab)
 
         try:
             Oper_Code      = mico_info_key['Oper_Code'].unique()[0]
@@ -127,7 +168,7 @@ class Module_Get:
 
                     merge_df         = PRE_THK_VM_Get.iqr_filter(merge_df, 'BIAS')
                     min_count        = 5 if ('ED' in Thk_Para or 'EX' in Thk_Para) else 10
-                    pre_thk_df_merge = PRE_THK_VM_Get.rolling_pre_thk(merge_df, 'BIAS', Pre_Thk_Period, min_count=min_count)
+                    pre_thk_df_merge = PRE_THK_VM_Get.rolling_mean(merge_df, 'BIAS', Pre_Thk_Period, min_count=min_count)
                     pre_thk_table    = _extract_latest(pre_thk_df_merge, ['pre_oper_time', 'pre_eq_ch', 'Pre_Thk', 'Pre_Thk_Count'])
                     pre_thk_table['THK_Para']     = Thk_Para
                     pre_thk_table['Pre_THK_Para'] = Pre_Thk_Para
@@ -151,7 +192,7 @@ class Module_Get:
                         Pad_Para               = Get_data.PadParaGet(APC_Para)
                         APC_Para_merge         = Get_data.APCParaGet(APC_Para, pol_type)
 
-                        pre_thk_df             = PRE_THK_VM_Get.pre_thk_vm_detrend(merge_df, APC_Para_merge, Thk_Para, Pre_Target, Post_Target, Pad_Para, use_pressure=use_pressure)
+                        pre_thk_df             = PRE_THK_VM_Get.compute_detrend(merge_df, APC_Para_merge, Thk_Para, Pre_Target, Post_Target, Pad_Para, use_pressure=use_pressure)
                         pre_thk_df['THK_Para'] = Thk_Para
                         pre_thk_df_merge       = pre_thk_df if pre_thk_df_merge.empty else pd.concat([pre_thk_df_merge, pre_thk_df])
 
@@ -159,7 +200,7 @@ class Module_Get:
 
                     if use_moving_avg:
                         min_count        = 5 if ('ED' in Thk_Para or 'EX' in Thk_Para) else 10
-                        pre_thk_df_merge = PRE_THK_VM_Get.rolling_pre_thk(pre_thk_df_merge, 'Detrend_Thk', Pre_Thk_Period, min_count)
+                        pre_thk_df_merge = PRE_THK_VM_Get.rolling_mean(pre_thk_df_merge, 'Detrend_Thk', Pre_Thk_Period, min_count)
                         pre_thk_table    = _extract_latest(pre_thk_df_merge, ['pre_oper_time', 'pre_eq_ch', 'Pre_Thk', 'Pre_Thk_Count', 'THK_Para'])
                     else:
                         # pre_oper_time/pre_eq_ch 데이터 없음 → _extract_latest 불필요
@@ -171,9 +212,12 @@ class Module_Get:
                 # ITM/detrend 경로 공통: Pre_Oper2~4 회귀계수 산출
                 # join key(substrate_id vs lot_id/alias_lot_id)는 fit_pre_oper_regression 내부에서 자동 판별
                 if has_regression:
-                    client  = MongoClient(_MONGO_URL)
-                    raw     = client[_MONGO_DB]['MICO_PRE_THK_INFO_' + Lot_Code + '_' + Oper_Desc + '_' + Fab].find({}, {'_id': 0})
-                    pre2_df = pd.DataFrame(raw)
+                    client = MongoClient(_MONGO_URL)
+                    try:
+                        raw = client[_MONGO_DB]['MICO_PRE_THK_INFO_' + Lot_Code + '_' + Oper_Desc + '_' + Fab].find({}, {'_id': 0})
+                        pre2_df = pd.DataFrame(raw)
+                    finally:
+                        client.close()
                     pre2_df.rename(columns={'samp_matl_id': 'substrate_id'}, inplace=True)
                     pre2_df.drop_duplicates(subset=['substrate_id'], inplace=True)
 
@@ -196,119 +240,60 @@ class Module_Get:
             tb = traceback.format_exc()
             c.sendMsg('', '506204179', f'{Fab} {Lot_Code} {Oper_Desc} Module PRE VM Failed : {e}, {tb}')
 
-    def Module_Get_RR(merge_df, mico_info_key, pol_type, ai_studio_url=None, RR_Alarm=None):
+    def compute_removal_rate(merge_df, mico_info_key, pol_type, RR_Alarm=None):
         # 단일 Lot_Code 공정의 Removal Rate 학습값 산출.
-        # Maker별(AMAT/EBARA/KCT) EQP 채널을 구성하고 PM 이벤트 기준 pad rank를 계산한 뒤 RR.Logic 호출.
+        # Maker별(AMAT/EBARA/KCT) EQP 채널을 구성하고 PM 이벤트 기준 pad rank를 계산한 뒤 compute_rr 호출.
 
         Fab       = mico_info_key['Fab'].unique()[0]
         Lot_Code  = mico_info_key['Lot_Code'].unique()[0]
         Oper_Desc = mico_info_key['Oper_Desc'].unique()[0]
 
         try:
-            Family         = mico_info_key['Family'].unique()[0]
-            Fab_List       = mico_info_key['Fab'].unique()
-            Maker          = mico_info_key['Maker'].unique()[0]
-            Oper_Code      = mico_info_key['Oper_Code'].unique()[0]
-            Pre_Oper_Code  = mico_info_key['Pre_Oper_Code'].unique()[0]
-            Pre_Oper_Code2 = mico_info_key['Pre_Oper_Code2'].unique()[0]
-            Recipe_ID      = mico_info_key['Recipe_ID'].unique()[0]
-            Recipe_ID_List = tuple(mico_info_key['Recipe_ID'].unique())
-            APC_Para_List  = mico_info_key['APC_Para'].unique()
-            Thk_Para_List  = mico_info_key['Thk_Para'].unique()
-            Thk_Para_13P   = mico_info_key[mico_info_key['FB_Type'] == 'TIME']['Thk_Para'].unique()[0]
-            Pre_Target     = mico_info_key['Pre_Target'].unique()[0]
-            if Pre_Target is not None:
-                Pre_Target = float(Pre_Target)
-            Offset_Group = mico_info_key['Offset_Group'].unique()
-            Recipe_info  = Recipe_ID.split('_')[0] + '_' + Recipe_ID.split('_')[1]
-
-            today = datetime.now()
+            Maker         = mico_info_key['Maker'].unique()[0]
+            Pre_Oper_Code = mico_info_key['Pre_Oper_Code'].unique()[0]
+            Thk_Para_List = mico_info_key['Thk_Para'].unique()
+            Thk_Para_13P  = mico_info_key[mico_info_key['FB_Type'] == 'TIME']['Thk_Para'].unique()[0]
 
             if Pre_Oper_Code == '':
                 merge_df_rr = merge_df.copy()
                 for Thk_key in Thk_Para_List:
                     merge_df_rr[Thk_key + '_VM'] = 0
             else:
-                merge_df_rr = Removal_Rate_Get.Removal_getdata(merge_df, Fab, Lot_Code, Oper_Code, Pre_Oper_Code, Recipe_ID, Oper_Desc, Recipe_info, mico_info_key, ai_studio_url=ai_studio_url)
+                merge_df_rr = Removal_Rate_Get.load_pre_thk_data(merge_df, mico_info_key, _MONGO_URL, _MONGO_DB)
 
-            if Maker == 'AMAT':
-                eqp_id_list = tuple(merge_df_rr['eqp_id'].unique())
-            elif Maker == 'EBARA':
-                merge_df_rr['CH'] = merge_df_rr['recipe_id'].apply(lambda x: 'AB' if 'AB' in x else 'CD')
-                merge_df_rr['eqp_id_ch'] = merge_df_rr['eqp_id'] + '_' + merge_df_rr['CH']
-                eqp_id_list = tuple(merge_df_rr['eqp_id_ch'].unique())
-            elif Maker == 'KCT':
-                merge_df_rr['CH'] = merge_df_rr['recipe_id'].apply(lambda x: 'L' if '_L' in x else 'R')
-                merge_df_rr['eqp_id_ch'] = merge_df_rr['eqp_id'] + '_' + merge_df_rr['CH']
-                eqp_id_list = tuple(merge_df_rr['eqp_id_ch'].unique())
+            EQPM_df = _build_eqpm_df(merge_df_rr, Maker, Fab)
 
-            recipe_id_list = tuple(merge_df_rr['recipe_id'].unique())
-            EQPM_df = Get_data.EQPMGetData_HUB(Fab, eqp_id_list, recipe_id_list)
-            EQPM_df = EQPM_df.sort_values(by=['EQP_ID', 'EVENT_TM']).reset_index(drop=True)
+            mongo = _make_rr_mongo(Lot_Code, Oper_Desc, Fab)
 
-            def compute_rank(group):
-                event_pm_index = group[group['EVENT_CD'].str.contains('PM')].index
-                ranks = []
-                current_rank = 0
-                for idx in group.index:
-                    if idx in event_pm_index:
-                        current_rank = 0
-                    else:
-                        if group.loc[idx, 'EVENT_CD'] in ['EndLot', 'JobEnd']:
-                            current_rank += 1
-                    ranks.append(current_rank)
-                return ranks
+            search_key = mico_info_key[mico_info_key['Fab'] == Fab]
+            for i in range(len(search_key)):
+                key         = search_key.iloc[i, :]
+                Thk_Para    = key['Thk_Para']
+                Post_Target = float(key['Target'])
+                Recipe_ID   = key['Recipe_ID']
+                Target_13P  = mico_info_key[(mico_info_key['Recipe_ID'] == Recipe_ID) & (mico_info_key['FB_Type'] == 'TIME')]['Target'].unique()[0]
 
-            EQPM_df['rank'] = EQPM_df.groupby('EQP_ID').apply(lambda x: pd.Series(compute_rank(x))).reset_index(level=0, drop=True).values.reshape(-1)
-            EQPM_df['EVENT_TM'] = pd.to_datetime(EQPM_df['EVENT_TM'])
+                merge_df_rr['BIAS'] = merge_df_rr[Thk_Para] - merge_df_rr[Thk_Para_13P] - (Post_Target - Target_13P)
 
-            for Thk_Para in Thk_Para_List:
-                search_key = mico_info_key[
-                    (mico_info_key['Thk_Para'] == Thk_Para) &
-                    (mico_info_key['Fab'] == Fab)
-                ]
-                for i in range(len(search_key)):
-                    key          = search_key.iloc[i, :]
-                    Pre_Thk_Para = key['Pre_Thk_Para_ITM']
-                    Post_Target  = float(key['Target'])
-                    Recipe_ID    = key['Recipe_ID']
-                    Target_13P   = mico_info_key[(mico_info_key['Recipe_ID'] == Recipe_ID) & (mico_info_key['FB_Type'] == 'TIME')]['Target'].unique()[0]
-
-                    merge_df_rr['BIAS'] = merge_df_rr[Thk_Para] - merge_df_rr[Thk_Para_13P] - (Post_Target - Target_13P)
-
-                    Removal_Rate_Get.Logic(merge_df_rr, key, pol_type, Thk_Para, Pre_Thk_Para, EQPM_df, Maker, RR_Alarm)
+                Removal_Rate_Get.compute_rr(merge_df_rr, key, pol_type, EQPM_df, RR_Alarm, mongo)
 
         except Exception as e:
             tb = traceback.format_exc()
             c.sendMsg('', '506204179', f'{Fab} {Lot_Code} {Oper_Desc} Module RR Failed : {e}, {tb}')
 
-    def Module_Get_RR_Group(merge_df, mico_info_key, pol_type, ai_studio_url=None, RR_Alarm=None):
+    def compute_removal_rate_group(merge_df, mico_info_key, pol_type, RR_Alarm=None):
         # 그룹 공정용 Removal Rate 학습값 산출.
-        # 복수 Lot_Code 데이터가 합산된 merge_df를 Lot_Code별로 순회하며 Pre_Thk_VM을 조회한 뒤 통합 RR.Logic 호출.
+        # 복수 Lot_Code 데이터가 합산된 merge_df를 Lot_Code별로 순회하며 Pre_Thk_VM을 조회한 뒤 compute_rr_group 호출.
 
         Fab       = mico_info_key['Fab'].unique()[0]
         Lot_Code  = mico_info_key['Lot_Code'].unique()[0]
         Oper_Desc = mico_info_key['Oper_Desc'].unique()[0]
 
         try:
-            Family         = mico_info_key['Family'].unique()[0]
-            Fab_List       = mico_info_key['Fab'].unique()
-            Maker          = mico_info_key['Maker'].unique()[0]
-            Oper_Code      = mico_info_key['Oper_Code'].unique()[0]
-            Pre_Oper_Code  = mico_info_key['Pre_Oper_Code'].unique()[0]
-            Pre_Oper_Code2 = mico_info_key['Pre_Oper_Code2'].unique()[0]
-            Recipe_ID      = mico_info_key['Recipe_ID'].unique()[0]
-            Recipe_ID_List = tuple(mico_info_key['Recipe_ID'].unique())
-            APC_Para_List  = mico_info_key['APC_Para'].unique()
-            Thk_Para_List  = mico_info_key['Thk_Para'].unique()
-            Thk_Para_13P   = mico_info_key[mico_info_key['FB_Type'] == 'TIME']['Thk_Para'].unique()[0]
-            Pre_Target     = mico_info_key['Pre_Target'].unique()[0]
-            if Pre_Target is not None:
-                Pre_Target = float(Pre_Target)
-            Offset_Group = mico_info_key['Offset_Group'].unique()
-            Recipe_info  = Recipe_ID.split('_')[0] + '_' + Recipe_ID.split('_')[1]
-
-            today = datetime.now()
+            Maker         = mico_info_key['Maker'].unique()[0]
+            Pre_Oper_Code = mico_info_key['Pre_Oper_Code'].unique()[0]
+            Thk_Para_List = mico_info_key['Thk_Para'].unique()
+            Thk_Para_13P  = mico_info_key[mico_info_key['FB_Type'] == 'TIME']['Thk_Para'].unique()[0]
             Lot_Code_List = merge_df['Lot_Code'].unique()
 
             if Pre_Oper_Code == '':
@@ -319,58 +304,30 @@ class Module_Get:
                 merge_df_rr = pd.DataFrame()
                 for lc in Lot_Code_List:
                     merge_df_filter = merge_df[merge_df['Lot_Code'] == lc].copy()
-                    merge_df_temp   = Removal_Rate_Get.Removal_getdata(merge_df_filter, Fab, Lot_Code, Oper_Code, Pre_Oper_Code, Recipe_ID, Oper_Desc, Recipe_info, mico_info_key, ai_studio_url=ai_studio_url)
+                    merge_df_temp   = Removal_Rate_Get.load_pre_thk_data(merge_df_filter, mico_info_key, _MONGO_URL, _MONGO_DB)
                     merge_df_rr     = pd.concat([merge_df_rr, merge_df_temp])
 
-            if Maker == 'AMAT':
-                eqp_id_list = tuple(merge_df_rr['eqp_id'].unique())
-            elif Maker == 'EBARA':
-                merge_df_rr['CH'] = merge_df_rr['recipe_id'].apply(lambda x: 'AB' if 'AB' in x else 'CD')
-                merge_df_rr['eqp_id_ch'] = merge_df_rr['eqp_id'] + '_' + merge_df_rr['CH']
-                eqp_id_list = tuple(merge_df_rr['eqp_id_ch'].unique())
-            elif Maker == 'KCT':
-                merge_df_rr['CH'] = merge_df_rr['recipe_id'].apply(lambda x: 'L' if '_L' in x else 'R')
-                merge_df_rr['eqp_id_ch'] = merge_df_rr['eqp_id'] + '_' + merge_df_rr['CH']
-                eqp_id_list = tuple(merge_df_rr['eqp_id_ch'].unique())
+            EQPM_df = _build_eqpm_df(merge_df_rr, Maker, Fab)
 
-            recipe_id_list = tuple(merge_df_rr['recipe_id'].unique())
-            EQPM_df = Get_data.EQPMGetData_HUB(Fab, eqp_id_list, recipe_id_list)
-            EQPM_df = EQPM_df.sort_values(by=['EQP_ID', 'EVENT_TM']).reset_index(drop=True)
-
-            def compute_rank(group):
-                event_pm_index = group[group['EVENT_CD'].str.contains('PM')].index
-                ranks = []
-                current_rank = 0
-                for idx in group.index:
-                    if idx in event_pm_index:
-                        current_rank = 0
-                    else:
-                        if group.loc[idx, 'EVENT_CD'] in ['EndLot', 'JobEnd']:
-                            current_rank += 1
-                    ranks.append(current_rank)
-                return ranks
-
-            EQPM_df['rank'] = EQPM_df.groupby('EQP_ID').apply(lambda x: pd.Series(compute_rank(x))).reset_index(level=0, drop=True).values.reshape(-1)
-            EQPM_df['EVENT_TM'] = pd.to_datetime(EQPM_df['EVENT_TM'])
+            mongo = _make_rr_mongo(Lot_Code, Oper_Desc, Fab)
 
             search_key = mico_info_key[mico_info_key['Fab'] == Fab]
             for i in range(len(search_key)):
-                key          = search_key.iloc[i, :]
-                Thk_Para     = key['Thk_Para']
-                Pre_Thk_Para = key['Pre_Thk_Para_ITM']
-                Post_Target  = float(key['Target'])
-                Recipe_ID    = key['Recipe_ID']
-                Target_13P   = mico_info_key[(mico_info_key['Recipe_ID'] == Recipe_ID) & (mico_info_key['FB_Type'] == 'TIME')]['Target'].unique()[0]
+                key         = search_key.iloc[i, :]
+                Thk_Para    = key['Thk_Para']
+                Post_Target = float(key['Target'])
+                Recipe_ID   = key['Recipe_ID']
+                Target_13P  = mico_info_key[(mico_info_key['Recipe_ID'] == Recipe_ID) & (mico_info_key['FB_Type'] == 'TIME')]['Target'].unique()[0]
 
                 merge_df_rr['BIAS'] = merge_df_rr[Thk_Para] - merge_df_rr[Thk_Para_13P] - (Post_Target - Target_13P)
 
-                Removal_Rate_Get.Logic(merge_df_rr, key, pol_type, Thk_Para, Pre_Thk_Para, EQPM_df, Maker, RR_Alarm)
+                Removal_Rate_Get.compute_rr_group(merge_df_rr, key, pol_type, EQPM_df, RR_Alarm, mongo)
 
         except Exception as e:
             tb = traceback.format_exc()
             c.sendMsg('', '506204179', f'{Fab} {Lot_Code} {Oper_Desc} Module RR Group Failed : {e}, {tb}')
 
-    def Module_Get_Offset(merge_df, mico_info_key, pol_type):
+    def compute_offset(merge_df, mico_info_key, pol_type):
         # FB_Type=TIME 기준으로 Offset 학습값을 산출하고 MongoDB에 저장.
 
         mico_info_key = mico_info_key[mico_info_key['FB_Type'] == 'TIME'].copy()
@@ -413,7 +370,7 @@ class Module_Get:
             tb = traceback.format_exc()
             c.sendMsg('', '506204179', f'{Fab} {Lot_Code} {Oper_Desc} Module Offset Failed : {e}, {tb}')
 
-    def Module_Alarm(
+    def check_alarm(
         mico_info_key,
         ):
         # Pre_Thk_VM / RR / Offset 최신 학습값을 이전 실적 대비 N-Sigma 기준으로 점검하여 이상 시 Cube 메시지 발송.
@@ -427,47 +384,27 @@ class Module_Get:
         Sigma = 10
 
 
-        url = 'mongodb://cncmico:....'
-        db = 'mico-platform-mongodb'
-
-        client = MongoClient(url)
-        db_name = client[db]
-
-
-
-        collection_name = 'MICO_PRE_THK_' + Lot_Code + '_' + oper_desc + '_' + Fab + '_Period'
-
-        collection = db_name[collection_name]
-        data = list(collection.find())
-        Pre_VM_df = pd.DataFrame(data)
+        client = MongoClient(_MONGO_URL)
+        try:
+            db_name     = client[_MONGO_DB]
+            Pre_VM_df   = pd.DataFrame(list(db_name['MICO_PRE_THK_'      + Lot_Code + '_' + oper_desc + '_' + Fab + '_Period'].find()))
+            RR_df       = pd.DataFrame(list(db_name['MICO_Removal_Rate_'  + Lot_Code + '_' + oper_desc + '_' + Fab].find()))
+            OFFSET_df   = pd.DataFrame(list(db_name['MICO_OFFSET_'        + Lot_Code + '_' + oper_desc + '_' + Fab].find()))
+        finally:
+            client.close()
         print('Pre Len : ', len(Pre_VM_df))
-
-        collection_name = 'MICO_Removal_Rate_' + Lot_Code + '_' + oper_desc + '_' + Fab
-
-        collection = db_name[collection_name]
-        data = list(collection.find())
-        RR_df = pd.DataFrame(data)
-        print('RR Len : ', len(RR_df))
-
-        collection_name = 'MICO_OFFSET_' + Lot_Code + '_' + oper_desc + '_' + Fab
-
-        collection = db_name[collection_name]
-        data = list(collection.find())
-        OFFSET_df = pd.DataFrame(data)
+        print('RR Len : ',  len(RR_df))
         print('OFFSET Len : ', len(OFFSET_df))
 
         
-        def check_alarm(filtered_data, latest_value, alarm_para, Sigma, message):
+        def send_if_out_of_sigma(filtered_data, latest_value, alarm_para, Sigma, message):
 
-            mean = filtered_data[alarm_para].mean()
-            std = filtered_data[alarm_para].std()
-
+            mean  = filtered_data[alarm_para].mean()
+            std   = filtered_data[alarm_para].std()
             count = filtered_data[alarm_para].nunique()
 
-            if count >= 10 :
-        
-                if (np.abs(latest_value - mean) > Sigma * std) & (np.abs(latest_value - mean) > 0.1) :
-
+            if count >= 10:
+                if (np.abs(latest_value - mean) > Sigma * std) & (np.abs(latest_value - mean) > 0.1):
                     message += f": 현재 학습값 [[ {latest_value:.2f} ]] 이 ** {Sigma}Sigma ** 기준으로 초과했습니다. ( 이전 실적값 : (( {mean:.2f} )) ) "
                     Get_data.Cube_Alarm_Msg(Channel_ID, message)
                     Get_data.Cube_Alarm_Msg(Default_Channel_ID, message)
@@ -498,27 +435,27 @@ class Module_Get:
 
                 message = f"{Lot_Code} / {oper_desc} / {Module_name} / {EQ} / {Recipe_ID} / {APC_Para} / {para} " 
 
-                check_alarm(filtered_data, latest_value, alarm_para, Sigma, message)
+                send_if_out_of_sigma(filtered_data, latest_value, alarm_para, Sigma, message)
 
 # ── Runner helpers ────────────────────────────────────────────────────────────
 
-def _parse_key(key):
+def _parse_for_key(key):
     # for_key_list 키(Lot_Code_Oper_Code_Fab)를 언더스코어로 분리하여 각 구성요소 반환.
     parts = key.split('_')
     return parts[0], parts[1], parts[2]  # lot_code, oper_code, fab
 
 
-def _execute(merge_df, mico_info_key, pol_type, use_group_rr=False):
+def _run_pipeline(merge_df, mico_info_key, pol_type, use_group_rr=False):
     # Pre VM → RR → Offset → Alarm 순서로 학습 모듈 전체 실행
     # use_group_rr=True: 여러 Lot_Code가 합쳐진 merge_df로 RR_Group 실행 (그룹 공정용)
     try:
-        Module_Get.Module_Get_Pre_VM(merge_df, mico_info_key, pol_type)
+        Module_Get.compute_pre_thk_vm(merge_df, mico_info_key, pol_type)
         if use_group_rr:
-            Module_Get.Module_Get_RR_Group(merge_df, mico_info_key, pol_type)
+            Module_Get.compute_removal_rate_group(merge_df, mico_info_key, pol_type)
         else:
-            Module_Get.Module_Get_RR(merge_df, mico_info_key, pol_type)
-        Module_Get.Module_Get_Offset(merge_df, mico_info_key, pol_type)
-        Module_Get.Module_Alarm(mico_info_key)
+            Module_Get.compute_removal_rate(merge_df, mico_info_key, pol_type)
+        Module_Get.compute_offset(merge_df, mico_info_key, pol_type)
+        Module_Get.check_alarm(mico_info_key)
     except Exception as e:
         tb  = traceback.format_exc()
         lot_code  = mico_info_key['Lot_Code'].unique()[0]
@@ -526,19 +463,19 @@ def _execute(merge_df, mico_info_key, pol_type, use_group_rr=False):
         Get_data.Cube_Msg(lot_code, oper_desc, 'Module', e, tb)
 
 
-def _run_no_group(mico_info_table, for_key_list, pol_type):
+def _run_single(mico_info_table, for_key_list, pol_type):
     # 그룹 미지정 공정: for_key_list 키마다 독립적으로 merge_df를 조회 후 실행
     for key in for_key_list:
-        _, oper_code, _ = _parse_key(key)
+        _, oper_code, _ = _parse_for_key(key)
         mico_info_key   = mico_info_table[mico_info_table['for_key_list'] == key].copy()
 
-        merge_df = Module_Get.Module_Get_Merge(mico_info_key)
+        merge_df = Module_Get.fetch_merge_data(mico_info_key)
         merge_df = merge_df[merge_df['operation_id'] == oper_code].copy()
 
-        _execute(merge_df, mico_info_key, pol_type)
+        _run_pipeline(merge_df, mico_info_key, pol_type)
 
 
-def _run_group(mico_info_table, group_name, pol_type):
+def _run_grouped(mico_info_table, group_name, pol_type):
     # 그룹 지정 공정: 같은 Group_Name의 모든 키 데이터를 먼저 합산(merge_df)한 후
     # 각 mico_info_key에 동일한 merge_df로 실행 → Group RR처럼 복수 Lot_Code 통합 처리
     mico_info_keys = []
@@ -549,19 +486,19 @@ def _run_group(mico_info_table, group_name, pol_type):
         mico_info_key = mico_info_table[mico_info_table['for_key_list'] == key].copy()
         mico_info_keys.append(mico_info_key)
 
-        temp = Module_Get.Module_Get_Merge(mico_info_key)
+        temp = Module_Get.fetch_merge_data(mico_info_key)
         if temp is not None and not temp.empty:
             merge_df = pd.concat([merge_df, temp])
 
     merge_df['Group_Name'] = group_name
 
     for mico_info_key in mico_info_keys:
-        _execute(merge_df, mico_info_key, pol_type, use_group_rr=True)
+        _run_pipeline(merge_df, mico_info_key, pol_type, use_group_rr=True)
 
 
 def run(family, oper_desc, pol_type):
     # 최상위 진입점: set-up 정보 로드 → for_key_list(Lot_Code+Oper_Code+Fab) 생성
-    # → Group 여부에 따라 _run_no_group / _run_group 분기
+    # → Group 여부에 따라 _run_single / _run_grouped 분기
     try:
         mico_info_table = Get_data.baseinfoGetData(Family=family, oper_desc=oper_desc)
         mico_info_table['Group_Name'] = mico_info_table['Group_Name'].fillna('not_group')
@@ -575,9 +512,9 @@ def run(family, oper_desc, pol_type):
             for_key_list = mico_info_table[mico_info_table['Group_Name'] == group_name]['for_key_list'].unique()
 
             if group_name == 'not_group':
-                _run_no_group(mico_info_table, for_key_list, pol_type)
+                _run_single(mico_info_table, for_key_list, pol_type)
             else:
-                _run_group(mico_info_table, group_name, pol_type)
+                _run_grouped(mico_info_table, group_name, pol_type)
 
     except Exception as e:
         tb = traceback.format_exc()
