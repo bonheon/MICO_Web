@@ -54,6 +54,7 @@ def _build_eqpm_df(merge_df_rr, Maker, Fab):
     EQPM_df = EQPM_df.sort_values(by=['EQP_ID', 'EVENT_TM']).reset_index(drop=True)
 
     def compute_rank(group):
+        # PM 이벤트 발생 시 rank를 0으로 리셋, EndLot/JobEnd마다 1씩 증가하여 PM 이후 누적 웨이퍼 수 산출
         event_pm_index = group[group['EVENT_CD'].str.contains('PM')].index
         ranks = []
         current_rank = 0
@@ -92,9 +93,13 @@ class Module_Get:
         Oper_Desc = mico_info_key['Oper_Desc'].unique()[0]
         Family    = mico_info_key['Family'].unique()[0]
 
+        print(f'    [데이터 조회] {Fab} | {Lot_Code} | {Oper_Desc}', end=' ... ', flush=True)
         try:
-            return Get_data.MongoDB_GetData(Family, Fab, Lot_Code, Oper_Desc)
+            result = Get_data.MongoDB_GetData(Family, Fab, Lot_Code, Oper_Desc)
+            print(f'{len(result)}행')
+            return result
         except Exception as e:
+            print('실패')
             tb = traceback.format_exc()
             c.sendMsg('', '506204179', f'{Fab} {Lot_Code} {Oper_Desc} Module Merge Failed : {e}, {tb}')
 
@@ -110,6 +115,7 @@ class Module_Get:
         Oper_Desc = mico_info_key['Oper_Desc'].unique()[0]
 
         mongo = _make_pre_thk_mongo(Lot_Code, Oper_Desc, Fab)
+        print(f'\n  [Pre_Thk_VM] {Fab} | {Lot_Code} | {Oper_Desc} 시작')
 
         try:
             Oper_Code      = mico_info_key['Oper_Code'].unique()[0]
@@ -146,8 +152,14 @@ class Module_Get:
                 use_moving_avg = (not use_itm) and len(pre_oper_vals[pre_oper_vals != '']) > 0  # detrend + moving avg 경로
                 has_regression = isinstance(Pre_Oper_Code2, str) and Pre_Oper_Code2 != ''       # Pre_Oper2~4 회귀식 산출 여부
 
+                path  = 'ITM' if use_itm else 'Detrend'
+                path += '+MA'   if use_moving_avg  else ''
+                path += '+회귀' if has_regression  else ''
+                print(f'    Thk_Para={Thk_Para} | 경로={path}')
+
                 # ITM, moving avg, 회귀 중 아무것도 없으면 Pre_Thk_VM 학습 불필요 → 스킵
                 if not use_itm and not use_moving_avg and not has_regression:
+                    print(f'    → 스킵 (학습 불필요)')
                     continue
 
                 if use_itm:
@@ -236,9 +248,16 @@ class Module_Get:
                 pre_thk_table['Oper_Code'] = Oper_Code
                 mongo.push_df(pre_thk_table)
 
+                print(f'    → 저장 {len(pre_thk_table)}건')
+                show_cols = [c for c in ['pre_eq_ch', 'Pre_Thk', 'Count'] if c in pre_thk_table.columns]
+                if show_cols:
+                    print(pre_thk_table[show_cols].to_string(index=False))
+
         except Exception as e:
             tb = traceback.format_exc()
             c.sendMsg('', '506204179', f'{Fab} {Lot_Code} {Oper_Desc} Module PRE VM Failed : {e}, {tb}')
+
+        print(f'  [Pre_Thk_VM] {Fab} | {Lot_Code} | {Oper_Desc} 완료')
 
     def compute_removal_rate(merge_df, mico_info_key, pol_type, RR_Alarm=None):
         # 단일 Lot_Code 공정의 Removal Rate 학습값 산출.
@@ -248,6 +267,7 @@ class Module_Get:
         Lot_Code  = mico_info_key['Lot_Code'].unique()[0]
         Oper_Desc = mico_info_key['Oper_Desc'].unique()[0]
 
+        print(f'\n  [Removal Rate] {Fab} | {Lot_Code} | {Oper_Desc} 시작')
         try:
             Maker         = mico_info_key['Maker'].unique()[0]
             Pre_Oper_Code = mico_info_key['Pre_Oper_Code'].unique()[0]
@@ -255,10 +275,12 @@ class Module_Get:
             Thk_Para_13P  = mico_info_key[mico_info_key['FB_Type'] == 'TIME']['Thk_Para'].unique()[0]
 
             if Pre_Oper_Code == '':
+                print(f'    Pre_Oper_Code 없음 → VM=0 처리')
                 merge_df_rr = merge_df.copy()
                 for Thk_key in Thk_Para_List:
                     merge_df_rr[Thk_key + '_VM'] = 0
             else:
+                print(f'    Pre_Thk_VM 로드 중 ...')
                 merge_df_rr = Removal_Rate_Get.load_pre_thk_data(merge_df, mico_info_key, _MONGO_URL, _MONGO_DB)
 
             EQPM_df = _build_eqpm_df(merge_df_rr, Maker, Fab)
@@ -273,6 +295,7 @@ class Module_Get:
                 Recipe_ID   = key['Recipe_ID']
                 Target_13P  = mico_info_key[(mico_info_key['Recipe_ID'] == Recipe_ID) & (mico_info_key['FB_Type'] == 'TIME')]['Target'].unique()[0]
 
+                print(f'    APC_Para={key.APC_Para} | Recipe_ID={Recipe_ID} | Thk_Para={Thk_Para}')
                 merge_df_rr['BIAS'] = merge_df_rr[Thk_Para] - merge_df_rr[Thk_Para_13P] - (Post_Target - Target_13P)
 
                 Removal_Rate_Get.compute_rr(merge_df_rr, key, pol_type, EQPM_df, RR_Alarm, mongo)
@@ -280,6 +303,8 @@ class Module_Get:
         except Exception as e:
             tb = traceback.format_exc()
             c.sendMsg('', '506204179', f'{Fab} {Lot_Code} {Oper_Desc} Module RR Failed : {e}, {tb}')
+
+        print(f'  [Removal Rate] {Fab} | {Lot_Code} | {Oper_Desc} 완료')
 
     def compute_removal_rate_group(merge_df, mico_info_key, pol_type, RR_Alarm=None):
         # 그룹 공정용 Removal Rate 학습값 산출.
@@ -289,6 +314,7 @@ class Module_Get:
         Lot_Code  = mico_info_key['Lot_Code'].unique()[0]
         Oper_Desc = mico_info_key['Oper_Desc'].unique()[0]
 
+        print(f'\n  [Removal Rate Group] {Fab} | {Lot_Code} | {Oper_Desc} 시작')
         try:
             Maker         = mico_info_key['Maker'].unique()[0]
             Pre_Oper_Code = mico_info_key['Pre_Oper_Code'].unique()[0]
@@ -297,15 +323,19 @@ class Module_Get:
             Lot_Code_List = merge_df['Lot_Code'].unique()
 
             if Pre_Oper_Code == '':
+                print(f'    Pre_Oper_Code 없음 → VM=0 처리')
                 merge_df_rr = merge_df.copy()
                 for Thk_key in Thk_Para_List:
                     merge_df_rr[Thk_key + '_VM'] = 0
             else:
                 merge_df_rr = pd.DataFrame()
                 for lc in Lot_Code_List:
+                    print(f'    Pre_Thk_VM 로드: Lot_Code={lc}', end=' ... ', flush=True)
                     merge_df_filter = merge_df[merge_df['Lot_Code'] == lc].copy()
                     merge_df_temp   = Removal_Rate_Get.load_pre_thk_data(merge_df_filter, mico_info_key, _MONGO_URL, _MONGO_DB)
                     merge_df_rr     = pd.concat([merge_df_rr, merge_df_temp])
+                    print(f'{len(merge_df_temp)}행')
+                print(f'    합산 데이터: {len(merge_df_rr)}행')
 
             EQPM_df = _build_eqpm_df(merge_df_rr, Maker, Fab)
 
@@ -319,6 +349,7 @@ class Module_Get:
                 Recipe_ID   = key['Recipe_ID']
                 Target_13P  = mico_info_key[(mico_info_key['Recipe_ID'] == Recipe_ID) & (mico_info_key['FB_Type'] == 'TIME')]['Target'].unique()[0]
 
+                print(f'    APC_Para={key.APC_Para} | Recipe_ID={Recipe_ID} | Thk_Para={Thk_Para}')
                 merge_df_rr['BIAS'] = merge_df_rr[Thk_Para] - merge_df_rr[Thk_Para_13P] - (Post_Target - Target_13P)
 
                 Removal_Rate_Get.compute_rr_group(merge_df_rr, key, pol_type, EQPM_df, RR_Alarm, mongo)
@@ -326,6 +357,8 @@ class Module_Get:
         except Exception as e:
             tb = traceback.format_exc()
             c.sendMsg('', '506204179', f'{Fab} {Lot_Code} {Oper_Desc} Module RR Group Failed : {e}, {tb}')
+
+        print(f'  [Removal Rate Group] {Fab} | {Lot_Code} | {Oper_Desc} 완료')
 
     def compute_offset(merge_df, mico_info_key, pol_type):
         # FB_Type=TIME 기준으로 Offset 학습값을 산출하고 MongoDB에 저장.
@@ -336,53 +369,41 @@ class Module_Get:
         Lot_Code  = mico_info_key['Lot_Code'].unique()[0]
         Oper_Desc = mico_info_key['Oper_Desc'].unique()[0]
 
+        print(f'\n  [Offset] {Fab} | {Lot_Code} | {Oper_Desc} 시작')
         try:
-            Family        = mico_info_key['Family'].unique()[0]
-            Fab_List      = mico_info_key['Fab'].unique()
-            Oper_Code     = mico_info_key['Oper_Code'].unique()[0]
-            Pre_Oper_Code = mico_info_key['Pre_Oper_Code'].unique()[0]
-            Recipe_ID     = mico_info_key['Recipe_ID'].unique()[0]
-            Recipe_ID_List = tuple(mico_info_key['Recipe_ID'].unique())
             APC_Para_List = mico_info_key['APC_Para'].unique()
-            Thk_Para_List = mico_info_key['Thk_Para'].unique()
-            Pre_Target    = mico_info_key['Pre_Target'].unique()[0]
-            if Pre_Target is not None:
-                Pre_Target = float(Pre_Target)
-            Offset_Group = mico_info_key['Offset_Group'].unique()
+            Offset_Group  = mico_info_key['Offset_Group'].unique()[0]
+            search_key    = mico_info_key[mico_info_key['Fab'] == Fab]
 
-            temp_df    = pd.DataFrame()
-            search_key = mico_info_key[mico_info_key['Fab'] == Fab]
+            print(f'    APC_Para 목록: {list(APC_Para_List)} | Offset_Group={Offset_Group}')
+            merge_df = OFFSET_Get.load_rr_data(merge_df, Fab, Lot_Code, Oper_Desc, APC_Para_List, _MONGO_URL, _MONGO_DB)
 
-            merge_df = OFFSET_Get.offset_getdata(merge_df, Family, Fab, Lot_Code, Oper_Desc, APC_Para_List)
+            results = [OFFSET_Get.compute_offset(merge_df, key, pol_type, Fab)
+                       for _, key in search_key.iterrows()]
+            temp_df = pd.concat([r for r in results if r is not None], axis=0)
 
-            for i in range(len(search_key)):
-                key       = search_key.iloc[i, :]
-                temp_data = OFFSET_Get.Logic(merge_df, key, pol_type, Fab)
-
-                if temp_df is None or temp_df.empty:
-                    temp_df = temp_data
-                else:
-                    temp_df = pd.concat([temp_df, temp_data], axis=0)
-
-            OFFSET_Get.LC_Logic(temp_df, Family, Lot_Code, Oper_Desc, Fab, Offset_Group)
+            OFFSET_Get.compute_lc_offset(temp_df, Lot_Code, Oper_Desc, Fab, Offset_Group)
 
         except Exception as e:
             tb = traceback.format_exc()
             c.sendMsg('', '506204179', f'{Fab} {Lot_Code} {Oper_Desc} Module Offset Failed : {e}, {tb}')
 
+        print(f'  [Offset] {Fab} | {Lot_Code} | {Oper_Desc} 완료')
+
     def check_alarm(
         mico_info_key,
         ):
         # Pre_Thk_VM / RR / Offset 최신 학습값을 이전 실적 대비 N-Sigma 기준으로 점검하여 이상 시 Cube 메시지 발송.
-        Family = mico_info_key['Family'].unique()[0]
-        Lot_Code = mico_info_key['Lot_Code'].unique()[0]
+        Family    = mico_info_key['Family'].unique()[0]
+        Lot_Code  = mico_info_key['Lot_Code'].unique()[0]
         oper_desc = mico_info_key['Oper_Desc'].unique()[0]
-        Fab = mico_info_key['Fab'].unique()[0]
+        Fab       = mico_info_key['Fab'].unique()[0]
         Channel_ID = mico_info_key['Channel_ID'].unique()[0]
 
         Default_Channel_ID = '507358454'
         Sigma = 10
 
+        print(f'\n  [Alarm 점검] {Fab} | {Lot_Code} | {oper_desc} 시작')
 
         client = MongoClient(_MONGO_URL)
         try:
@@ -392,13 +413,11 @@ class Module_Get:
             OFFSET_df   = pd.DataFrame(list(db_name['MICO_OFFSET_'        + Lot_Code + '_' + oper_desc + '_' + Fab].find()))
         finally:
             client.close()
-        print('Pre Len : ', len(Pre_VM_df))
-        print('RR Len : ',  len(RR_df))
-        print('OFFSET Len : ', len(OFFSET_df))
 
-        
+        print(f'    DB 로드: Pre_Thk_VM={len(Pre_VM_df)}건 | Removal Rate={len(RR_df)}건 | Offset={len(OFFSET_df)}건')
+
         def send_if_out_of_sigma(filtered_data, latest_value, alarm_para, Sigma, message):
-
+            # 이전 실적 10건 이상일 때 최신값이 N-Sigma 및 절대 오차 0.1 초과 시 Cube 채널로 알람 발송
             mean  = filtered_data[alarm_para].mean()
             std   = filtered_data[alarm_para].std()
             count = filtered_data[alarm_para].nunique()
@@ -406,6 +425,7 @@ class Module_Get:
             if count >= 10:
                 if (np.abs(latest_value - mean) > Sigma * std) & (np.abs(latest_value - mean) > 0.1):
                     message += f": 현재 학습값 [[ {latest_value:.2f} ]] 이 ** {Sigma}Sigma ** 기준으로 초과했습니다. ( 이전 실적값 : (( {mean:.2f} )) ) "
+                    print(f'    !! 알람 발생: {message}')
                     Get_data.Cube_Alarm_Msg(Channel_ID, message)
                     Get_data.Cube_Alarm_Msg(Default_Channel_ID, message)
 
@@ -414,28 +434,27 @@ class Module_Get:
         idx = RR_df.groupby(['EQ', 'Recipe_ID', 'APC_Para'])['Date'].idxmax()
         latest_data = RR_df.loc[idx].reset_index(drop=True)
 
-        print(latest_data.select_dtypes(include='float').columns.tolist())
+        alarm_para_list = latest_data.select_dtypes(include='float').columns.tolist()
+        print(f'    RR 알람 점검: 최신 {len(latest_data)}건 | 파라미터={alarm_para_list}')
 
         for _, row in latest_data.iterrows():
-            EQ = row['EQ']
+            EQ        = row['EQ']
             Recipe_ID = row['Recipe_ID']
-            APC_Para = row['APC_Para']
-            Sigma = mico_info_key[(mico_info_key['Recipe_ID'] == Recipe_ID)&(mico_info_key['APC_Para'] == APC_Para)]['RR_Alarm_Sigma'].unique()[0]
+            APC_Para  = row['APC_Para']
+            Sigma     = mico_info_key[(mico_info_key['Recipe_ID'] == Recipe_ID) & (mico_info_key['APC_Para'] == APC_Para)]['RR_Alarm_Sigma'].unique()[0]
             Module_name = 'Removal_Rate'
-            alarm_para_list = latest_data.select_dtypes(include='float').columns.tolist()
 
-            for para in alarm_para_list : 
-            
-                latest_value = row[para]
-                alarm_para = para
+            for para in alarm_para_list:
+                latest_value  = row[para]
+                filtered_data = RR_df[
+                    (RR_df['Recipe_ID'] == Recipe_ID) &
+                    (RR_df['APC_Para']  == APC_Para)  &
+                    (RR_df['Date']      <  row['Date'])
+                ]
+                message = f"{Lot_Code} / {oper_desc} / {Module_name} / {EQ} / {Recipe_ID} / {APC_Para} / {para} "
+                send_if_out_of_sigma(filtered_data, latest_value, para, Sigma, message)
 
-                filtered_data = RR_df[ (RR_df['Recipe_ID'] == Recipe_ID) &
-                                    (RR_df['APC_Para'] == APC_Para) & 
-                                    (RR_df['Date'] < row['Date'])]
-
-                message = f"{Lot_Code} / {oper_desc} / {Module_name} / {EQ} / {Recipe_ID} / {APC_Para} / {para} " 
-
-                send_if_out_of_sigma(filtered_data, latest_value, alarm_para, Sigma, message)
+        print(f'  [Alarm 점검] {Fab} | {Lot_Code} | {oper_desc} 완료')
 
 # ── Runner helpers ────────────────────────────────────────────────────────────
 
@@ -448,6 +467,13 @@ def _parse_for_key(key):
 def _run_pipeline(merge_df, mico_info_key, pol_type, use_group_rr=False):
     # Pre VM → RR → Offset → Alarm 순서로 학습 모듈 전체 실행
     # use_group_rr=True: 여러 Lot_Code가 합쳐진 merge_df로 RR_Group 실행 (그룹 공정용)
+    lot_code  = mico_info_key['Lot_Code'].unique()[0]
+    oper_desc = mico_info_key['Oper_Desc'].unique()[0]
+    fab       = mico_info_key['Fab'].unique()[0]
+
+    print(f'\n{"=" * 60}')
+    print(f'  파이프라인 시작: {fab} | {lot_code} | {oper_desc}')
+    print(f'{"=" * 60}')
     try:
         Module_Get.compute_pre_thk_vm(merge_df, mico_info_key, pol_type)
         if use_group_rr:
@@ -457,20 +483,24 @@ def _run_pipeline(merge_df, mico_info_key, pol_type, use_group_rr=False):
         Module_Get.compute_offset(merge_df, mico_info_key, pol_type)
         Module_Get.check_alarm(mico_info_key)
     except Exception as e:
-        tb  = traceback.format_exc()
-        lot_code  = mico_info_key['Lot_Code'].unique()[0]
-        oper_desc = mico_info_key['Oper_Desc'].unique()[0]
+        tb = traceback.format_exc()
         Get_data.Cube_Msg(lot_code, oper_desc, 'Module', e, tb)
+    print(f'{"=" * 60}')
+    print(f'  파이프라인 완료: {fab} | {lot_code} | {oper_desc}')
+    print(f'{"=" * 60}')
 
 
 def _run_single(mico_info_table, for_key_list, pol_type):
     # 그룹 미지정 공정: for_key_list 키마다 독립적으로 merge_df를 조회 후 실행
-    for key in for_key_list:
+    total = len(for_key_list)
+    for idx, key in enumerate(for_key_list, 1):
         _, oper_code, _ = _parse_for_key(key)
         mico_info_key   = mico_info_table[mico_info_table['for_key_list'] == key].copy()
 
+        print(f'\n[{idx}/{total}] {key}')
         merge_df = Module_Get.fetch_merge_data(mico_info_key)
         merge_df = merge_df[merge_df['operation_id'] == oper_code].copy()
+        print(f'    Oper 필터 후: {len(merge_df)}행')
 
         _run_pipeline(merge_df, mico_info_key, pol_type)
 
@@ -482,6 +512,7 @@ def _run_grouped(mico_info_table, group_name, pol_type):
     merge_df       = pd.DataFrame()
     for_key_list   = mico_info_table[mico_info_table['Group_Name'] == group_name]['for_key_list'].unique()
 
+    print(f'\n[그룹: {group_name}] 키 {len(for_key_list)}개 데이터 통합 중')
     for key in for_key_list:
         mico_info_key = mico_info_table[mico_info_table['for_key_list'] == key].copy()
         mico_info_keys.append(mico_info_key)
@@ -491,6 +522,7 @@ def _run_grouped(mico_info_table, group_name, pol_type):
             merge_df = pd.concat([merge_df, temp])
 
     merge_df['Group_Name'] = group_name
+    print(f'  그룹 통합 완료: {len(merge_df)}행')
 
     for mico_info_key in mico_info_keys:
         _run_pipeline(merge_df, mico_info_key, pol_type, use_group_rr=True)
@@ -499,6 +531,9 @@ def _run_grouped(mico_info_table, group_name, pol_type):
 def run(family, oper_desc, pol_type):
     # 최상위 진입점: set-up 정보 로드 → for_key_list(Lot_Code+Oper_Code+Fab) 생성
     # → Group 여부에 따라 _run_single / _run_grouped 분기
+    print(f'\n{"#" * 60}')
+    print(f'  MICO 학습 시작: Family={family} | Oper_Desc={oper_desc}')
+    print(f'{"#" * 60}')
     try:
         mico_info_table = Get_data.baseinfoGetData(Family=family, oper_desc=oper_desc)
         mico_info_table['Group_Name'] = mico_info_table['Group_Name'].fillna('not_group')
@@ -507,6 +542,13 @@ def run(family, oper_desc, pol_type):
             mico_info_table['Oper_Code'] + '_' +
             mico_info_table['Fab']
         )
+
+        key_list = mico_info_table['for_key_list'].unique()
+        print(f'  처리 키 목록 ({len(key_list)}개):')
+        for k in key_list:
+            grp = mico_info_table[mico_info_table['for_key_list'] == k]['Group_Name'].unique()[0]
+            grp_label = f'그룹={grp}' if grp != 'not_group' else '단독'
+            print(f'    - {k}  ({grp_label})')
 
         for group_name in mico_info_table['Group_Name'].unique():
             for_key_list = mico_info_table[mico_info_table['Group_Name'] == group_name]['for_key_list'].unique()
@@ -519,3 +561,7 @@ def run(family, oper_desc, pol_type):
     except Exception as e:
         tb = traceback.format_exc()
         Get_data.Cube_Msg(family, oper_desc, 'Module', e, tb)
+
+    print(f'\n{"#" * 60}')
+    print(f'  MICO 학습 완료: Family={family} | Oper_Desc={oper_desc}')
+    print(f'{"#" * 60}')

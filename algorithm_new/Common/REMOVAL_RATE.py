@@ -29,6 +29,7 @@ class Removal_Rate_Get:
 
 
     def _check_rr_alarm(temp_data5, APC_Para, EQ, rcp_id):
+        # TIME 파라미터 한정으로 최근 3건 RR 평균이 전체 3Sigma 범위를 이탈하면 Cube 알람 발송
         if 'TIME' not in APC_Para:
             return
         rr_sigma  = 3
@@ -90,7 +91,6 @@ class Removal_Rate_Get:
         count      = len(current_cycle)
         time_delta = today_date - current_cycle['Date'].iloc[0]
         min_count  = Removal_Rate_Get._get_pm_rank(EQPM_df, Maker, EQ, rcp_id)
-        print(count, time_delta, min_count)
         if not ((count > RR_Count) and (time_delta < timedelta(hours=12)) and (min_count >= 2)):
             return '-', '-', '-'
         Simul_Date             = current_cycle['Date'].iloc[0].strftime("%Y-%m-%d %H:%M:%S")
@@ -118,7 +118,6 @@ class Removal_Rate_Get:
             bins=[0, step, step * 2, step * 3, Pad_Seperation],
             labels=['Q1', 'Q2', 'Q3', 'Q4']
         ).value_counts()
-        print(if_counts.to_dict())
         if not (if_counts >= 25).all():
             return '-', '-'
         return Removal_Rate_Get._fit_lr(temp_data7, consumable_Para, 'RR', lr)
@@ -222,7 +221,6 @@ class Removal_Rate_Get:
                 include_recent = (len(recent_counts['date_part_seg'].unique()) == 4) and (recent_counts['count'] > 25).all()
 
                 weight    = [1, 2, 3, 4, RR_Weight]
-                print(today, Fab, Lot_Code, Oper_Code, Oper_Desc, APC_Para, EQ, rcp_id)
 
                 quartile_counts = pd.cut(
                     temp_data5[consumable_Para],
@@ -252,11 +250,10 @@ class Removal_Rate_Get:
                     report = {k: v for k, v in report.items() if v != '-'}
                     mongo.insert_row(report)
 
-                else:
-                    print(quartile_counts)
-
 
     def compute_rr(merge_df, key, pol_type, EQPM_df, RR_Alarm, mongo):
+        # 단일 공정(EQP/Recipe) 기준 Removal Rate 학습값 산출.
+        # IDLE='' 데이터만 사용, 소모품 사이클 분리 후 EQP별로 회귀계수(b1/b0) 계산하여 MongoDB 저장.
 
         lr        = LinearRegression()
         today     = datetime.now()
@@ -296,6 +293,8 @@ class Removal_Rate_Get:
 
 
     def compute_rr_group(merge_df, key, pol_type, EQPM_df, RR_Alarm, mongo):
+        # 복수 Lot_Code를 통합한 그룹 공정용 Removal Rate 학습값 산출.
+        # compute_rr와 달리 Recipe 구분 없이 eqp+Group_Name(rr_key) 기준으로 집계.
 
         lr       = LinearRegression()
         today    = datetime.now()
@@ -331,6 +330,8 @@ class Removal_Rate_Get:
 
 
     def load_pre_thk_data(merge_df, mico_info_key, mongo_url, mongo_db):
+        # MongoDB에서 Pre_Thk_VM 학습값(_Period 컬렉션)을 로드하여 merge_df에 merge_asof로 결합.
+        # Pre_Oper2~4 회귀계수(b1/b0)가 존재하면 해당 공정 측정값에 적용하여 _VM 컬럼을 보정 후 반환.
 
         Fab       = mico_info_key['Fab'].unique()[0]
         Lot_Code  = mico_info_key['Lot_Code'].unique()[0]
@@ -356,22 +357,18 @@ class Removal_Rate_Get:
                 Pre_Thk_info_Table.replace('-', 0, inplace=True)
 
                 if Oper_Desc == 'SOURCE OX CMP':
-                    col_name = [c for c in Pre_Thk_info_Table.columns if c not in {'substrate_id', 'end_tm'}]
-                    merge_df = pd.merge(merge_df, Pre_Thk_info_Table[col_name], left_on='lot_id', right_on='alias_lot_id', how='left')
+                    exclude  = {'substrate_id', 'end_tm'}
+                    merge_kw = dict(left_on='lot_id', right_on='alias_lot_id')
                 else:
-                    col_name = [c for c in Pre_Thk_info_Table.columns if c not in {'alias_lot_id', 'end_tm'}]
-                    merge_df = pd.merge(merge_df, Pre_Thk_info_Table[col_name], on='substrate_id', how='left')
+                    exclude  = {'alias_lot_id', 'end_tm'}
+                    merge_kw = dict(on='substrate_id')
+
+                col_name = [c for c in Pre_Thk_info_Table.columns if c not in exclude]
+                merge_df = pd.merge(merge_df, Pre_Thk_info_Table[col_name], how='left', **merge_kw)
 
             for Thk_key in Pre_Thk_Table['THK_Para'].unique():
 
                 key = mico_info_key[(mico_info_key['Thk_Para'] == Thk_key) | (mico_info_key['Pre_Thk_Para_ITM'] == Thk_key)].copy()
-
-                Pre_Oper_Desc2 = key['Pre_Oper_Desc2'].unique()[0]
-                Pre_Oper_Para2 = key['Pre_Oper_Para2'].unique()[0]
-                Pre_Oper_Desc3 = key['Pre_Oper_Desc3'].unique()[0]
-                Pre_Oper_Para3 = key['Pre_Oper_Para3'].unique()[0]
-                Pre_Oper_Desc4 = key['Pre_Oper_Desc4'].unique()[0]
-                Pre_Oper_Para4 = key['Pre_Oper_Para4'].unique()[0]
 
                 temp_pre_thk = Pre_Thk_Table[Pre_Thk_Table['THK_Para'] == Thk_key].drop(columns=['Date', 'THK_Para'])
                 temp_pre_thk = temp_pre_thk.sort_values(by='Pre_Oper_Date', ascending=True)
@@ -382,27 +379,21 @@ class Removal_Rate_Get:
                 merge_df = pd.merge_asof(merge_df, temp_pre_thk, on='Pre_Oper_Date', by=['pre_eq_ch'])
                 merge_df.drop_duplicates(subset=['substrate_id'], inplace=True)
 
-                if Pre_Oper_Desc2 != '':
-                    merge_df[['PRE_OPER2_b1', 'PRE_OPER2_b0']] = merge_df[['PRE_OPER2_b1', 'PRE_OPER2_b0']].fillna(merge_df[['PRE_OPER2_b1', 'PRE_OPER2_b0']].mean())
-                    pre_oper2_weight = 2 if Oper_Desc == 'SOURCE OX CMP' else 1
-                    merge_df[Thk_key+'_VM'] = merge_df[Thk_key+'_VM'] + pre_oper2_weight * (
-                        merge_df[Pre_Oper_Desc2 + '.' + Pre_Oper_Para2] * merge_df['PRE_OPER2_b1'].fillna(0) + merge_df['PRE_OPER2_b0'].fillna(0)
+                ref = key.iloc[0]
+                oper_pairs = [
+                    (ref['Pre_Oper_Desc2'], ref['Pre_Oper_Para2'], 'PRE_OPER2', 2 if Oper_Desc == 'SOURCE OX CMP' else 1),
+                    (ref['Pre_Oper_Desc3'], ref['Pre_Oper_Para3'], 'PRE_OPER3', 1),
+                    (ref['Pre_Oper_Desc4'], ref['Pre_Oper_Para4'], 'PRE_OPER4', 1),
+                ]
+                for desc, para, prefix, weight in oper_pairs:
+                    if not (isinstance(desc, str) and desc != ''):
+                        continue
+                    b1_col, b0_col = f'{prefix}_b1', f'{prefix}_b0'
+                    merge_df[[b1_col, b0_col]] = merge_df[[b1_col, b0_col]].fillna(merge_df[[b1_col, b0_col]].mean()).fillna(0)
+                    merge_df[Thk_key+'_VM'] += weight * (
+                        merge_df[desc + '.' + para] * merge_df[b1_col] + merge_df[b0_col]
                     )
-                    merge_df.drop(columns=['PRE_OPER2_b1', 'PRE_OPER2_b0'], inplace=True)
-
-                if Pre_Oper_Desc3 != '':
-                    merge_df[['PRE_OPER3_b1', 'PRE_OPER3_b0']] = merge_df[['PRE_OPER3_b1', 'PRE_OPER3_b0']].fillna(merge_df[['PRE_OPER3_b1', 'PRE_OPER3_b0']].mean())
-                    merge_df[Thk_key+'_VM'] = merge_df[Thk_key+'_VM'] + (
-                        merge_df[Pre_Oper_Desc3 + '.' + Pre_Oper_Para3] * merge_df['PRE_OPER3_b1'].fillna(0) + merge_df['PRE_OPER3_b0'].fillna(0)
-                    )
-                    merge_df.drop(columns=['PRE_OPER3_b1', 'PRE_OPER3_b0'], inplace=True)
-
-                if Pre_Oper_Desc4 != '':
-                    merge_df[['PRE_OPER4_b1', 'PRE_OPER4_b0']] = merge_df[['PRE_OPER4_b1', 'PRE_OPER4_b0']].fillna(merge_df[['PRE_OPER4_b1', 'PRE_OPER4_b0']].mean())
-                    merge_df[Thk_key+'_VM'] = merge_df[Thk_key+'_VM'] + (
-                        merge_df[Pre_Oper_Desc4 + '.' + Pre_Oper_Para4] * merge_df['PRE_OPER4_b1'].fillna(0) + merge_df['PRE_OPER4_b0'].fillna(0)
-                    )
-                    merge_df.drop(columns=['PRE_OPER4_b1', 'PRE_OPER4_b0'], inplace=True)
+                    merge_df.drop(columns=[b1_col, b0_col], inplace=True)
 
         finally:
             client.close()
