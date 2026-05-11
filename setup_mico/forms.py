@@ -23,6 +23,10 @@ class CategoryForm(forms.ModelForm):
 
 
 class SubCategoryForm(forms.ModelForm):
+    def __init__(self, *args, **kwargs):
+        super().__init__(*args, **kwargs)
+        self.fields['category'].queryset = Category.objects.order_by('product', 'oper_id', 'oper_desc')
+
     class Meta:
         model = SubCategory
         fields = ['category', 'fab', 'device', 'recipe_id', 'maker']
@@ -43,6 +47,10 @@ class SubCategoryForm(forms.ModelForm):
 
 
 class DetailForm(forms.ModelForm):
+    def __init__(self, *args, **kwargs):
+        super().__init__(*args, **kwargs)
+        self.fields['subcategory'].queryset = SubCategory.objects.order_by('fab', 'device', 'recipe_id')
+
     class Meta:
         model = Detail
         fields = [

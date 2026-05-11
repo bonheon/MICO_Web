@@ -695,8 +695,18 @@ document.querySelectorAll('#bulkEditModal .bulk-chk').forEach(chk => {
 });
 
 // 컬럼별 검색
+const FILTER_KEY = 'filter_detail';
+
+function saveFilters() {
+  const state = {};
+  document.querySelectorAll('.col-search').forEach(input => {
+    if (input.value) state[input.dataset.col] = input.value;
+  });
+  sessionStorage.setItem(FILTER_KEY, JSON.stringify(state));
+}
+
 document.querySelectorAll('.col-search').forEach(input => {
-  input.addEventListener('input', filterRows);
+  input.addEventListener('input', () => { saveFilters(); filterRows(); });
 });
 
 function filterRows() {
@@ -716,5 +726,15 @@ function filterRows() {
   });
   updateBulkBtn();
 }
+
+(function restoreFilters() {
+  const saved = sessionStorage.getItem(FILTER_KEY);
+  if (!saved) return;
+  const state = JSON.parse(saved);
+  document.querySelectorAll('.col-search').forEach(input => {
+    if (state[input.dataset.col]) input.value = state[input.dataset.col];
+  });
+  filterRows();
+})();
 </script>
 {% endblock %}

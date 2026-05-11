@@ -631,7 +631,17 @@ document.addEventListener('click', function(e) {
 });
 
 // 통합 필터 (family + 검색어)
+const FILTER_KEY = 'filter_setup_status';
 let activeFamily = 'ALL';
+
+function saveFilters() {
+  sessionStorage.setItem(FILTER_KEY, JSON.stringify({
+    product:  document.getElementById('search-product').value,
+    operId:   document.getElementById('search-oper-id').value,
+    operDesc: document.getElementById('search-oper-desc').value,
+    family:   activeFamily,
+  }));
+}
 
 function applySearch() {
   const product  = document.getElementById('search-product').value.trim().toLowerCase();
@@ -644,6 +654,7 @@ function applySearch() {
     const operDescMatch = !operDesc || el.dataset.operDesc.includes(operDesc);
     el.style.display = (familyMatch && productMatch && operIdMatch && operDescMatch) ? '' : 'none';
   });
+  saveFilters();
 }
 
 // Family 필터
@@ -671,8 +682,30 @@ document.getElementById('clearSearch').addEventListener('click', () => {
   document.getElementById('search-product').value = '';
   document.getElementById('search-oper-id').value = '';
   document.getElementById('search-oper-desc').value = '';
+  activeFamily = 'ALL';
+  document.querySelectorAll('.family-filter').forEach(b => { b.classList.remove('active'); applyFamStyle(b, false); });
+  const allBtn = document.querySelector('.family-filter[data-family="ALL"]');
+  if (allBtn) { allBtn.classList.add('active'); applyFamStyle(allBtn, true); }
+  sessionStorage.removeItem(FILTER_KEY);
   applySearch();
 });
+
+// 페이지 로드 시 필터 복원
+(function restoreFilters() {
+  const saved = sessionStorage.getItem(FILTER_KEY);
+  if (!saved) return;
+  const state = JSON.parse(saved);
+  if (state.product)  document.getElementById('search-product').value = state.product;
+  if (state.operId)   document.getElementById('search-oper-id').value = state.operId;
+  if (state.operDesc) document.getElementById('search-oper-desc').value = state.operDesc;
+  if (state.family && state.family !== 'ALL') {
+    activeFamily = state.family;
+    document.querySelectorAll('.family-filter').forEach(b => { b.classList.remove('active'); applyFamStyle(b, false); });
+    const targetBtn = document.querySelector(`.family-filter[data-family="${state.family}"]`);
+    if (targetBtn) { targetBtn.classList.add('active'); applyFamStyle(targetBtn, true); }
+  }
+  applySearch();
+})();
 
 // 전체 펼치기
 document.getElementById('expandAll').addEventListener('click', () => {

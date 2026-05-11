@@ -144,6 +144,29 @@
     border-top: 1px solid #e4e7ed;
   }
   .section-title:first-child { border-top: none; padding-top: 0; margin-top: 0; }
+
+  /* ── Dark Mode ── */
+  [data-theme="dark"] .content-card { background: #1f2937 !important; border-color: #374151 !important; }
+  [data-theme="dark"] .content-header { border-bottom-color: #374151 !important; }
+  [data-theme="dark"] .content-title { color: #f1f5f9 !important; }
+  [data-theme="dark"] .content-sub   { color: #9ca3af !important; }
+  [data-theme="dark"] .info-bar { background: #263348 !important; border-bottom-color: #374151 !important; color: #d1d5db !important; }
+  [data-theme="dark"] .date-filter-bar { background: #1f2937 !important; border-color: #374151 !important; }
+  [data-theme="dark"] .date-filter-label { color: #9ca3af !important; }
+  [data-theme="dark"] .date-quick-btn { background: #263348 !important; border-color: #374151 !important; color: #d1d5db !important; }
+  [data-theme="dark"] .date-quick-btn:hover { border-color: #4f8ef7 !important; color: #4f8ef7 !important; background: #263348 !important; }
+  [data-theme="dark"] .date-divider { background: #374151 !important; }
+  [data-theme="dark"] .date-input { background: #1e2a40 !important; border-color: #3d4f6d !important; color: #f1f5f9 !important; }
+  [data-theme="dark"] .date-input:focus { border-color: #4f8ef7 !important; background: #1e2a40 !important; }
+  [data-theme="dark"] .chart-box { background: #263348 !important; border-color: #374151 !important; }
+  [data-theme="dark"] .chart-box-title { color: #d1d5db !important; }
+  [data-theme="dark"] .section-title { color: #d1d5db !important; border-top-color: #374151 !important; }
+  [data-theme="dark"] .empty-state { color: #9ca3af !important; }
+  [data-theme="dark"] .empty-state i { color: #4b5563 !important; }
+  [data-theme="dark"] .empty-state .em-title { color: #d1d5db !important; }
+  [data-theme="dark"] .loading-state { color: #9ca3af !important; }
+  [data-theme="dark"] .error-state   { color: #d1d5db !important; }
+  [data-theme="dark"] .db-pending    { color: #9ca3af !important; }
 </style>
 
 <!-- Selector -->
@@ -256,6 +279,26 @@
 
 {% block scripts %}
 <script>
+// ── Dark mode helpers ──
+const dm = () => document.documentElement.getAttribute('data-theme') === 'dark';
+const DM = {
+  card:    '#1f2937', card2: '#263348', border: '#374151',
+  body:    '#d1d5db', muted: '#9ca3af', input:  '#1e2a40',
+};
+const dmStyle = (light) => dm() ? light
+  .replace(/#fff(?![\da-f])/gi, DM.card)
+  .replace(/#f8f9fc/g, DM.card2).replace(/#fafbfc/g, DM.card2)
+  .replace(/#f0f2f7/g, DM.card2)
+  .replace(/1px solid #e4e7ed/g, `1px solid ${DM.border}`)
+  .replace(/color:#344054/g, `color:${DM.body}`)
+  .replace(/color:#8993a8/g, `color:${DM.muted}`)
+  : light;
+const dmChip = (bg, col) => dm() ? ({
+  '#f0fdf4': ['#052e16','#4ade80'], '#fdf4ff': ['#2d1b4e','#c084fc'],
+  '#fff7ed': ['#2d1200','#fb923c'], '#f0f2f7': ['#1f2937','#9ca3af'],
+  '#eff6ff': ['#0c1f3f','#60a5fa'],
+}[bg] || [DM.card2, DM.body]) : [bg, col];
+
 // ── Cascade 데이터 ──
 // 구조: { device: { oper_desc: [fab, ...] } }
 const CASCADE = {{ cascade_json|safe }};
@@ -503,7 +546,8 @@ function updateInfoBar(device, oper_desc, fab, collection) {
       dateChip = document.createElement('span');
       dateChip.id = 'info-date';
       dateChip.className = 'chip';
-      dateChip.style.cssText = 'background:#fff7ed; color:#f97316;';
+      const [dcBg, dcCol] = dmChip('#fff7ed', '#f97316');
+      dateChip.style.cssText = `background:${dcBg}; color:${dcCol};`;
       const infoBar = document.getElementById('info-bar');
       infoBar.appendChild(Object.assign(document.createElement('i'), {
         className: 'bi bi-calendar3', style: 'color:#f97316;', id: 'info-date-icon'
@@ -519,7 +563,8 @@ function updateInfoBar(device, oper_desc, fab, collection) {
 
   document.getElementById('data-status').innerHTML =
     '<i class="bi bi-check-circle me-1"></i> 조회 완료';
-  document.getElementById('data-status').style.cssText = 'background:#f0fdf4; color:#22c55e;';
+  const [stBg, stCol] = dmChip('#f0fdf4', '#22c55e');
+  document.getElementById('data-status').style.cssText = `background:${stBg}; color:${stCol};`;
   document.getElementById('content-sub').textContent =
     `${device} / ${oper_desc} / ${fab}`;
 }
@@ -563,7 +608,7 @@ function renderPreThkContent(data, collectionName) {
 
   // 헤더
   const hdr = document.createElement('div');
-  hdr.style.cssText = 'padding:0.55rem 1.5rem; font-size:0.72rem; color:#8993a8; background:#f8f9fc; border-bottom:1px solid #e4e7ed; display:flex; align-items:center; gap:0.5rem;';
+  hdr.style.cssText = dmStyle('padding:0.55rem 1.5rem; font-size:0.72rem; color:#8993a8; background:#f8f9fc; border-bottom:1px solid #e4e7ed; display:flex; align-items:center; gap:0.5rem;');
   hdr.innerHTML = `
     <i class="bi bi-database"></i>
     <code style="font-size:0.72rem;">${collectionName}</code>
@@ -773,7 +818,7 @@ function renderRRContent(data, recipeIds, collectionName) {
 
   // 헤더
   const hdr = document.createElement('div');
-  hdr.style.cssText = 'padding:0.55rem 1.5rem; font-size:0.72rem; color:#8993a8; background:#f8f9fc; border-bottom:1px solid #e4e7ed; display:flex; align-items:center; gap:0.5rem;';
+  hdr.style.cssText = dmStyle('padding:0.55rem 1.5rem; font-size:0.72rem; color:#8993a8; background:#f8f9fc; border-bottom:1px solid #e4e7ed; display:flex; align-items:center; gap:0.5rem;');
   hdr.innerHTML = `
     <i class="bi bi-database"></i>
     <code style="font-size:0.72rem;">${collectionName}</code>
@@ -784,7 +829,7 @@ function renderRRContent(data, recipeIds, collectionName) {
 
   // Recipe_ID 선택 패널
   const recipePanel = document.createElement('div');
-  recipePanel.style.cssText = 'padding:1rem 1.5rem; border-bottom:1px solid #e4e7ed; background:#fff;';
+  recipePanel.style.cssText = dmStyle('padding:1rem 1.5rem; border-bottom:1px solid #e4e7ed; background:#fff;');
   recipePanel.innerHTML = `
     <div style="font-size:0.72rem; font-weight:600; color:#8993a8; text-transform:uppercase; letter-spacing:0.06em; margin-bottom:0.6rem;">
       <i class="bi bi-card-list me-1"></i>Recipe ID 선택
@@ -794,7 +839,7 @@ function renderRRContent(data, recipeIds, collectionName) {
 
   // APC_Para 선택 패널
   const aparaPanel = document.createElement('div');
-  aparaPanel.style.cssText = 'padding:0.75rem 1.5rem; border-bottom:1px solid #e4e7ed; background:#fafbfc;';
+  aparaPanel.style.cssText = dmStyle('padding:0.75rem 1.5rem; border-bottom:1px solid #e4e7ed; background:#fafbfc;');
   aparaPanel.innerHTML = `
     <div style="font-size:0.72rem; font-weight:600; color:#8993a8; text-transform:uppercase; letter-spacing:0.06em; margin-bottom:0.6rem;">
       <i class="bi bi-sliders me-1"></i>APC Para 선택
@@ -821,7 +866,7 @@ function renderRRContent(data, recipeIds, collectionName) {
     aparaBtns.innerHTML = '';
     const aparaValues = [...new Set(recipeData.map(d => d.APC_Para).filter(Boolean))].sort();
 
-    const btnStyle      = 'border-radius:8px; font-size:0.8rem; border:1px solid #e4e7ed; background:#f8f9fc; color:#344054;';
+    const btnStyle      = dmStyle('border-radius:8px; font-size:0.8rem; border:1px solid #e4e7ed; background:#f8f9fc; color:#344054;');
     const btnStyleActive = 'border-radius:8px; font-size:0.8rem; border:1px solid #f97316; background:#f97316; color:#fff; font-weight:600;';
 
     function activateApara(selectedBtn, apara) {
@@ -863,7 +908,7 @@ function renderRRContent(data, recipeIds, collectionName) {
 
   // ── Recipe_ID 버튼 ──
   const btnGroup = recipePanel.querySelector('#rr-recipe-btns');
-  const recipeBtnStyle      = 'border-radius:8px; font-size:0.8rem; border:1px solid #e4e7ed; background:#f8f9fc; color:#344054;';
+  const recipeBtnStyle      = dmStyle('border-radius:8px; font-size:0.8rem; border:1px solid #e4e7ed; background:#f8f9fc; color:#344054;');
   const recipeBtnStyleActive = 'border-radius:8px; font-size:0.8rem; border:1px solid #4f8ef7; background:#4f8ef7; color:#fff; font-weight:600;';
 
   recipeIds.forEach((rid, i) => {
@@ -1018,7 +1063,7 @@ function renderOffsetContent(data, recipeIds, collectionName) {
 
   // 헤더
   const hdr = document.createElement('div');
-  hdr.style.cssText = 'padding:0.55rem 1.5rem; font-size:0.72rem; color:#8993a8; background:#f8f9fc; border-bottom:1px solid #e4e7ed; display:flex; align-items:center; gap:0.5rem;';
+  hdr.style.cssText = dmStyle('padding:0.55rem 1.5rem; font-size:0.72rem; color:#8993a8; background:#f8f9fc; border-bottom:1px solid #e4e7ed; display:flex; align-items:center; gap:0.5rem;');
   hdr.innerHTML = `
     <i class="bi bi-database"></i>
     <code style="font-size:0.72rem;">${collectionName}</code>
@@ -1029,7 +1074,7 @@ function renderOffsetContent(data, recipeIds, collectionName) {
 
   // Recipe_ID 선택 패널
   const recipePanel = document.createElement('div');
-  recipePanel.style.cssText = 'padding:1rem 1.5rem; border-bottom:1px solid #e4e7ed; background:#fff;';
+  recipePanel.style.cssText = dmStyle('padding:1rem 1.5rem; border-bottom:1px solid #e4e7ed; background:#fff;');
   recipePanel.innerHTML = `
     <div style="font-size:0.72rem; font-weight:600; color:#8993a8; text-transform:uppercase; letter-spacing:0.06em; margin-bottom:0.6rem;">
       <i class="bi bi-card-list me-1"></i>Recipe ID 선택
@@ -1043,12 +1088,12 @@ function renderOffsetContent(data, recipeIds, collectionName) {
     btn.className = 'btn btn-sm';
     btn.style.cssText = i === 0
       ? 'border-radius:8px; font-size:0.8rem; border:1px solid #4f8ef7; background:#4f8ef7; color:#fff; font-weight:600;'
-      : 'border-radius:8px; font-size:0.8rem; border:1px solid #e4e7ed; background:#f8f9fc; color:#344054;';
+      : dmStyle('border-radius:8px; font-size:0.8rem; border:1px solid #e4e7ed; background:#f8f9fc; color:#344054;');
     btn.textContent = rid;
     btn.dataset.recipe = rid;
     btn.addEventListener('click', function() {
       btnGroup.querySelectorAll('button').forEach(b => {
-        b.style.cssText = 'border-radius:8px; font-size:0.8rem; border:1px solid #e4e7ed; background:#f8f9fc; color:#344054;';
+        b.style.cssText = dmStyle('border-radius:8px; font-size:0.8rem; border:1px solid #e4e7ed; background:#f8f9fc; color:#344054;');
       });
       this.style.cssText = 'border-radius:8px; font-size:0.8rem; border:1px solid #4f8ef7; background:#4f8ef7; color:#fff; font-weight:600;';
       renderOffsetChart(offsetAllData.filter(d => d.recipe_id === this.dataset.recipe));

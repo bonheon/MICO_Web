@@ -2,7 +2,8 @@ import requests
 from django.shortcuts import render, redirect, get_object_or_404
 from django.http import JsonResponse
 from django.contrib import messages
-from django.db.models import Count
+from django.db.models import Count, Case, When, Value, IntegerField
+from django.db.models import Prefetch
 from django.db.models.functions import TruncDate
 from django.contrib.auth import authenticate, login, logout
 from django.contrib.auth.forms import UserCreationForm, AuthenticationForm
@@ -603,8 +604,12 @@ def setup_history(request):
 
 @login_required
 def setup_status(request):
+    details_qs = Detail.objects.order_by(
+        Case(When(fb_type='TIME', then=Value(0)), default=Value(1), output_field=IntegerField()),
+        'apc_para',
+    )
     categories = Category.objects.prefetch_related(
-        'subcategories__details'
+        Prefetch('subcategories__details', queryset=details_qs)
     ).annotate(
         detail_count=Count('subcategories__details')
     ).order_by('family', 'oper_desc', 'product')
