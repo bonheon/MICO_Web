@@ -11,7 +11,7 @@ from django.contrib.auth.decorators import login_required
 from django.contrib.auth.models import User
 from django.utils import timezone
 from datetime import timedelta
-from .models import Category, SubCategory, Detail, Voc, RecipeGroup, AccessLog, SetupHistory, SimulationLink
+from .models import Category, SubCategory, Detail, Voc, RecipeGroup, AccessLog, SetupHistory, SimulationLink, PolTypeConfig
 from .forms import CategoryForm, SubCategoryForm, DetailForm, VocForm, VocReplyForm
 
 
@@ -847,6 +847,14 @@ def category_list(request):
     })
 
 
+def _parse_pol_type(request):
+    val = request.POST.get('pol_type', '').strip()
+    try:
+        return int(val) if val else None
+    except ValueError:
+        return None
+
+
 @login_required
 def category_create(request):
     if request.method == 'POST':
@@ -854,6 +862,7 @@ def category_create(request):
         if form.is_valid():
             obj = form.save(commit=False)
             obj.created_by = request.user
+            obj.pol_type = _parse_pol_type(request)
             obj.save()
             _record(request.user, 'create', 'Category', str(obj), obj.pk, _cat_fields(obj))
             messages.success(request, 'Category가 추가되었습니다.')
@@ -870,7 +879,9 @@ def category_update(request, pk):
         old = _cat_fields(category)
         form = CategoryForm(request.POST, instance=category)
         if form.is_valid():
-            obj = form.save()
+            obj = form.save(commit=False)
+            obj.pol_type = _parse_pol_type(request)
+            obj.save()
             diff = _diff(old, _cat_fields(obj))
             if diff:
                 _record(request.user, 'update', 'Category', str(obj), obj.pk, diff)
@@ -1632,6 +1643,115 @@ def access_stats(request):
         'top_pages': top_pages,
     })
 
+
+
+# ── Pol Type Config ──────────────────────────────────────────────────────────
+
+@login_required
+def pol_type_list(request):
+    configs = PolTypeConfig.objects.prefetch_related('created_by').order_by('pol_type')
+
+    assigned_types = set(configs.values_list('pol_type', flat=True))
+    all_categories = Category.objects.order_by('product', 'oper_desc')
+
+    configs_with_cats = []
+    for config in configs:
+        cats = [c for c in all_categories if c.pol_type == config.pol_type]
+        configs_with_cats.append({'config': config, 'categories': cats})
+
+    unassigned_cats = [c for c in all_categories if c.pol_type is None]
+    orphan_cats     = [c for c in all_categories if c.pol_type is not None and c.pol_type not in assigned_types]
+
+    return render(request, 'setup_mico/pol_type_list.html', {
+        'configs_with_cats': configs_with_cats,
+        'unassigned_cats':   unassigned_cats,
+        'orphan_cats':       orphan_cats,
+        'all_configs':       list(configs),
+    })
+
+
+def _parse_mappings(request):
+    """
+    폼에서 반복 전송된 repr[] / steps[] 쌍을 파싱하여
+    [{"repr": "PB_04_TIME", "steps": ["PA_04_TIME", "PB_04_TIME"]}, ...] 형태로 반환.
+    repr, steps 모두 완전한 파라미터 이름 (suffix 상속 없음).
+    """
+    reprs  = request.POST.getlist('repr')
+    steps  = request.POST.getlist('steps')
+    result = []
+    for r, s in zip(reprs, steps):
+        r = r.strip().upper()
+        s_list = [x.strip().upper() for x in s.split(',') if x.strip()]
+        if r and s_list:
+            result.append({'repr': r, 'steps': s_list})
+    return result
+
+
+@login_required
+def pol_type_create(request):
+    if request.method == 'POST':
+        try:
+            pol_type_num = int(request.POST.get('pol_type', 0))
+        except (ValueError, TypeError):
+            messages.error(request, 'Pol Type 번호는 정수여야 합니다.')
+            return redirect('pol_type_list')
+
+        if PolTypeConfig.objects.filter(pol_type=pol_type_num).exists():
+            messages.error(request, f'Pol Type {pol_type_num} 은(는) 이미 존재합니다.')
+            return redirect('pol_type_list')
+
+        mappings    = _parse_mappings(request)
+        description = request.POST.get('description', '').strip()
+        PolTypeConfig.objects.create(
+            pol_type=pol_type_num, steps=mappings,
+            description=description, created_by=request.user,
+        )
+        messages.success(request, f'Pol Type {pol_type_num} 이(가) 추가되었습니다.')
+    return redirect('pol_type_list')
+
+
+@login_required
+def pol_type_update(request, pk):
+    config = get_object_or_404(PolTypeConfig, pk=pk)
+    if request.method == 'POST':
+        try:
+            new_num = int(request.POST.get('pol_type', 0))
+        except (ValueError, TypeError):
+            messages.error(request, 'Pol Type 번호는 정수여야 합니다.')
+            return redirect('pol_type_list')
+
+        if PolTypeConfig.objects.filter(pol_type=new_num).exclude(pk=pk).exists():
+            messages.error(request, f'Pol Type {new_num} 은(는) 이미 존재합니다.')
+            return redirect('pol_type_list')
+
+        config.pol_type    = new_num
+        config.steps       = _parse_mappings(request)
+        config.description = request.POST.get('description', '').strip()
+        config.save()
+        messages.success(request, f'Pol Type {config.pol_type} 이(가) 수정되었습니다.')
+    return redirect('pol_type_list')
+
+
+@login_required
+def pol_type_delete(request, pk):
+    config = get_object_or_404(PolTypeConfig, pk=pk)
+    if request.method == 'POST':
+        num = config.pol_type
+        config.delete()
+        messages.success(request, f'Pol Type {num} 이(가) 삭제되었습니다.')
+    return redirect('pol_type_list')
+
+
+@login_required
+def pol_type_assign_category(request):
+    """Category에 pol_type 번호를 일괄/개별 지정"""
+    if request.method == 'POST':
+        cat_pk       = request.POST.get('cat_pk')
+        pol_type_val = request.POST.get('pol_type_val', '').strip()
+        cat = get_object_or_404(Category, pk=cat_pk)
+        cat.pol_type = int(pol_type_val) if pol_type_val else None
+        cat.save()
+    return redirect('pol_type_list')
 
 
 # ── Error handlers ──────────────────────────────────────────────────────────

@@ -2,6 +2,26 @@ from django.db import models
 from django.contrib.auth.models import User
 
 
+class PolTypeConfig(models.Model):
+    pol_type    = models.IntegerField(unique=True, verbose_name='Pol Type 번호')
+    steps       = models.JSONField(default=list, verbose_name='Step 목록')
+    description = models.CharField(max_length=200, blank=True, default='', verbose_name='설명')
+    created_by  = models.ForeignKey(
+        User, on_delete=models.SET_NULL, null=True, blank=True,
+        related_name='created_pol_type_configs', verbose_name='등록자'
+    )
+    created_at = models.DateTimeField(auto_now_add=True)
+    updated_at = models.DateTimeField(auto_now=True)
+
+    class Meta:
+        verbose_name = 'Pol Type Config'
+        verbose_name_plural = 'Pol Type Configs'
+        ordering = ['pol_type']
+
+    def __str__(self):
+        return f'Type {self.pol_type}'
+
+
 class Category(models.Model):
     FAMILY_CHOICES = [('NAND', 'NAND'), ('DRAM', 'DRAM')]
 
@@ -10,6 +30,7 @@ class Category(models.Model):
     oper_id = models.CharField(max_length=100, verbose_name='공정 ID', default='')
     oper_desc = models.CharField(max_length=100, verbose_name='공정 설명', default='')
     channel_id = models.CharField(max_length=100, verbose_name='Channel ID', default='500019173')
+    pol_type   = models.IntegerField(null=True, blank=True, verbose_name='Pol Type')
     created_by = models.ForeignKey(
         User, on_delete=models.SET_NULL, null=True, blank=True,
         related_name='created_categories', verbose_name='등록자'

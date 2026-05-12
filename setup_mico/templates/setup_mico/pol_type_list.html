@@ -1,0 +1,615 @@
+{% extends 'setup_mico/base.html' %}
+{% block title %}| Pol Type 설정{% endblock %}
+{% block nav_setup %}active{% endblock %}
+{% block setup_expanded %}true{% endblock %}
+{% block setup_show %}show{% endblock %}
+{% block nav_pol_type %}active{% endblock %}
+
+{% block breadcrumb %}
+<li class="breadcrumb-item">Configuration</li>
+<li class="breadcrumb-item active">Pol Type 설정</li>
+{% endblock %}
+
+{% block content %}
+<style>
+  .pt-card {
+    background: #fff;
+    border: 1px solid #e4e7ed;
+    border-radius: 12px;
+    overflow: hidden;
+    margin-bottom: 1.25rem;
+  }
+  .pt-card-header {
+    display: flex;
+    align-items: center;
+    gap: 1rem;
+    padding: 1rem 1.25rem;
+    border-bottom: 1px solid #e4e7ed;
+    background: #f8f9fc;
+  }
+  .pt-type-badge {
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    width: 46px; height: 46px;
+    border-radius: 10px;
+    font-size: 1.15rem;
+    font-weight: 800;
+    flex-shrink: 0;
+    background: #eef2ff;
+    color: #4f46e5;
+  }
+  .pt-type-num { font-size: 1.05rem; font-weight: 700; color: #1e2640; }
+  .pt-desc     { font-size: 0.8rem; color: #8993a8; margin-top: 0.1rem; }
+
+  /* 매핑 테이블 */
+  .mapping-table { width: 100%; border-collapse: collapse; font-size: 0.83rem; }
+  .mapping-table thead th {
+    background: #f8f9fc;
+    font-size: 0.72rem; font-weight: 600;
+    text-transform: uppercase; letter-spacing: 0.05em; color: #8993a8;
+    padding: 0.5rem 1.25rem;
+    border-bottom: 1px solid #e4e7ed;
+  }
+  .mapping-table tbody td {
+    padding: 0.55rem 1.25rem;
+    border-bottom: 1px solid #f0f2f7;
+    vertical-align: middle;
+  }
+  .mapping-table tbody tr:last-child td { border-bottom: none; }
+  .mapping-table tbody tr:hover td { background: #f8f9fc; }
+
+  .repr-chip {
+    display: inline-block;
+    padding: 0.22em 0.75em;
+    border-radius: 6px;
+    font-family: 'Consolas', 'Courier New', monospace;
+    font-size: 0.82rem; font-weight: 600;
+    background: #eef2ff; color: #4338ca;
+    border: 1px solid #c7d2fe;
+  }
+  .step-chip {
+    display: inline-block;
+    padding: 0.18em 0.65em;
+    border-radius: 6px;
+    font-family: 'Consolas', 'Courier New', monospace;
+    font-size: 0.78rem;
+    background: #f0fdf4; color: #15803d;
+    border: 1px solid #bbf7d0;
+    margin: 0.1rem 0.15rem 0.1rem 0;
+  }
+  .arrow-cell { color: #8993a8; width: 28px; text-align: center; padding: 0 0.25rem !important; }
+
+  /* 공정 구역 */
+  .cat-section {
+    border-top: 1px solid #e4e7ed;
+    padding: 0.75rem 1.25rem;
+  }
+  .cat-section-title {
+    font-size: 0.72rem; font-weight: 600;
+    text-transform: uppercase; letter-spacing: 0.05em;
+    color: #8993a8; margin-bottom: 0.5rem;
+    display: flex; align-items: center; gap: 0.5rem;
+  }
+  .cat-row {
+    display: flex; align-items: center; gap: 0.5rem;
+    padding: 0.4rem 0;
+    border-bottom: 1px solid #f0f2f7;
+    font-size: 0.83rem;
+  }
+  .cat-row:last-child { border-bottom: none; }
+
+  /* 모달: 매핑 행 입력 */
+  .mapping-input-row {
+    display: grid;
+    grid-template-columns: 1fr 24px 1fr 30px;
+    align-items: center;
+    gap: 0.4rem;
+    margin-bottom: 0.4rem;
+  }
+  .mapping-input-row input { font-family: 'Consolas', 'Courier New', monospace; font-size: 0.81rem; }
+  .mapping-arrow { text-align: center; color: #8993a8; }
+  .btn-del-row {
+    width: 28px; height: 28px; border: none; border-radius: 6px;
+    background: #fff1f2; color: #ef4444; cursor: pointer;
+    display: flex; align-items: center; justify-content: center;
+    font-size: 0.85rem; flex-shrink: 0;
+  }
+  .btn-del-row:hover { background: #fecdd3; }
+  .col-hdr {
+    display: grid;
+    grid-template-columns: 1fr 24px 1fr 30px;
+    gap: 0.4rem; margin-bottom: 0.3rem;
+  }
+  .col-hdr span { font-size: 0.72rem; font-weight: 600; color: #8993a8; text-transform: uppercase; letter-spacing: 0.04em; }
+
+  .assign-select {
+    font-size: 0.78rem; border-radius: 6px;
+    border: 1px solid #dde1ea; padding: 0.15rem 0.4rem;
+    background: #fff; color: #344054; cursor: pointer;
+  }
+
+  /* Dark mode */
+  [data-theme="dark"] .pt-card            { background: var(--dm-card); border-color: var(--dm-border); }
+  [data-theme="dark"] .pt-card-header     { background: rgba(255,255,255,0.03); border-bottom-color: var(--dm-border); }
+  [data-theme="dark"] .pt-type-num        { color: var(--dm-text); }
+  [data-theme="dark"] .pt-desc            { color: var(--dm-muted); }
+  [data-theme="dark"] .pt-type-badge      { background: #1e1b4b; color: #818cf8; }
+  [data-theme="dark"] .mapping-table thead th { background: rgba(255,255,255,0.03) !important; color: var(--dm-muted) !important; border-bottom-color: var(--dm-border) !important; }
+  [data-theme="dark"] .mapping-table tbody td { color: var(--dm-body) !important; border-bottom-color: var(--dm-border); }
+  [data-theme="dark"] .mapping-table tbody tr:hover td { background: var(--dm-hover) !important; }
+  [data-theme="dark"] .repr-chip          { background: #1e1b4b; color: #a5b4fc; border-color: #3730a3; }
+  [data-theme="dark"] .step-chip          { background: #052e16; color: #4ade80; border-color: #166534; }
+  [data-theme="dark"] .arrow-cell         { color: var(--dm-muted) !important; }
+  [data-theme="dark"] .cat-section        { border-top-color: var(--dm-border); }
+  [data-theme="dark"] .cat-section-title  { color: var(--dm-muted); }
+  [data-theme="dark"] .cat-row            { border-bottom-color: var(--dm-border); color: var(--dm-body); }
+  [data-theme="dark"] .assign-select      { background: var(--dm-input); border-color: var(--dm-input-border); color: var(--dm-text); }
+  [data-theme="dark"] .btn-del-row        { background: #3b0f0f; color: #f87171; }
+  [data-theme="dark"] .btn-del-row:hover  { background: #7f1d1d; }
+  [data-theme="dark"] .col-hdr span       { color: var(--dm-muted); }
+
+  /* 필터 바 */
+  [data-theme="dark"] .type-jump-btn { background:#1e1b4b !important; color:#a5b4fc !important; border-color:#3730a3 !important; }
+  [data-theme="dark"] .type-jump-btn.active { background:#4338ca !important; color:#fff !important; }
+  .type-jump-btn.active { background:#4f46e5 !important; color:#fff !important; border-color:#4f46e5 !important; }
+</style>
+
+<div class="d-flex align-items-center justify-content-between mb-3">
+  <div>
+    <h5 class="fw-bold mb-0" style="color:#1e2640;">Pol Type 설정</h5>
+    <small class="text-muted">APC Para별 Removal Rate 계산 Step 매핑 관리</small>
+  </div>
+  <button class="btn btn-primary btn-sm" style="border-radius:8px;"
+          onclick="openAddModal()" data-bs-toggle="modal" data-bs-target="#ptModal">
+    <i class="bi bi-plus-lg me-1"></i> 추가
+  </button>
+</div>
+
+<!-- ── 필터 바 ── -->
+<div class="table-card mb-3" style="padding:0.85rem 1.25rem;">
+  <div class="d-flex align-items-center gap-3 flex-wrap">
+    <!-- 텍스트 검색 -->
+    <div class="position-relative" style="min-width:220px;">
+      <i class="bi bi-search position-absolute" style="left:0.65rem;top:50%;transform:translateY(-50%);color:#8993a8;font-size:0.85rem;pointer-events:none;"></i>
+      <input type="text" id="ptSearch" class="form-control form-control-sm"
+             placeholder="Type 번호, 설명, APC Para, 공정명 검색..."
+             style="padding-left:2rem;border-radius:8px;font-size:0.82rem;">
+    </div>
+    <!-- Type 번호 빠른 이동 버튼 -->
+    <div class="d-flex flex-wrap gap-1" id="typeJumpBtns">
+      {% for item in configs_with_cats %}
+      <a href="#pt-card-{{ item.config.pol_type }}" class="type-jump-btn"
+         style="display:inline-block;padding:0.2em 0.7em;border-radius:6px;font-size:0.75rem;font-weight:600;background:#eef2ff;color:#4f46e5;text-decoration:none;border:1px solid #c7d2fe;"
+         data-type="{{ item.config.pol_type }}">
+        Type {{ item.config.pol_type }}
+      </a>
+      {% endfor %}
+    </div>
+    <!-- 결과 없음 텍스트 (JS로 토글) -->
+    <span id="noResult" class="text-muted" style="font-size:0.82rem;display:none;">일치하는 결과 없음</span>
+  </div>
+</div>
+
+
+<!-- ── Pol Type 카드 ── -->
+{% for item in configs_with_cats %}
+<div class="pt-card pt-card-item"
+     id="pt-card-{{ item.config.pol_type }}"
+     data-poltype="{{ item.config.pol_type }}"
+     data-desc="{{ item.config.description|lower }}"
+     data-reprs="{% for row in item.config.steps %}{{ row.repr|lower }} {% endfor %}"
+     data-cats="{% for cat in item.categories %}{{ cat.product|lower }} {{ cat.oper_desc|lower }} {% endfor %}">
+
+  <div class="pt-card-header">
+    <div class="pt-type-badge">{{ item.config.pol_type }}</div>
+    <div class="flex-grow-1">
+      <div class="pt-type-num">Type {{ item.config.pol_type }}
+        {% if item.config.description %}
+          <span class="fw-normal text-muted ms-1" style="font-size:0.85rem;">— {{ item.config.description }}</span>
+        {% endif %}
+      </div>
+      <div class="pt-desc">
+        {{ item.config.steps|length }}개 APC Para 매핑 &nbsp;·&nbsp; 사용 공정 {{ item.categories|length }}개
+      </div>
+    </div>
+    <div class="d-flex gap-1 flex-shrink-0">
+      <button class="btn btn-sm"
+        style="padding:3px 10px; border-radius:6px; background:#f0f2f7; font-size:0.78rem;"
+        data-bs-toggle="modal" data-bs-target="#ptModal"
+        onclick="openEditModal({{ item.config.pk }}, {{ item.config.pol_type }}, '{{ item.config.description|escapejs }}', {{ item.config.steps|default:'[]'|safe }})">
+        <i class="bi bi-pencil"></i>
+      </button>
+      <button class="btn btn-sm"
+        style="padding:3px 10px; border-radius:6px; background:#fff1f2; color:#ef4444; font-size:0.78rem;"
+        onclick="openDeleteModal({{ item.config.pk }}, {{ item.config.pol_type }})">
+        <i class="bi bi-trash3"></i>
+      </button>
+    </div>
+  </div>
+
+  <!-- 매핑 테이블 -->
+  {% if item.config.steps %}
+  <table class="mapping-table">
+    <thead>
+      <tr>
+        <th style="width:200px;">APC Para (입력값)</th>
+        <th style="width:28px;"></th>
+        <th>계산에 사용하는 Steps</th>
+      </tr>
+    </thead>
+    <tbody>
+      {% for row in item.config.steps %}
+      <tr>
+        <td><span class="repr-chip">{{ row.repr }}</span></td>
+        <td class="arrow-cell"><i class="bi bi-arrow-right"></i></td>
+        <td>
+          {% for s in row.steps %}
+            <span class="step-chip">{{ s }}</span>
+          {% endfor %}
+        </td>
+      </tr>
+      {% endfor %}
+    </tbody>
+  </table>
+  {% else %}
+  <div style="padding:1rem 1.25rem; font-size:0.83rem; color:#8993a8;">
+    <i class="bi bi-exclamation-circle me-1"></i>매핑 규칙이 없습니다. 수정 버튼으로 추가해주세요.
+  </div>
+  {% endif %}
+
+  <!-- 사용 공정 -->
+  <div class="cat-section">
+    <div class="cat-section-title">
+      <i class="bi bi-diagram-3"></i> 사용 공정
+      <span class="badge-pill" style="background:#eef2ff; color:#4f46e5;">{{ item.categories|length }}</span>
+      <button class="btn btn-sm ms-auto"
+        style="font-size:0.72rem; padding:2px 8px; border-radius:6px; background:#f0f8ff; color:#4f8ef7;"
+        data-bs-toggle="modal" data-bs-target="#assignModal"
+        onclick="openAssignModal({{ item.config.pol_type }})">
+        <i class="bi bi-plus me-1"></i>공정 지정
+      </button>
+    </div>
+    {% if item.categories %}
+      {% for cat in item.categories %}
+      <div class="cat-row">
+        <span class="badge-pill flex-shrink-0" style="background:{% if cat.family == 'DRAM' %}#fff1f2;color:#f43f5e{% else %}#eef2ff;color:#6366f1{% endif %};font-size:0.72rem;">{{ cat.family }}</span>
+        <span class="fw-semibold" style="min-width:80px;">{{ cat.product }}</span>
+        <span class="badge-pill flex-shrink-0" style="background:#f0f2f7;color:#344054;font-size:0.72rem;font-family:monospace;">{{ cat.oper_id }}</span>
+        <span style="flex:1;">{{ cat.oper_desc }}</span>
+        <form method="post" action="{% url 'pol_type_assign_category' %}" style="margin:0;">
+          {% csrf_token %}
+          <input type="hidden" name="cat_pk" value="{{ cat.pk }}">
+          <input type="hidden" name="pol_type_val" value="">
+          <button type="submit" class="btn btn-sm"
+            style="padding:2px 7px;border-radius:6px;background:#fff1f2;color:#ef4444;font-size:0.72rem;"
+            title="Pol Type 해제">
+            <i class="bi bi-x"></i>
+          </button>
+        </form>
+      </div>
+      {% endfor %}
+    {% else %}
+      <p style="font-size:0.8rem;color:#8993a8;margin:0;padding:0.1rem 0;">
+        <i class="bi bi-dash me-1"></i>지정된 공정 없음
+      </p>
+    {% endif %}
+  </div>
+
+</div>
+{% empty %}
+<div class="pt-card">
+  <div style="padding:3rem 1.5rem;text-align:center;color:#8993a8;">
+    <i class="bi bi-inbox" style="font-size:2rem;display:block;margin-bottom:0.5rem;"></i>
+    <p class="mb-1">등록된 Pol Type 설정이 없습니다.</p>
+    <p style="font-size:0.82rem;">상단 추가 버튼으로 Pol Type을 등록해주세요.</p>
+  </div>
+</div>
+{% endfor %}
+
+
+<!-- ── Pol Type 미지정 공정 ── -->
+{% if unassigned_cats or orphan_cats %}
+<div class="pt-card">
+  <div class="pt-card-header">
+    <div class="pt-type-badge" style="background:#fef9c3;color:#ca8a04;">?</div>
+    <div>
+      <div class="pt-type-num" style="font-size:1rem;">Pol Type 미지정 공정</div>
+      <div class="pt-desc">아직 Pol Type이 설정되지 않은 Category 목록</div>
+    </div>
+  </div>
+  <div class="cat-section" style="border-top:none;">
+    {% for cat in unassigned_cats %}
+    <div class="cat-row">
+      <span class="badge-pill flex-shrink-0" style="background:{% if cat.family == 'DRAM' %}#fff1f2;color:#f43f5e{% else %}#eef2ff;color:#6366f1{% endif %};font-size:0.72rem;">{{ cat.family }}</span>
+      <span class="fw-semibold" style="min-width:80px;">{{ cat.product }}</span>
+      <span class="badge-pill flex-shrink-0" style="background:#f0f2f7;color:#344054;font-size:0.72rem;font-family:monospace;">{{ cat.oper_id }}</span>
+      <span style="flex:1;">{{ cat.oper_desc }}</span>
+      <form method="post" action="{% url 'pol_type_assign_category' %}" class="d-flex align-items-center gap-1" style="margin:0;">
+        {% csrf_token %}
+        <input type="hidden" name="cat_pk" value="{{ cat.pk }}">
+        <select name="pol_type_val" class="assign-select" required>
+          <option value="">Type 선택</option>
+          {% for cfg in all_configs %}
+          <option value="{{ cfg.pol_type }}">Type {{ cfg.pol_type }}{% if cfg.description %} — {{ cfg.description }}{% endif %}</option>
+          {% endfor %}
+        </select>
+        <button type="submit" class="btn btn-sm btn-primary" style="padding:2px 10px;border-radius:6px;font-size:0.78rem;">지정</button>
+      </form>
+    </div>
+    {% endfor %}
+    {% for cat in orphan_cats %}
+    <div class="cat-row">
+      <span class="badge-pill flex-shrink-0" style="background:{% if cat.family == 'DRAM' %}#fff1f2;color:#f43f5e{% else %}#eef2ff;color:#6366f1{% endif %};font-size:0.72rem;">{{ cat.family }}</span>
+      <span class="fw-semibold" style="min-width:80px;">{{ cat.product }}</span>
+      <span class="badge-pill flex-shrink-0" style="background:#f0f2f7;color:#344054;font-size:0.72rem;font-family:monospace;">{{ cat.oper_id }}</span>
+      <span style="flex:1;">{{ cat.oper_desc }}</span>
+      <span class="badge-pill me-1" style="background:#fff7ed;color:#c2410c;font-size:0.72rem;">Type {{ cat.pol_type }} (미등록)</span>
+      <form method="post" action="{% url 'pol_type_assign_category' %}" class="d-flex align-items-center gap-1" style="margin:0;">
+        {% csrf_token %}
+        <input type="hidden" name="cat_pk" value="{{ cat.pk }}">
+        <select name="pol_type_val" class="assign-select" required>
+          <option value="">Type 변경</option>
+          {% for cfg in all_configs %}
+          <option value="{{ cfg.pol_type }}">Type {{ cfg.pol_type }}{% if cfg.description %} — {{ cfg.description }}{% endif %}</option>
+          {% endfor %}
+        </select>
+        <button type="submit" class="btn btn-sm btn-primary" style="padding:2px 10px;border-radius:6px;font-size:0.78rem;">지정</button>
+      </form>
+    </div>
+    {% endfor %}
+  </div>
+</div>
+{% endif %}
+
+
+<!-- ══ Add / Edit Modal ══ -->
+<div class="modal fade" id="ptModal" tabindex="-1">
+  <div class="modal-dialog modal-dialog-centered" style="max-width:600px;">
+    <div class="modal-content" style="border-radius:14px;border:none;">
+      <div class="modal-header" style="border-bottom:1px solid #e4e7ed;padding:1.1rem 1.5rem;">
+        <h6 class="modal-title fw-bold" id="ptModalTitle">Pol Type 추가</h6>
+        <button type="button" class="btn-close" data-bs-dismiss="modal"></button>
+      </div>
+      <form id="ptForm" method="post">
+        {% csrf_token %}
+        <div class="modal-body" style="padding:1.5rem;">
+
+          <div class="row g-3 mb-4">
+            <div class="col-4">
+              <label class="form-label fw-semibold" style="font-size:0.82rem;">Pol Type 번호 <span class="text-danger">*</span></label>
+              <input type="number" name="pol_type" id="ptNum" class="form-control" placeholder="예: 1" required min="1">
+            </div>
+            <div class="col-8">
+              <label class="form-label fw-semibold" style="font-size:0.82rem;">설명</label>
+              <input type="text" name="description" id="ptDesc" class="form-control" placeholder="예: EBARA 2-platen (PA+PB pair)">
+            </div>
+          </div>
+
+          <div>
+            <div class="d-flex align-items-center justify-content-between mb-2">
+              <label class="form-label fw-semibold mb-0" style="font-size:0.82rem;">
+                APC Para → Step 매핑
+              </label>
+              <button type="button" class="btn btn-sm" onclick="addRow()"
+                style="font-size:0.75rem;padding:2px 10px;border-radius:6px;background:#f0f8ff;color:#4f8ef7;border:1px solid #c7dcff;">
+                <i class="bi bi-plus me-1"></i>행 추가
+              </button>
+            </div>
+
+            <div class="col-hdr px-1">
+              <span>APC Para (대표값) *</span>
+              <span></span>
+              <span>계산에 사용하는 Steps * (쉼표 구분)</span>
+              <span></span>
+            </div>
+
+            <div id="mappingRows"></div>
+
+            <div class="mt-2 px-1" style="font-size:0.75rem;color:#8993a8;">
+              <i class="bi bi-lightbulb me-1"></i>
+              전체 파라미터 이름을 그대로 입력하세요.
+              예) APC Para: <code>PB_04_TIME</code> → Steps: <code>PA_04_TIME, PB_04_TIME</code>
+              &nbsp;/&nbsp; APC Para: <code>PA_05_TIME</code> → Steps: <code>PB_04_TIME, PA_05_TIME</code>
+            </div>
+          </div>
+
+        </div>
+        <div class="modal-footer" style="border-top:1px solid #e4e7ed;padding:1rem 1.5rem;">
+          <button type="button" class="btn btn-sm btn-light" data-bs-dismiss="modal">취소</button>
+          <button type="submit" class="btn btn-sm btn-primary" style="border-radius:8px;">저장</button>
+        </div>
+      </form>
+    </div>
+  </div>
+</div>
+
+
+<!-- ══ Delete Modal ══ -->
+<div class="modal fade" id="deleteModal" tabindex="-1">
+  <div class="modal-dialog modal-dialog-centered" style="max-width:380px;">
+    <div class="modal-content" style="border-radius:14px;border:none;">
+      <div class="modal-body text-center" style="padding:2rem 1.5rem;">
+        <div style="width:52px;height:52px;border-radius:50%;background:#fff1f2;display:flex;align-items:center;justify-content:center;margin:0 auto 1rem;">
+          <i class="bi bi-exclamation-triangle-fill" style="color:#ef4444;font-size:1.4rem;"></i>
+        </div>
+        <p class="fw-bold mb-1" style="color:#1e2640;">삭제하시겠습니까?</p>
+        <p class="text-muted mb-0" style="font-size:0.83rem;" id="deleteTargetName"></p>
+      </div>
+      <div class="modal-footer justify-content-center border-0 pt-0 pb-3 gap-2">
+        <button type="button" class="btn btn-sm btn-light px-4" data-bs-dismiss="modal">취소</button>
+        <form id="deleteForm" method="post">
+          {% csrf_token %}
+          <button type="submit" class="btn btn-sm btn-danger px-4">삭제</button>
+        </form>
+      </div>
+    </div>
+  </div>
+</div>
+
+
+<!-- ══ 공정 지정 Modal ══ -->
+<div class="modal fade" id="assignModal" tabindex="-1">
+  <div class="modal-dialog modal-dialog-centered" style="max-width:540px;">
+    <div class="modal-content" style="border-radius:14px;border:none;">
+      <div class="modal-header" style="border-bottom:1px solid #e4e7ed;padding:1.1rem 1.5rem;">
+        <h6 class="modal-title fw-bold">공정에 Pol Type 지정</h6>
+        <button type="button" class="btn-close" data-bs-dismiss="modal"></button>
+      </div>
+      <div class="modal-body" style="padding:1.25rem 1.5rem;">
+        <p style="font-size:0.82rem;color:#8993a8;margin-bottom:0.75rem;">
+          공정을 선택하여 <strong id="assignTypeLabel" style="color:#1e2640;">Type ?</strong>을 지정합니다.
+        </p>
+        <div style="max-height:360px;overflow-y:auto;">
+          <table class="table table-hover mb-0" style="font-size:0.82rem;">
+            <thead>
+              <tr><th>Family</th><th>Product</th><th>Oper ID</th><th>Oper Desc</th><th>현재 Type</th><th></th></tr>
+            </thead>
+            <tbody>
+              {% for cat in unassigned_cats %}
+              <tr>
+                <td><span class="badge-pill" style="background:{% if cat.family == 'DRAM' %}#fff1f2;color:#f43f5e{% else %}#eef2ff;color:#6366f1{% endif %};font-size:0.7rem;">{{ cat.family }}</span></td>
+                <td>{{ cat.product }}</td>
+                <td><code style="font-size:0.78rem;">{{ cat.oper_id }}</code></td>
+                <td>{{ cat.oper_desc }}</td>
+                <td><span class="text-muted">—</span></td>
+                <td>
+                  <form method="post" action="{% url 'pol_type_assign_category' %}">
+                    {% csrf_token %}
+                    <input type="hidden" name="cat_pk" value="{{ cat.pk }}">
+                    <input type="hidden" name="pol_type_val" class="assign-type-val" value="">
+                    <button type="submit" class="btn btn-sm btn-primary" style="padding:2px 10px;font-size:0.75rem;border-radius:6px;">지정</button>
+                  </form>
+                </td>
+              </tr>
+              {% endfor %}
+              {% for item in configs_with_cats %}{% for cat in item.categories %}
+              <tr>
+                <td><span class="badge-pill" style="background:{% if cat.family == 'DRAM' %}#fff1f2;color:#f43f5e{% else %}#eef2ff;color:#6366f1{% endif %};font-size:0.7rem;">{{ cat.family }}</span></td>
+                <td>{{ cat.product }}</td>
+                <td><code style="font-size:0.78rem;">{{ cat.oper_id }}</code></td>
+                <td>{{ cat.oper_desc }}</td>
+                <td><span class="badge-pill" style="background:#eef2ff;color:#4f46e5;font-size:0.7rem;">{{ cat.pol_type }}</span></td>
+                <td>
+                  <form method="post" action="{% url 'pol_type_assign_category' %}">
+                    {% csrf_token %}
+                    <input type="hidden" name="cat_pk" value="{{ cat.pk }}">
+                    <input type="hidden" name="pol_type_val" class="assign-type-val" value="">
+                    <button type="submit" class="btn btn-sm btn-outline-secondary" style="padding:2px 10px;font-size:0.75rem;border-radius:6px;">변경</button>
+                  </form>
+                </td>
+              </tr>
+              {% endfor %}{% endfor %}
+            </tbody>
+          </table>
+        </div>
+      </div>
+      <div class="modal-footer" style="border-top:1px solid #e4e7ed;">
+        <button type="button" class="btn btn-sm btn-light" data-bs-dismiss="modal">닫기</button>
+      </div>
+    </div>
+  </div>
+</div>
+
+{% endblock %}
+
+{% block scripts %}
+<script>
+const createUrl = "{% url 'pol_type_create' %}";
+
+/* ── 검색 필터 ── */
+const searchInput = document.getElementById('ptSearch');
+const cards       = document.querySelectorAll('.pt-card-item');
+const noResult    = document.getElementById('noResult');
+const jumpBtns    = document.querySelectorAll('.type-jump-btn');
+
+function filterCards() {
+  const q = searchInput.value.trim().toLowerCase();
+  let visible = 0;
+  cards.forEach(card => {
+    const haystack = [
+      card.dataset.poltype,
+      card.dataset.desc,
+      card.dataset.reprs,
+      card.dataset.cats,
+    ].join(' ');
+    const show = !q || haystack.includes(q);
+    card.style.display = show ? '' : 'none';
+    if (show) visible++;
+  });
+  noResult.style.display = visible === 0 ? '' : 'none';
+
+  /* 점프 버튼도 같이 흐리게 */
+  jumpBtns.forEach(btn => {
+    const card = document.getElementById('pt-card-' + btn.dataset.type);
+    btn.style.opacity = card && card.style.display !== 'none' ? '1' : '0.35';
+  });
+}
+searchInput.addEventListener('input', filterCards);
+
+/* 점프 버튼 클릭 시 해당 카드로 스크롤 + 강조 */
+jumpBtns.forEach(btn => {
+  btn.addEventListener('click', function(e) {
+    const target = document.getElementById('pt-card-' + this.dataset.type);
+    if (!target || target.style.display === 'none') { e.preventDefault(); return; }
+    jumpBtns.forEach(b => b.classList.remove('active'));
+    this.classList.add('active');
+    setTimeout(() => this.classList.remove('active'), 1500);
+  });
+});
+
+function buildRow(repr, stepsVal) {
+  const div = document.createElement('div');
+  div.className = 'mapping-input-row';
+  div.innerHTML = `
+    <input type="text" name="repr" class="form-control form-control-sm"
+           placeholder="예: PB_04_TIME" value="${repr}">
+    <div class="mapping-arrow"><i class="bi bi-arrow-right"></i></div>
+    <input type="text" name="steps" class="form-control form-control-sm"
+           placeholder="예: PA_04_TIME, PB_04_TIME" value="${stepsVal}">
+    <button type="button" class="btn-del-row" onclick="this.closest('.mapping-input-row').remove()">
+      <i class="bi bi-x"></i>
+    </button>`;
+  return div;
+}
+
+function addRow(repr='', stepsVal='') {
+  document.getElementById('mappingRows').appendChild(buildRow(repr, stepsVal));
+}
+
+function openAddModal() {
+  document.getElementById('ptModalTitle').textContent = 'Pol Type 추가';
+  document.getElementById('ptForm').action = createUrl;
+  document.getElementById('ptNum').value  = '';
+  document.getElementById('ptNum').removeAttribute('readonly');
+  document.getElementById('ptDesc').value = '';
+  document.getElementById('mappingRows').innerHTML = '';
+  addRow();
+}
+
+function openEditModal(pk, num, desc, mappings) {
+  document.getElementById('ptModalTitle').textContent = 'Pol Type 수정';
+  document.getElementById('ptForm').action = `/setup/pol-type/${pk}/update/`;
+  document.getElementById('ptNum').value  = num;
+  document.getElementById('ptDesc').value = desc;
+  const container = document.getElementById('mappingRows');
+  container.innerHTML = '';
+  if (mappings && mappings.length > 0) {
+    mappings.forEach(m => addRow(m.repr || '', (m.steps || []).join(', ')));
+  } else {
+    addRow();
+  }
+}
+
+function openDeleteModal(pk, num) {
+  document.getElementById('deleteTargetName').textContent = `Pol Type ${num}`;
+  document.getElementById('deleteForm').action = `/setup/pol-type/${pk}/delete/`;
+  new bootstrap.Modal(document.getElementById('deleteModal')).show();
+}
+
+function openAssignModal(polTypeNum) {
+  document.getElementById('assignTypeLabel').textContent = `Type ${polTypeNum}`;
+  document.querySelectorAll('.assign-type-val').forEach(el => el.value = polTypeNum);
+}
+</script>
+{% endblock %}

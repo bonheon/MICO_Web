@@ -48,6 +48,13 @@ urlpatterns = [
     path('setup/detail/<int:pk>/delete/', views.detail_delete, name='detail_delete'),
     path('setup/detail/<int:pk>/copy/', views.detail_copy, name='detail_copy'),
 
+    # Pol Type Config
+    path('setup/pol-type/', views.pol_type_list, name='pol_type_list'),
+    path('setup/pol-type/create/', views.pol_type_create, name='pol_type_create'),
+    path('setup/pol-type/<int:pk>/update/', views.pol_type_update, name='pol_type_update'),
+    path('setup/pol-type/<int:pk>/delete/', views.pol_type_delete, name='pol_type_delete'),
+    path('setup/pol-type/assign-category/', views.pol_type_assign_category, name='pol_type_assign_category'),
+
     # 접속 현황 (superuser only)
     path('admin-stats/', views.access_stats, name='access_stats'),
 

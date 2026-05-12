@@ -1,5 +1,5 @@
 from django.contrib import admin
-from .models import Category, SubCategory, Detail, SimulationLink
+from .models import Category, SubCategory, Detail, SimulationLink, PolTypeConfig
 
 
 class SubCategoryInline(admin.TabularInline):
@@ -12,9 +12,15 @@ class DetailInline(admin.TabularInline):
     extra = 1
 
 
+@admin.register(PolTypeConfig)
+class PolTypeConfigAdmin(admin.ModelAdmin):
+    list_display  = ['pol_type', 'steps', 'description', 'created_by', 'created_at']
+    ordering      = ['pol_type']
+
+
 @admin.register(Category)
 class CategoryAdmin(admin.ModelAdmin):
-    list_display  = ['family', 'product', 'oper_id', 'oper_desc', 'created_at', 'updated_at']
+    list_display  = ['family', 'product', 'oper_id', 'oper_desc', 'pol_type', 'created_at', 'updated_at']
     list_filter   = ['family', 'product']
     search_fields = ['product', 'oper_id', 'oper_desc']
     inlines = [SubCategoryInline]
