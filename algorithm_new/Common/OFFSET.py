@@ -92,7 +92,7 @@ class OFFSET_Get:
 
         b1_col = f"{APC_Para}_B1"
         if b1_col not in temp_data.columns:
-            return temp_data
+            return None
         temp_data['RR_Pad'] = temp_data[Pad_Para] * temp_data[APC_Para + '_B1'] + temp_data[APC_Para + '_B0']
 
         delta = (Target - Pre_Target) if 'REV' in Thk_Para else (Pre_Target - Target)
@@ -110,7 +110,7 @@ class OFFSET_Get:
         filtered_groups = grouped[grouped['count'] >= 5]
         filtered_data   = temp_data_idle.merge(filtered_groups[['eqp_id', 'recipe_id', 'IDLE']], on=['eqp_id', 'recipe_id', 'IDLE'])
         idle_table      = filtered_data.groupby(['eqp_id', 'recipe_id', 'IDLE'])['OFFSET'].mean().reset_index()
-        idle_table['IDLE'].replace('', 'Normal', inplace=True)
+        idle_table['IDLE'] = idle_table['IDLE'].replace('', 'Normal')
         idle_table['APC_Para'] = APC_Para
         idle_table['Date']     = datetime.now()
 
@@ -127,6 +127,9 @@ class OFFSET_Get:
         collection = 'MICO_Removal_Rate_' + Lot_Code + '_' + Oper_Desc + '_' + Fab
         mongo      = mongodb_controller(mongo_url, mongo_db, collection)
         RR_Table   = mongo.get_df()
+
+        if RR_Table.empty:
+            return merge_df
 
         RR_Table[['b1_new', 'b0_new']] = RR_Table.apply(OFFSET_Get._get_b_coef, axis=1)
 
@@ -177,7 +180,7 @@ class OFFSET_Get:
         today = datetime.now()
 
         temp_data['eq_recipe_apc'] = temp_data['eq_recipe'] + '//' + temp_data['APC_Para']
-        temp_data['IDLE'].fillna('Normal', inplace=True)
+        temp_data['IDLE'] = temp_data['IDLE'].fillna('Normal')
 
         temp_data_lc = temp_data[
             temp_data['IDLE'].str.contains('LC_') &
@@ -200,7 +203,7 @@ class OFFSET_Get:
         lc_offset = OFFSET_Get._build_idle_table(combined)
         lc_offset['Date'] = today
         lc_offset = lc_offset[['eqp_id', 'recipe_id', 'IDLE', 'OFFSET', 'APC_Para', 'Date']].copy()
-        lc_offset['OFFSET'].fillna(0, inplace=True)
+        lc_offset['OFFSET'] = lc_offset['OFFSET'].fillna(0)
 
         if not lc_offset.empty:
             mongo.push_df(lc_offset)

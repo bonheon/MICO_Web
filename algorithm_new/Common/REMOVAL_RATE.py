@@ -1,4 +1,5 @@
 import sys, os
+from pathlib import Path
 sys.path.append(os.path.dirname(os.path.abspath(os.path.dirname(__file__))))
 from Common.Get_Data import Get_data
 from Common.MongoDB_Control import mongodb_controller
@@ -336,6 +337,65 @@ class Removal_Rate_Get:
         Fab       = mico_info_key['Fab'].unique()[0]
         Lot_Code  = mico_info_key['Lot_Code'].unique()[0]
         Oper_Desc = mico_info_key['Oper_Desc'].unique()[0]
+
+        # ── [TEST 삭제] Excel 캐시 분기 ──────────────────────────────────────
+        # 로컬 환경에서 MongoDB 없이 pre_thk_cache/*.xlsx 를 대신 읽는 분기.
+        # 회사 실서버에서는 MongoDB 에서 직접 읽으므로 아래 if 블록 전체(들여쓰기 포함) 삭제.
+        # 삭제 범위: _cache_dir / _cache_file 선언부터 "return merge_df" 까지.
+        _cache_dir = Path(__file__).parents[1] / 'pre_thk_cache'
+        _cache_file = _cache_dir / f'{Lot_Code}_{Oper_Desc.replace(" ", "_")}_{Fab}.xlsx'
+
+        if _cache_file.exists():
+            print(f'    [Excel 캐시] {_cache_file.name} 로드')
+            Pre_Thk_Table = pd.read_excel(_cache_file, parse_dates=['pre_oper_time'])
+            Pre_Thk_Table.rename(columns={'pre_oper_time': 'Pre_Oper_Date'}, inplace=True)
+            Pre_Thk_Table['Pre_Oper_Date'] = pd.to_datetime(Pre_Thk_Table['Pre_Oper_Date'])
+
+            merge_df = merge_df.copy()
+            merge_df.rename(columns={'pre_oper_time': 'Pre_Oper_Date', 'request_dtts': 'Date'}, inplace=True)
+            merge_df.dropna(subset=['Pre_Oper_Date'], inplace=True)
+            merge_df['Pre_Oper_Date'] = pd.to_datetime(merge_df['Pre_Oper_Date'])
+            merge_df = merge_df.sort_values(by='Pre_Oper_Date', ascending=True)
+
+            for Thk_key in Pre_Thk_Table['THK_Para'].unique():
+                key = mico_info_key[
+                    (mico_info_key['Thk_Para'] == Thk_key) |
+                    (mico_info_key['Pre_Thk_Para_ITM'] == Thk_key)
+                ].copy()
+
+                temp_pre_thk = Pre_Thk_Table[Pre_Thk_Table['THK_Para'] == Thk_key].drop(
+                    columns=[c for c in ['Date', 'THK_Para', 'Oper_Code'] if c in Pre_Thk_Table.columns]
+                )
+                temp_pre_thk = temp_pre_thk.sort_values(by='Pre_Oper_Date', ascending=True)
+                temp_pre_thk.rename(columns={'Pre_Thk': Thk_key + '_VM', 'Count': Thk_key + '_Count'}, inplace=True)
+
+                cols_to_drop = [c for c in merge_df.columns if c.endswith('_x') or c.endswith('_y')]
+                merge_df = merge_df.drop(columns=cols_to_drop)
+                merge_df = pd.merge_asof(merge_df, temp_pre_thk, on='Pre_Oper_Date', by=['pre_eq_ch'])
+                merge_df.drop_duplicates(subset=['substrate_id'], inplace=True)
+
+                print(f'    → {Thk_key}_VM: {merge_df[Thk_key+"_VM"].notna().sum()}/{len(merge_df)} 매칭')
+
+                ref = key.iloc[0]
+                for desc, para, prefix, weight in [
+                    (ref['Pre_Oper_Desc2'], ref['Pre_Oper_Para2'], 'PRE_OPER2', 1),
+                    (ref['Pre_Oper_Desc3'], ref['Pre_Oper_Para3'], 'PRE_OPER3', 1),
+                    (ref['Pre_Oper_Desc4'], ref['Pre_Oper_Para4'], 'PRE_OPER4', 1),
+                ]:
+                    if not (isinstance(desc, str) and desc != ''):
+                        continue
+                    b1_col, b0_col = f'{prefix}_b1', f'{prefix}_b0'
+                    merge_df[[b1_col, b0_col]] = merge_df[[b1_col, b0_col]].fillna(
+                        merge_df[[b1_col, b0_col]].mean()
+                    ).fillna(0)
+                    merge_df[Thk_key + '_VM'] += weight * (
+                        merge_df[desc + '.' + para] * merge_df[b1_col] + merge_df[b0_col]
+                    )
+                    merge_df.drop(columns=[b1_col, b0_col], inplace=True)
+
+            return merge_df
+        # ── [TEST 삭제 끝] ────────────────────────────────────────────────────
+
         client = MongoClient(mongo_url)
         try:
             db = client[mongo_db]

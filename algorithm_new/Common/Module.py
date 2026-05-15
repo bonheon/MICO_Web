@@ -248,6 +248,19 @@ class Module_Get:
                 pre_thk_table['Oper_Code'] = Oper_Code
                 mongo.push_df(pre_thk_table)
 
+                # ── [TEST 삭제] Excel 캐시 저장 블록 ────────────────────────────────
+                # MongoDB 없는 로컬 환경에서 load_pre_thk_data 가 캐시를 읽을 수 있도록
+                # pre_thk_cache/{Lot_Code}_{Oper_Desc}_{Fab}.xlsx 로 저장.
+                # 회사 실서버에서는 MongoDB 에 직접 저장되므로 아래 블록 전체 삭제.
+                _cache_dir = Path(__file__).parents[1] / 'pre_thk_cache'
+                _cache_dir.mkdir(exist_ok=True)
+                _cache_file = _cache_dir / f'{Lot_Code}_{Oper_Desc.replace(" ", "_")}_{Fab}.xlsx'
+                _cache_df = pre_thk_table.copy()
+                _cache_df['pre_oper_time'] = pd.Timestamp('1970-01-01')
+                _cache_df.to_excel(_cache_file, index=False)
+                print(f'    → Excel 저장: {_cache_file.name}')
+                # ── [TEST 삭제 끝] ────────────────────────────────────────────────────
+
                 print(f'    → 저장 {len(pre_thk_table)}건')
                 show_cols = [c for c in ['pre_eq_ch', 'Pre_Thk', 'Count'] if c in pre_thk_table.columns]
                 if show_cols:
@@ -378,10 +391,14 @@ class Module_Get:
             print(f'    APC_Para 목록: {list(APC_Para_List)} | Offset_Group={Offset_Group}')
             merge_df = OFFSET_Get.load_rr_data(merge_df, Fab, Lot_Code, Oper_Desc, APC_Para_List, _MONGO_URL, _MONGO_DB)
 
-            results = [OFFSET_Get.compute_offset(merge_df, key, pol_type, Fab)
-                       for _, key in search_key.iterrows()]
-            temp_df = pd.concat([r for r in results if r is not None], axis=0)
+            results      = [OFFSET_Get.compute_offset(merge_df, key, pol_type, Fab)
+                            for _, key in search_key.iterrows()]
+            valid_results = [r for r in results if r is not None]
+            if not valid_results:
+                print(f'    RR 데이터 없음 → Offset 계산 스킵')
+                return
 
+            temp_df = pd.concat(valid_results, axis=0)
             OFFSET_Get.compute_lc_offset(temp_df, Lot_Code, Oper_Desc, Fab, Offset_Group)
 
         except Exception as e:
@@ -415,6 +432,11 @@ class Module_Get:
             client.close()
 
         print(f'    DB 로드: Pre_Thk_VM={len(Pre_VM_df)}건 | Removal Rate={len(RR_df)}건 | Offset={len(OFFSET_df)}건')
+
+        if RR_df.empty:
+            print(f'    RR 데이터 없음 → 알람 점검 스킵')
+            print(f'  [Alarm 점검] {Fab} | {Lot_Code} | {oper_desc} 완료')
+            return
 
         def send_if_out_of_sigma(filtered_data, latest_value, alarm_para, Sigma, message):
             # 이전 실적 10건 이상일 때 최신값이 N-Sigma 및 절대 오차 0.1 초과 시 Cube 채널로 알람 발송

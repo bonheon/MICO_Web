@@ -36,6 +36,7 @@ class Module_Get:
             Fab_List = mico_info_key['Fab'].unique()
             Lot_Code = mico_info_key['Lot_Code'].unique()[0]
             Oper_Code = mico_info_key['Oper_Code'].unique()[0]
+            Oper_Desc = mico_info_key['Oper_Desc'].unique()[0]
             Pre_Oper_Code = mico_info_key['Pre_Oper_Code'].unique()[0]
             Pre_Oper_Code2 = mico_info_key['Pre_Oper_Code2'].unique()[0]
             Pre_Oper_Para2 = mico_info_key['Pre_Oper_Para2'].unique()[0]
@@ -263,6 +264,21 @@ class Module_Get:
                 # pre_thk_table.to_csv('pre_thk_table.csv')
 
                 mongo.push_df(pre_thk_table)
+
+                # ── [TEST] Excel 캐시 저장 ────────────────────────────────
+                # Removal_Rate_Get.Removal_getdata 가 MongoDB 대신 이 파일을
+                # 읽도록 DRAM_M1_CU_CMP_Module.py 에서 패치됨.
+                # pre_oper_time 을 1970-01-01 로 고정해 merge_asof 시
+                # merge_df 전체 행이 매칭되도록 한다.
+                from pathlib import Path as _Path
+                _cache_dir = _Path(__file__).parents[1] / 'pre_thk_cache'
+                _cache_dir.mkdir(exist_ok=True)
+                _cache_file = _cache_dir / f'{Lot_Code}_{Oper_Desc.replace(" ", "_")}_{Fab}.xlsx'
+                _cache_df = pre_thk_table.copy()
+                _cache_df['pre_oper_time'] = pd.Timestamp('1970-01-01')
+                _cache_df.to_excel(_cache_file, index=False)
+                print(f'    [TEST] Excel 캐시 저장: {_cache_file.name} ({len(_cache_df)}건)')
+                # ──────────────────────────────────────────────────────────
 
         except Exception as e:
             tb = traceback.format_exc()

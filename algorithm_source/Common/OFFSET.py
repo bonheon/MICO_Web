@@ -124,6 +124,8 @@ class OFFSET_Get :
             IDLE_RR_Table = filtered_data.groupby(['eqp_id', 'recipe_id', 'IDLE'])['OFFSET'].mean().reset_index()
 
             IDLE_RR_Table['IDLE'].replace('', 'Normal', inplace=True)
+            
+            print('IDLE_RR_Table',pd.DataFrame(IDLE_RR_Table))
 
             today = datetime.now()
 
@@ -134,7 +136,6 @@ class OFFSET_Get :
                 dict_list = temp_row.to_dict()
                 dict_list['APC_Para'] = APC_Para
                 dict_list['Date'] = today
-
 
 
                 mongo.insert_row(dict_list)
@@ -315,6 +316,8 @@ class OFFSET_Get :
         lc_offset['OFFSET'].fillna(0, inplace=True)
 
         records = lc_offset.to_dict('records')
+        
+        print(records)
 
         if len(records) != 0 :
             collection.insert_many(records)
