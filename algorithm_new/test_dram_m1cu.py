@@ -10,9 +10,12 @@ DRAM M1 CU CMP 알고리즘 파이프라인 테스트 러너
   python3 test_dram_m1cu.py
 
 외부 의존성 Mock:
-  - MongoClient      : 빈 컬렉션 반환 (check_alarm 용)
-  - load_pre_thk_data: CSV merge_df 기반 VM=0 처리 (MongoDB 우회)
-  - load_rr_data     : 가상 B1/B0 컬럼 추가 (MongoDB RR 테이블 우회)
+  - MongoClient  : 빈 컬렉션 반환 (check_alarm 용)
+  - load_rr_data : 가상 B1/B0 컬럼 추가 (MongoDB RR 테이블 우회)
+
+load_pre_thk_data 는 Mock 없이 실제 함수 실행:
+  Step 1(Pre_Thk_VM)에서 pre_thk_cache/*.xlsx 로 저장된 캐시를
+  load_pre_thk_data 내부 Excel 캐시 분기에서 자동으로 읽어 VM 적용.
 """
 
 import sys
@@ -49,20 +52,7 @@ import Common.REMOVAL_RATE as _rr_mod
 import Common.OFFSET as _offset_mod
 
 # ────────────────────────────────────────────────────────────────────────
-# 3. load_pre_thk_data Mock
-#    MongoDB에서 Pre_Thk_VM을 불러오는 대신 VM=0으로 처리
-# ────────────────────────────────────────────────────────────────────────
-def _mock_load_pre_thk_data(merge_df, mico_info_key, mongo_url, mongo_db):
-    merge_df_rr = merge_df.copy()
-    for thk_key in mico_info_key['Thk_Para'].unique():
-        merge_df_rr[f'{thk_key}_VM'] = 0.0
-    print(f'    [mock] load_pre_thk_data: VM=0.0 for {list(mico_info_key["Thk_Para"].unique())}')
-    return merge_df_rr
-
-_rr_mod.Removal_Rate_Get.load_pre_thk_data = staticmethod(_mock_load_pre_thk_data)
-
-# ────────────────────────────────────────────────────────────────────────
-# 4. load_rr_data Mock
+# 3. load_rr_data Mock
 #    MongoDB에서 RR B1/B0를 불러오는 대신 가상값 삽입
 #    → compute_offset 가 정상 경로로 실행됨
 # ────────────────────────────────────────────────────────────────────────
@@ -78,7 +68,7 @@ def _mock_load_rr_data(merge_df, Fab, Lot_Code, Oper_Desc, APC_Para_List, mongo_
 _offset_mod.OFFSET_Get.load_rr_data = staticmethod(_mock_load_rr_data)
 
 # ────────────────────────────────────────────────────────────────────────
-# 5. 파이프라인 실행
+# 4. 파이프라인 실행
 # ────────────────────────────────────────────────────────────────────────
 from Common.Module import run
 

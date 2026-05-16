@@ -625,7 +625,7 @@ class Removal_Rate_Get:
 
             print('temp_data4 recipe :', temp_data4['recipe_id'].unique())
 
-            for i in temp_data4['eq_recipe'].unique():
+            for i in temp_data4['rr_key'].unique():
 
                 temp_data5 = temp_data4[temp_data4['rr_key'] == i].copy()
                 Count = len(temp_data5)

@@ -596,7 +596,7 @@ class Module_Get:
 
                 merge_df_rr['BIAS'] = merge_df_rr[Thk_Para] - merge_df_rr[Thk_Para_13P] - (Post_Target - Target_13P)
 
-                Removal_Rate_df = Removal_Rate_Get.Logic(
+                Removal_Rate_df = Removal_Rate_Get.Logic_group(
                     merge_df_rr,
                     key,
                     pol_type,

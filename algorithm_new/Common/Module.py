@@ -373,6 +373,38 @@ class Module_Get:
 
         print(f'  [Removal Rate Group] {Fab} | {Lot_Code} | {Oper_Desc} 완료')
 
+    def compute_offset_group(merge_df, mico_info_key, pol_type):
+        # 그룹 공정용 Offset 학습값 산출.
+        # 레시피 구분 없이 합산 데이터로 IDLE 구간 Offset 계산, recipe별로 저장.
+
+        mico_info_key = mico_info_key[mico_info_key['FB_Type'] == 'TIME'].copy()
+
+        Fab       = mico_info_key['Fab'].unique()[0]
+        Lot_Code  = mico_info_key['Lot_Code'].unique()[0]
+        Oper_Desc = mico_info_key['Oper_Desc'].unique()[0]
+
+        print(f'\n  [Offset Group] {Fab} | {Lot_Code} | {Oper_Desc} 시작')
+        try:
+            APC_Para_List = mico_info_key['APC_Para'].unique()
+            Offset_Group  = mico_info_key['Offset_Group'].unique()[0]
+            search_key    = mico_info_key[mico_info_key['Fab'] == Fab]
+
+            print(f'    APC_Para 목록: {list(APC_Para_List)} | Offset_Group={Offset_Group}')
+            merge_df = OFFSET_Get.load_rr_data(merge_df, Fab, Lot_Code, Oper_Desc, APC_Para_List, _MONGO_URL, _MONGO_DB)
+
+            temp_df = OFFSET_Get.compute_offset_group(merge_df, search_key, pol_type, Fab)
+            if temp_df is None:
+                print(f'    RR 데이터 없음 → Offset 계산 스킵')
+                return
+
+            OFFSET_Get.compute_lc_offset(temp_df, Lot_Code, Oper_Desc, Fab, Offset_Group)
+
+        except Exception as e:
+            tb = traceback.format_exc()
+            c.sendMsg('', '506204179', f'{Fab} {Lot_Code} {Oper_Desc} Module Offset Group Failed : {e}, {tb}')
+
+        print(f'  [Offset Group] {Fab} | {Lot_Code} | {Oper_Desc} 완료')
+
     def compute_offset(merge_df, mico_info_key, pol_type):
         # FB_Type=TIME 기준으로 Offset 학습값을 산출하고 MongoDB에 저장.
 
@@ -500,9 +532,10 @@ def _run_pipeline(merge_df, mico_info_key, pol_type, use_group_rr=False):
         Module_Get.compute_pre_thk_vm(merge_df, mico_info_key, pol_type)
         if use_group_rr:
             Module_Get.compute_removal_rate_group(merge_df, mico_info_key, pol_type)
+            Module_Get.compute_offset_group(merge_df, mico_info_key, pol_type)
         else:
             Module_Get.compute_removal_rate(merge_df, mico_info_key, pol_type)
-        Module_Get.compute_offset(merge_df, mico_info_key, pol_type)
+            Module_Get.compute_offset(merge_df, mico_info_key, pol_type)
         Module_Get.check_alarm(mico_info_key)
     except Exception as e:
         tb = traceback.format_exc()

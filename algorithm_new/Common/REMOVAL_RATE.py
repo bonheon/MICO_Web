@@ -90,11 +90,11 @@ class Removal_Rate_Get:
         if current_cycle.empty:
             return '-', '-', '-'
         count      = len(current_cycle)
-        time_delta = today_date - current_cycle['Date'].iloc[0]
+        time_delta = today_date - current_cycle['Date'].iloc[-1]   # 최신 타점 기준 경과시간
         min_count  = Removal_Rate_Get._get_pm_rank(EQPM_df, Maker, EQ, rcp_id)
         if not ((count > RR_Count) and (time_delta < timedelta(hours=12)) and (min_count >= 2)):
             return '-', '-', '-'
-        Simul_Date             = current_cycle['Date'].iloc[0].strftime("%Y-%m-%d %H:%M:%S")
+        Simul_Date             = current_cycle['Date'].iloc[-1].strftime("%Y-%m-%d %H:%M:%S")
         current_b1, current_b0 = Removal_Rate_Get._fit_lr(current_cycle, consumable_Para, 'RR', lr)
         if pd.isna(RR_Period):
             range_b1   = weighted_b1 if weighted_b1 != '-' else b1

@@ -88,6 +88,7 @@ class Get_data:
         """CSV(merge_df_sample.csv)를 merge_df로 반환 (MongoDB 대체)."""
         df = pd.read_csv(_CSV_PATH, parse_dates=['Date', 'pre_oper_time'])
         df['IDLE'] = df['IDLE'].fillna('')
+        df['Lot_Code'] = Lot_Code
         return df
     # ── [TEST 삭제 끝] ────────────────────────────────────────────────────
 

@@ -800,5 +800,807 @@
       "OFFSET": 0.8768,
       "APC_Para": "PB_04_TIME"
     }
+  ],
+  "MICO_OFFSET_E2_M1 CU CMP_M10": [
+    {
+      "Date": "2026-01-05T22:37:48",
+      "eqp_id": "ACMP5102",
+      "recipe_id": "E2_M1CU_R17_TSV.CAS",
+      "IDLE": "Idle_1",
+      "OFFSET": 1.2797,
+      "APC_Para": "P3"
+    },
+    {
+      "Date": "2026-01-07T20:35:54",
+      "eqp_id": "ACMP5102",
+      "recipe_id": "E2_M1CU_R12_TSV.CAS",
+      "IDLE": "Idle_4",
+      "OFFSET": 1.0083,
+      "APC_Para": "P3"
+    },
+    {
+      "Date": "2026-01-11T10:09:09",
+      "eqp_id": "ACMP5101",
+      "recipe_id": "E2_M1CU_R12_TSV.CAS",
+      "IDLE": "Idle_4",
+      "OFFSET": 0.7622,
+      "APC_Para": "P3"
+    },
+    {
+      "Date": "2026-01-11T11:56:49",
+      "eqp_id": "ACMP5104",
+      "recipe_id": "E2_M1CU_R17_TSV.CAS",
+      "IDLE": "Idle_1",
+      "OFFSET": 0.7354,
+      "APC_Para": "P3"
+    },
+    {
+      "Date": "2026-01-12T00:35:20",
+      "eqp_id": "ACMP5101",
+      "recipe_id": "E2_M1CU_R12_TSV.CAS",
+      "IDLE": "Idle_3",
+      "OFFSET": 1.7024,
+      "APC_Para": "P3"
+    },
+    {
+      "Date": "2026-01-13T09:30:08",
+      "eqp_id": "ACMP5102",
+      "recipe_id": "E2_M1CU_R12_TSV.CAS",
+      "IDLE": "Idle_1",
+      "OFFSET": 0.7721,
+      "APC_Para": "P3"
+    },
+    {
+      "Date": "2026-01-14T19:53:21",
+      "eqp_id": "ACMP5102",
+      "recipe_id": "E2_M1CU_R12_TSV.CAS",
+      "IDLE": "Idle_3",
+      "OFFSET": 0.938,
+      "APC_Para": "P3"
+    },
+    {
+      "Date": "2026-01-16T16:36:31",
+      "eqp_id": "ACMP5103",
+      "recipe_id": "E2_M1CU_R12_TSV.CAS",
+      "IDLE": "Idle_1",
+      "OFFSET": 1.1507,
+      "APC_Para": "P3"
+    },
+    {
+      "Date": "2026-01-18T08:10:02",
+      "eqp_id": "ACMP5101",
+      "recipe_id": "E2_M1CU_R17_TSV.CAS",
+      "IDLE": "Idle_3",
+      "OFFSET": 0.5919,
+      "APC_Para": "P3"
+    },
+    {
+      "Date": "2026-01-19T22:51:47",
+      "eqp_id": "ACMP5103",
+      "recipe_id": "E2_M1CU_R17_TSV.CAS",
+      "IDLE": "Idle_2",
+      "OFFSET": 1.116,
+      "APC_Para": "P3"
+    },
+    {
+      "Date": "2026-01-23T20:54:05",
+      "eqp_id": "ACMP5103",
+      "recipe_id": "E2_M1CU_R17_TSV.CAS",
+      "IDLE": "Idle_3",
+      "OFFSET": 1.0002,
+      "APC_Para": "P3"
+    },
+    {
+      "Date": "2026-01-24T06:22:57",
+      "eqp_id": "ACMP5104",
+      "recipe_id": "E2_M1CU_R12_TSV.CAS",
+      "IDLE": "Idle_2",
+      "OFFSET": 0.7899,
+      "APC_Para": "P3"
+    },
+    {
+      "Date": "2026-01-25T20:15:46",
+      "eqp_id": "ACMP5102",
+      "recipe_id": "E2_M1CU_R12_TSV.CAS",
+      "IDLE": "Idle_2",
+      "OFFSET": 0.9533,
+      "APC_Para": "P3"
+    },
+    {
+      "Date": "2026-01-27T16:10:06",
+      "eqp_id": "ACMP5102",
+      "recipe_id": "E2_M1CU_R12_TSV.CAS",
+      "IDLE": "Idle_3",
+      "OFFSET": 0.5352,
+      "APC_Para": "P3"
+    },
+    {
+      "Date": "2026-01-28T04:07:07",
+      "eqp_id": "ACMP5101",
+      "recipe_id": "E2_M1CU_R17_TSV.CAS",
+      "IDLE": "Idle_3",
+      "OFFSET": 1.0651,
+      "APC_Para": "P3"
+    },
+    {
+      "Date": "2026-01-28T19:28:22",
+      "eqp_id": "ACMP5101",
+      "recipe_id": "E2_M1CU_R12_TSV.CAS",
+      "IDLE": "Idle_1",
+      "OFFSET": 0.5154,
+      "APC_Para": "P3"
+    },
+    {
+      "Date": "2026-01-30T02:43:16",
+      "eqp_id": "ACMP5101",
+      "recipe_id": "E2_M1CU_R12_TSV.CAS",
+      "IDLE": "Idle_4",
+      "OFFSET": 0.8311,
+      "APC_Para": "P3"
+    },
+    {
+      "Date": "2026-01-30T06:40:42",
+      "eqp_id": "ACMP5103",
+      "recipe_id": "E2_M1CU_R17_TSV.CAS",
+      "IDLE": "Idle_2",
+      "OFFSET": 1.0616,
+      "APC_Para": "P3"
+    },
+    {
+      "Date": "2026-02-03T00:11:42",
+      "eqp_id": "ACMP5102",
+      "recipe_id": "E2_M1CU_R12_TSV.CAS",
+      "IDLE": "Idle_3",
+      "OFFSET": 0.8581,
+      "APC_Para": "P3"
+    },
+    {
+      "Date": "2026-02-05T00:31:24",
+      "eqp_id": "ACMP5103",
+      "recipe_id": "E2_M1CU_R12_TSV.CAS",
+      "IDLE": "Idle_4",
+      "OFFSET": 1.077,
+      "APC_Para": "P3"
+    },
+    {
+      "Date": "2026-02-05T04:09:15",
+      "eqp_id": "ACMP5101",
+      "recipe_id": "E2_M1CU_R12_TSV.CAS",
+      "IDLE": "Idle_3",
+      "OFFSET": 1.1251,
+      "APC_Para": "P3"
+    },
+    {
+      "Date": "2026-02-05T13:09:37",
+      "eqp_id": "ACMP5102",
+      "recipe_id": "E2_M1CU_R12_TSV.CAS",
+      "IDLE": "Idle_3",
+      "OFFSET": 1.1089,
+      "APC_Para": "P3"
+    },
+    {
+      "Date": "2026-02-06T13:49:17",
+      "eqp_id": "ACMP5102",
+      "recipe_id": "E2_M1CU_R17_TSV.CAS",
+      "IDLE": "Idle_4",
+      "OFFSET": 0.9721,
+      "APC_Para": "P3"
+    },
+    {
+      "Date": "2026-02-06T21:04:07",
+      "eqp_id": "ACMP5104",
+      "recipe_id": "E2_M1CU_R12_TSV.CAS",
+      "IDLE": "Idle_4",
+      "OFFSET": 1.0952,
+      "APC_Para": "P3"
+    },
+    {
+      "Date": "2026-02-07T18:38:23",
+      "eqp_id": "ACMP5103",
+      "recipe_id": "E2_M1CU_R12_TSV.CAS",
+      "IDLE": "Idle_1",
+      "OFFSET": 1.1506,
+      "APC_Para": "P3"
+    },
+    {
+      "Date": "2026-02-08T21:26:59",
+      "eqp_id": "ACMP5101",
+      "recipe_id": "E2_M1CU_R17_TSV.CAS",
+      "IDLE": "Idle_2",
+      "OFFSET": 1.0121,
+      "APC_Para": "P3"
+    },
+    {
+      "Date": "2026-02-13T03:46:35",
+      "eqp_id": "ACMP5101",
+      "recipe_id": "E2_M1CU_R12_TSV.CAS",
+      "IDLE": "Idle_1",
+      "OFFSET": 1.4158,
+      "APC_Para": "P3"
+    },
+    {
+      "Date": "2026-02-13T04:17:15",
+      "eqp_id": "ACMP5104",
+      "recipe_id": "E2_M1CU_R17_TSV.CAS",
+      "IDLE": "Idle_3",
+      "OFFSET": 0.7165,
+      "APC_Para": "P3"
+    },
+    {
+      "Date": "2026-02-13T08:47:00",
+      "eqp_id": "ACMP5104",
+      "recipe_id": "E2_M1CU_R12_TSV.CAS",
+      "IDLE": "Idle_1",
+      "OFFSET": 1.2755,
+      "APC_Para": "P3"
+    },
+    {
+      "Date": "2026-02-16T15:53:19",
+      "eqp_id": "ACMP5103",
+      "recipe_id": "E2_M1CU_R17_TSV.CAS",
+      "IDLE": "Idle_3",
+      "OFFSET": 0.3428,
+      "APC_Para": "P3"
+    },
+    {
+      "Date": "2026-02-20T05:24:17",
+      "eqp_id": "ACMP5104",
+      "recipe_id": "E2_M1CU_R12_TSV.CAS",
+      "IDLE": "Idle_1",
+      "OFFSET": 1.4372,
+      "APC_Para": "P3"
+    },
+    {
+      "Date": "2026-02-20T09:00:50",
+      "eqp_id": "ACMP5101",
+      "recipe_id": "E2_M1CU_R12_TSV.CAS",
+      "IDLE": "Idle_2",
+      "OFFSET": 0.4081,
+      "APC_Para": "P3"
+    },
+    {
+      "Date": "2026-02-20T14:17:38",
+      "eqp_id": "ACMP5103",
+      "recipe_id": "E2_M1CU_R17_TSV.CAS",
+      "IDLE": "Idle_4",
+      "OFFSET": 1.2657,
+      "APC_Para": "P3"
+    },
+    {
+      "Date": "2026-02-20T17:01:58",
+      "eqp_id": "ACMP5101",
+      "recipe_id": "E2_M1CU_R17_TSV.CAS",
+      "IDLE": "Idle_3",
+      "OFFSET": 0.923,
+      "APC_Para": "P3"
+    },
+    {
+      "Date": "2026-02-23T16:30:19",
+      "eqp_id": "ACMP5102",
+      "recipe_id": "E2_M1CU_R12_TSV.CAS",
+      "IDLE": "Idle_4",
+      "OFFSET": 0.6869,
+      "APC_Para": "P3"
+    },
+    {
+      "Date": "2026-02-23T18:22:38",
+      "eqp_id": "ACMP5104",
+      "recipe_id": "E2_M1CU_R17_TSV.CAS",
+      "IDLE": "Idle_4",
+      "OFFSET": 1.2267,
+      "APC_Para": "P3"
+    },
+    {
+      "Date": "2026-02-27T01:07:58",
+      "eqp_id": "ACMP5102",
+      "recipe_id": "E2_M1CU_R12_TSV.CAS",
+      "IDLE": "Idle_2",
+      "OFFSET": 0.9596,
+      "APC_Para": "P3"
+    },
+    {
+      "Date": "2026-02-27T02:22:39",
+      "eqp_id": "ACMP5102",
+      "recipe_id": "E2_M1CU_R12_TSV.CAS",
+      "IDLE": "Idle_4",
+      "OFFSET": 0.8852,
+      "APC_Para": "P3"
+    },
+    {
+      "Date": "2026-02-27T09:37:02",
+      "eqp_id": "ACMP5104",
+      "recipe_id": "E2_M1CU_R17_TSV.CAS",
+      "IDLE": "Idle_2",
+      "OFFSET": 0.5345,
+      "APC_Para": "P3"
+    },
+    {
+      "Date": "2026-02-27T22:26:18",
+      "eqp_id": "ACMP5101",
+      "recipe_id": "E2_M1CU_R12_TSV.CAS",
+      "IDLE": "Idle_4",
+      "OFFSET": 0.6084,
+      "APC_Para": "P3"
+    },
+    {
+      "Date": "2026-02-28T00:28:03",
+      "eqp_id": "ACMP5104",
+      "recipe_id": "E2_M1CU_R12_TSV.CAS",
+      "IDLE": "Idle_4",
+      "OFFSET": 0.8821,
+      "APC_Para": "P3"
+    },
+    {
+      "Date": "2026-02-28T07:00:33",
+      "eqp_id": "ACMP5103",
+      "recipe_id": "E2_M1CU_R12_TSV.CAS",
+      "IDLE": "Idle_2",
+      "OFFSET": 1.0461,
+      "APC_Para": "P3"
+    },
+    {
+      "Date": "2026-03-01T15:07:15",
+      "eqp_id": "ACMP5103",
+      "recipe_id": "E2_M1CU_R12_TSV.CAS",
+      "IDLE": "Idle_4",
+      "OFFSET": 0.8606,
+      "APC_Para": "P3"
+    },
+    {
+      "Date": "2026-03-03T10:27:13",
+      "eqp_id": "ACMP5103",
+      "recipe_id": "E2_M1CU_R17_TSV.CAS",
+      "IDLE": "Idle_2",
+      "OFFSET": 0.7751,
+      "APC_Para": "P3"
+    },
+    {
+      "Date": "2026-03-04T01:22:38",
+      "eqp_id": "ACMP5101",
+      "recipe_id": "E2_M1CU_R12_TSV.CAS",
+      "IDLE": "Idle_2",
+      "OFFSET": 0.6063,
+      "APC_Para": "P3"
+    },
+    {
+      "Date": "2026-03-05T03:14:54",
+      "eqp_id": "ACMP5104",
+      "recipe_id": "E2_M1CU_R12_TSV.CAS",
+      "IDLE": "Idle_1",
+      "OFFSET": 0.9862,
+      "APC_Para": "P3"
+    },
+    {
+      "Date": "2026-03-06T08:02:59",
+      "eqp_id": "ACMP5104",
+      "recipe_id": "E2_M1CU_R17_TSV.CAS",
+      "IDLE": "Idle_2",
+      "OFFSET": 0.8625,
+      "APC_Para": "P3"
+    },
+    {
+      "Date": "2026-03-06T14:09:56",
+      "eqp_id": "ACMP5102",
+      "recipe_id": "E2_M1CU_R17_TSV.CAS",
+      "IDLE": "Idle_4",
+      "OFFSET": 1.2469,
+      "APC_Para": "P3"
+    },
+    {
+      "Date": "2026-03-07T04:09:38",
+      "eqp_id": "ACMP5102",
+      "recipe_id": "E2_M1CU_R12_TSV.CAS",
+      "IDLE": "Idle_4",
+      "OFFSET": 0.5712,
+      "APC_Para": "P3"
+    },
+    {
+      "Date": "2026-03-07T07:11:43",
+      "eqp_id": "ACMP5101",
+      "recipe_id": "E2_M1CU_R17_TSV.CAS",
+      "IDLE": "Idle_4",
+      "OFFSET": 1.1569,
+      "APC_Para": "P3"
+    },
+    {
+      "Date": "2026-03-08T12:57:26",
+      "eqp_id": "ACMP5103",
+      "recipe_id": "E2_M1CU_R12_TSV.CAS",
+      "IDLE": "Idle_4",
+      "OFFSET": 0.998,
+      "APC_Para": "P3"
+    },
+    {
+      "Date": "2026-03-08T15:16:27",
+      "eqp_id": "ACMP5104",
+      "recipe_id": "E2_M1CU_R17_TSV.CAS",
+      "IDLE": "Idle_1",
+      "OFFSET": 0.9338,
+      "APC_Para": "P3"
+    },
+    {
+      "Date": "2026-03-10T23:44:26",
+      "eqp_id": "ACMP5101",
+      "recipe_id": "E2_M1CU_R12_TSV.CAS",
+      "IDLE": "Idle_3",
+      "OFFSET": 1.3469,
+      "APC_Para": "P3"
+    },
+    {
+      "Date": "2026-03-11T14:43:03",
+      "eqp_id": "ACMP5104",
+      "recipe_id": "E2_M1CU_R17_TSV.CAS",
+      "IDLE": "Idle_3",
+      "OFFSET": 0.7134,
+      "APC_Para": "P3"
+    },
+    {
+      "Date": "2026-03-14T04:09:56",
+      "eqp_id": "ACMP5101",
+      "recipe_id": "E2_M1CU_R12_TSV.CAS",
+      "IDLE": "Idle_4",
+      "OFFSET": 0.7055,
+      "APC_Para": "P3"
+    },
+    {
+      "Date": "2026-03-16T02:42:26",
+      "eqp_id": "ACMP5104",
+      "recipe_id": "E2_M1CU_R17_TSV.CAS",
+      "IDLE": "Idle_4",
+      "OFFSET": 1.5202,
+      "APC_Para": "P3"
+    },
+    {
+      "Date": "2026-03-17T09:29:32",
+      "eqp_id": "ACMP5101",
+      "recipe_id": "E2_M1CU_R12_TSV.CAS",
+      "IDLE": "Idle_2",
+      "OFFSET": 1.3278,
+      "APC_Para": "P3"
+    },
+    {
+      "Date": "2026-03-20T11:14:06",
+      "eqp_id": "ACMP5103",
+      "recipe_id": "E2_M1CU_R17_TSV.CAS",
+      "IDLE": "Idle_1",
+      "OFFSET": 1.0045,
+      "APC_Para": "P3"
+    },
+    {
+      "Date": "2026-03-20T13:34:03",
+      "eqp_id": "ACMP5101",
+      "recipe_id": "E2_M1CU_R12_TSV.CAS",
+      "IDLE": "Idle_4",
+      "OFFSET": 1.3532,
+      "APC_Para": "P3"
+    },
+    {
+      "Date": "2026-03-21T10:58:19",
+      "eqp_id": "ACMP5104",
+      "recipe_id": "E2_M1CU_R12_TSV.CAS",
+      "IDLE": "Idle_3",
+      "OFFSET": 1.4294,
+      "APC_Para": "P3"
+    },
+    {
+      "Date": "2026-03-22T05:13:09",
+      "eqp_id": "ACMP5102",
+      "recipe_id": "E2_M1CU_R12_TSV.CAS",
+      "IDLE": "Idle_1",
+      "OFFSET": 1.3166,
+      "APC_Para": "P3"
+    },
+    {
+      "Date": "2026-03-23T06:39:26",
+      "eqp_id": "ACMP5104",
+      "recipe_id": "E2_M1CU_R12_TSV.CAS",
+      "IDLE": "Idle_3",
+      "OFFSET": 0.8515,
+      "APC_Para": "P3"
+    },
+    {
+      "Date": "2026-03-23T15:32:39",
+      "eqp_id": "ACMP5101",
+      "recipe_id": "E2_M1CU_R17_TSV.CAS",
+      "IDLE": "Idle_1",
+      "OFFSET": 1.5975,
+      "APC_Para": "P3"
+    },
+    {
+      "Date": "2026-03-30T20:26:14",
+      "eqp_id": "ACMP5101",
+      "recipe_id": "E2_M1CU_R17_TSV.CAS",
+      "IDLE": "Idle_4",
+      "OFFSET": 0.7032,
+      "APC_Para": "P3"
+    },
+    {
+      "Date": "2026-04-01T01:16:52",
+      "eqp_id": "ACMP5102",
+      "recipe_id": "E2_M1CU_R17_TSV.CAS",
+      "IDLE": "Idle_1",
+      "OFFSET": 0.8916,
+      "APC_Para": "P3"
+    },
+    {
+      "Date": "2026-04-02T08:51:33",
+      "eqp_id": "ACMP5104",
+      "recipe_id": "E2_M1CU_R17_TSV.CAS",
+      "IDLE": "Idle_2",
+      "OFFSET": 0.9791,
+      "APC_Para": "P3"
+    },
+    {
+      "Date": "2026-04-02T09:59:52",
+      "eqp_id": "ACMP5102",
+      "recipe_id": "E2_M1CU_R12_TSV.CAS",
+      "IDLE": "Idle_1",
+      "OFFSET": 0.6396,
+      "APC_Para": "P3"
+    },
+    {
+      "Date": "2026-04-02T16:42:11",
+      "eqp_id": "ACMP5103",
+      "recipe_id": "E2_M1CU_R17_TSV.CAS",
+      "IDLE": "Idle_4",
+      "OFFSET": 1.3082,
+      "APC_Para": "P3"
+    },
+    {
+      "Date": "2026-04-03T09:05:12",
+      "eqp_id": "ACMP5102",
+      "recipe_id": "E2_M1CU_R17_TSV.CAS",
+      "IDLE": "Idle_4",
+      "OFFSET": 1.9049,
+      "APC_Para": "P3"
+    },
+    {
+      "Date": "2026-04-05T16:17:29",
+      "eqp_id": "ACMP5104",
+      "recipe_id": "E2_M1CU_R12_TSV.CAS",
+      "IDLE": "Idle_2",
+      "OFFSET": 0.7893,
+      "APC_Para": "P3"
+    },
+    {
+      "Date": "2026-04-07T13:55:31",
+      "eqp_id": "ACMP5104",
+      "recipe_id": "E2_M1CU_R17_TSV.CAS",
+      "IDLE": "Idle_3",
+      "OFFSET": 0.8056,
+      "APC_Para": "P3"
+    },
+    {
+      "Date": "2026-04-08T04:23:37",
+      "eqp_id": "ACMP5102",
+      "recipe_id": "E2_M1CU_R12_TSV.CAS",
+      "IDLE": "Idle_2",
+      "OFFSET": 0.2039,
+      "APC_Para": "P3"
+    },
+    {
+      "Date": "2026-04-09T12:15:30",
+      "eqp_id": "ACMP5103",
+      "recipe_id": "E2_M1CU_R17_TSV.CAS",
+      "IDLE": "Idle_2",
+      "OFFSET": 1.5037,
+      "APC_Para": "P3"
+    },
+    {
+      "Date": "2026-04-11T10:45:46",
+      "eqp_id": "ACMP5102",
+      "recipe_id": "E2_M1CU_R17_TSV.CAS",
+      "IDLE": "Idle_1",
+      "OFFSET": 0.9407,
+      "APC_Para": "P3"
+    },
+    {
+      "Date": "2026-04-13T21:13:35",
+      "eqp_id": "ACMP5103",
+      "recipe_id": "E2_M1CU_R17_TSV.CAS",
+      "IDLE": "Idle_4",
+      "OFFSET": 0.6603,
+      "APC_Para": "P3"
+    },
+    {
+      "Date": "2026-04-14T19:34:48",
+      "eqp_id": "ACMP5103",
+      "recipe_id": "E2_M1CU_R17_TSV.CAS",
+      "IDLE": "Idle_1",
+      "OFFSET": 0.3411,
+      "APC_Para": "P3"
+    },
+    {
+      "Date": "2026-04-19T09:37:28",
+      "eqp_id": "ACMP5101",
+      "recipe_id": "E2_M1CU_R12_TSV.CAS",
+      "IDLE": "Idle_4",
+      "OFFSET": 1.3187,
+      "APC_Para": "P3"
+    },
+    {
+      "Date": "2026-04-19T13:16:34",
+      "eqp_id": "ACMP5102",
+      "recipe_id": "E2_M1CU_R17_TSV.CAS",
+      "IDLE": "Idle_2",
+      "OFFSET": 1.4126,
+      "APC_Para": "P3"
+    },
+    {
+      "Date": "2026-04-21T13:36:46",
+      "eqp_id": "ACMP5103",
+      "recipe_id": "E2_M1CU_R17_TSV.CAS",
+      "IDLE": "Idle_2",
+      "OFFSET": 1.2855,
+      "APC_Para": "P3"
+    },
+    {
+      "Date": "2026-04-22T01:54:39",
+      "eqp_id": "ACMP5103",
+      "recipe_id": "E2_M1CU_R12_TSV.CAS",
+      "IDLE": "Idle_1",
+      "OFFSET": 0.5462,
+      "APC_Para": "P3"
+    },
+    {
+      "Date": "2026-04-23T16:27:18",
+      "eqp_id": "ACMP5103",
+      "recipe_id": "E2_M1CU_R17_TSV.CAS",
+      "IDLE": "Idle_1",
+      "OFFSET": 0.6085,
+      "APC_Para": "P3"
+    },
+    {
+      "Date": "2026-04-24T05:05:14",
+      "eqp_id": "ACMP5102",
+      "recipe_id": "E2_M1CU_R17_TSV.CAS",
+      "IDLE": "Idle_2",
+      "OFFSET": 0.65,
+      "APC_Para": "P3"
+    },
+    {
+      "Date": "2026-04-24T07:39:17",
+      "eqp_id": "ACMP5103",
+      "recipe_id": "E2_M1CU_R12_TSV.CAS",
+      "IDLE": "Idle_4",
+      "OFFSET": 0.3329,
+      "APC_Para": "P3"
+    },
+    {
+      "Date": "2026-04-24T16:57:26",
+      "eqp_id": "ACMP5103",
+      "recipe_id": "E2_M1CU_R12_TSV.CAS",
+      "IDLE": "Idle_1",
+      "OFFSET": 1.5694,
+      "APC_Para": "P3"
+    },
+    {
+      "Date": "2026-04-27T12:21:28",
+      "eqp_id": "ACMP5103",
+      "recipe_id": "E2_M1CU_R12_TSV.CAS",
+      "IDLE": "Idle_4",
+      "OFFSET": 1.3712,
+      "APC_Para": "P3"
+    },
+    {
+      "Date": "2026-05-01T12:27:37",
+      "eqp_id": "ACMP5103",
+      "recipe_id": "E2_M1CU_R12_TSV.CAS",
+      "IDLE": "Idle_2",
+      "OFFSET": 0.3246,
+      "APC_Para": "P3"
+    },
+    {
+      "Date": "2026-05-04T04:30:11",
+      "eqp_id": "ACMP5103",
+      "recipe_id": "E2_M1CU_R17_TSV.CAS",
+      "IDLE": "Idle_2",
+      "OFFSET": 1.137,
+      "APC_Para": "P3"
+    },
+    {
+      "Date": "2026-05-04T22:45:24",
+      "eqp_id": "ACMP5102",
+      "recipe_id": "E2_M1CU_R12_TSV.CAS",
+      "IDLE": "Idle_4",
+      "OFFSET": 0.9857,
+      "APC_Para": "P3"
+    },
+    {
+      "Date": "2026-05-05T09:23:16",
+      "eqp_id": "ACMP5101",
+      "recipe_id": "E2_M1CU_R17_TSV.CAS",
+      "IDLE": "Idle_3",
+      "OFFSET": 0.8268,
+      "APC_Para": "P3"
+    },
+    {
+      "Date": "2026-05-07T12:03:13",
+      "eqp_id": "ACMP5103",
+      "recipe_id": "E2_M1CU_R12_TSV.CAS",
+      "IDLE": "Idle_3",
+      "OFFSET": 0.9357,
+      "APC_Para": "P3"
+    },
+    {
+      "Date": "2026-05-08T01:53:11",
+      "eqp_id": "ACMP5104",
+      "recipe_id": "E2_M1CU_R12_TSV.CAS",
+      "IDLE": "Idle_1",
+      "OFFSET": 1.1757,
+      "APC_Para": "P3"
+    },
+    {
+      "Date": "2026-05-08T06:23:16",
+      "eqp_id": "ACMP5101",
+      "recipe_id": "E2_M1CU_R17_TSV.CAS",
+      "IDLE": "Idle_4",
+      "OFFSET": 1.2541,
+      "APC_Para": "P3"
+    },
+    {
+      "Date": "2026-05-08T09:44:20",
+      "eqp_id": "ACMP5103",
+      "recipe_id": "E2_M1CU_R12_TSV.CAS",
+      "IDLE": "Idle_3",
+      "OFFSET": 0.1332,
+      "APC_Para": "P3"
+    },
+    {
+      "Date": "2026-05-08T16:42:23",
+      "eqp_id": "ACMP5101",
+      "recipe_id": "E2_M1CU_R12_TSV.CAS",
+      "IDLE": "Idle_4",
+      "OFFSET": 0.8605,
+      "APC_Para": "P3"
+    },
+    {
+      "Date": "2026-05-09T06:17:39",
+      "eqp_id": "ACMP5104",
+      "recipe_id": "E2_M1CU_R12_TSV.CAS",
+      "IDLE": "Idle_3",
+      "OFFSET": 1.0436,
+      "APC_Para": "P3"
+    },
+    {
+      "Date": "2026-05-11T11:08:02",
+      "eqp_id": "ACMP5103",
+      "recipe_id": "E2_M1CU_R17_TSV.CAS",
+      "IDLE": "Idle_3",
+      "OFFSET": 1.2385,
+      "APC_Para": "P3"
+    },
+    {
+      "Date": "2026-05-12T23:41:21",
+      "eqp_id": "ACMP5103",
+      "recipe_id": "E2_M1CU_R12_TSV.CAS",
+      "IDLE": "Idle_4",
+      "OFFSET": 1.6519,
+      "APC_Para": "P3"
+    },
+    {
+      "Date": "2026-05-13T04:16:53",
+      "eqp_id": "ACMP5101",
+      "recipe_id": "E2_M1CU_R12_TSV.CAS",
+      "IDLE": "Idle_3",
+      "OFFSET": 0.9862,
+      "APC_Para": "P3"
+    },
+    {
+      "Date": "2026-05-13T04:33:06",
+      "eqp_id": "ACMP5104",
+      "recipe_id": "E2_M1CU_R12_TSV.CAS",
+      "IDLE": "Idle_2",
+      "OFFSET": 1.5126,
+      "APC_Para": "P3"
+    },
+    {
+      "Date": "2026-05-14T06:28:27",
+      "eqp_id": "ACMP5103",
+      "recipe_id": "E2_M1CU_R17_TSV.CAS",
+      "IDLE": "Idle_1",
+      "OFFSET": 0.8646,
+      "APC_Para": "P3"
+    }
   ]
 }

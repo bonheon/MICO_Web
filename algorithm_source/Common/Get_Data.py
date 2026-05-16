@@ -80,6 +80,7 @@ class Get_data:
     def MongoDB_GetData(Family, Fab, Lot_Code, Oper_Desc):
         df = pd.read_csv(_CSV_PATH, parse_dates=['Date', 'pre_oper_time'])
         df['IDLE'] = df['IDLE'].fillna('')
+        df['Lot_Code'] = Lot_Code
         return df
 
 

@@ -27,8 +27,8 @@ rng = np.random.default_rng(42)
 
 # ── 기본 설정 ─────────────────────────────────────────────────────────
 N_TOTAL    = 20_000
-START_DATE = datetime(2024,  1, 1)
-END_DATE   = datetime(2024, 12, 31)
+START_DATE = datetime(2026,  4, 16)
+END_DATE   = datetime(2026,  5, 16, 23, 0, 0)
 
 # ── 장비 / 레시피 ────────────────────────────────────────────────────
 EQP_IDS   = ['KCMP41', 'KCMP42', 'KCMP43', 'KCMP44', 'KCMP45']
@@ -36,9 +36,7 @@ EQP_MODEL = 'REFLEXION_LK'
 
 RECIPES = [
     'E2_M1CU_R12_TSV.CAS',
-    'E2_M1CU_R13_TSV.CAS',
-    'E2_M1CU_R12_OD.CAS',
-    'E2_M1CU_R13_OD.CAS',
+    'E2_M1CU_R17_TSV.CAS',
 ]
 OPERATION_ID  = 'V5077000E'
 OPER_DET_DESC = 'M1 CU CMP'
@@ -72,13 +70,22 @@ SP_M1CU_IDLE = 'SP_M1CU'
 # ── Idle vs Layer 비율 ────────────────────────────────────────────────
 IDLE_RATIO = 0.60
 
-# ── P3 파라미터 기준값 ────────────────────────────────────────────────
-P3_BASE       = 22.9
+# ── P3 보조 파라미터 기준값 ───────────────────────────────────────────
 P3_RRING_BASE = 7.3
 P3_ZONE_BASE  = [6.4, 2.3, 2.6, 2.4, 2.4]
 
-POST_OCD_TARGET = 1920.0
-POST_OCD_SIGMA  =   40.0
+# ── RR 모델 (PAD 마모 반영) ───────────────────────────────────────────
+# P3와 Post-OCD를 독립 난수로 생성하지 않고, PAD 마모 → RR → P3/두께 순으로 역산
+#   RR_actual = RR_B0 + RR_B1 * AMAT_PAD_3 + noise
+#   P3 = (PRE_TARGET - POST_OCD_TARGET) / RR_actual  ← APC 역산값
+#   Post-OCD = PRE_TARGET - RR_actual * P3 + 측정노이즈 ≈ POST_OCD_TARGET
+PRE_TARGET      = 2350.0   # Å  (Detail.pre_target)
+POST_OCD_TARGET = 1920.0   # Å  (Detail.target 기준)
+RR_B0           =   20.0   # Å/s (신품 패드 기준 제거율)
+RR_B1           =   -0.40  # Å/s per km (패드 마모에 따른 제거율 감소)
+RR_SIGMA        =    0.6   # Å/s (공정 산포)
+P3_JITTER       =    1.5   # sec (APC 제어 잔여 오차)
+THK_NOISE       =   25.0   # Å  (OCD 측정 노이즈)
 
 
 def _consumable_series(n, rng):
@@ -154,6 +161,7 @@ def _assign_idle(rank_vals, rng):
 def generate():
     rows_per_eqp = N_TOTAL // len(EQP_IDS)
     extra        = N_TOTAL % len(EQP_IDS)
+    lots_per_eqp = -(-rows_per_eqp // 25)  # ceiling division
     total_hours  = (END_DATE - START_DATE).total_seconds() / 3600
     all_rows     = []
 
@@ -182,21 +190,28 @@ def generate():
         # lot / wafer
         recipe_arr   = rng.choice(RECIPES, n)
         process_arr  = [f'F_6E2_{(i % 5) + 1:02d}' for i in range(n)]
-        lot_arr      = [f'LOT{(i // 25):04d}' for i in range(n)]
-        wf_id_arr    = [str(rng.integers(1, 26)) for _ in range(n)]
+        lot_start    = eqp_idx * lots_per_eqp
+        lot_arr      = [f'LOT{(lot_start + i // 25):04d}' for i in range(n)]
+        wf_id_arr    = [str((i % 25) + 1) for i in range(n)]
         r2r_rank_arr = [(i % 20) + 1 for i in range(n)]
 
-        # P3 폴리싱 파라미터
-        p3       = rng.normal(P3_BASE, 4.0, n)
+        # PAD 마모 기반 실제 RR → P3 역산 → Post-OCD 산출
+        pad3_arr = np.array([c['AMAT_PAD_3'] for c in cons])
+        rr_true  = RR_B0 + RR_B1 * pad3_arr + rng.normal(0, RR_SIGMA, n)
+        rr_true  = np.maximum(rr_true, 3.0)
+
+        p3_ideal = (PRE_TARGET - POST_OCD_TARGET) / rr_true   # APC 역산: 430/RR
+        p3       = np.maximum(p3_ideal + rng.normal(0, P3_JITTER, n), 5.0)
+
         p3_rring = rng.normal(P3_RRING_BASE, 0.8, n)
         p3_zones = [rng.normal(P3_ZONE_BASE[z], 0.4, n) for z in range(5)]
 
-        # Post-OCD 두께
-        avg_thk    = rng.normal(POST_OCD_TARGET, POST_OCD_SIGMA, n)
-        ed1_thk    = avg_thk + rng.normal(-10, 15, n)
-        zone_thks  = [avg_thk + rng.normal(dz, 20, n) for dz in [-30, -10, -30, 0, 20]]
-        ran        = np.abs(rng.normal(135, 20, n))
-        ran_e      = np.abs(rng.normal(150, 25, n))
+        # Post-OCD: PRE_TARGET - RR*P3 + 측정노이즈 ≈ POST_OCD_TARGET
+        avg_thk   = PRE_TARGET - rr_true * p3 + rng.normal(0, THK_NOISE, n)
+        ed1_thk   = avg_thk + rng.normal(-10, 15, n)
+        zone_thks = [avg_thk + rng.normal(dz, 20, n) for dz in [-30, -10, -30, 0, 20]]
+        ran       = np.abs(rng.normal(135, 20, n))
+        ran_e     = np.abs(rng.normal(150, 25, n))
 
         for i in range(n):
             row = {

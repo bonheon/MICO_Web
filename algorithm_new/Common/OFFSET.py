@@ -173,6 +173,86 @@ class OFFSET_Get:
         return merge_df
 
 
+    def compute_offset_group(merge_df, search_keys, pol_type, Fab):
+        # 그룹 공정용 Idle OFFSET 학습값 산출.
+        # 레시피 구분 없이 합산 데이터로 장비별 OFFSET 계산, 그룹 내 레시피별로 동일 값 저장.
+        ref        = search_keys.iloc[0]
+        Lot_Code   = ref.Lot_Code
+        Oper_Code  = ref.Oper_Code
+        Oper_Desc  = ref.Oper_Desc
+        APC_Para   = ref.APC_Para
+        Thk_Para   = ref.Thk_Para
+        Pre_Target = float(ref.Pre_Target) if pd.notna(ref.Pre_Target) else None
+        Target     = float(ref.Target)
+
+        mongo    = OFFSET_Get._make_offset_mongo(Lot_Code, Oper_Desc, Fab)
+        Pol_Para = Get_data.APCParaGet(APC_Para, pol_type)
+        Pad_Para = Get_data.PadParaGet(APC_Para)
+
+        temp_data = merge_df[merge_df['operation_id'] == Oper_Code].copy()
+        if temp_data.empty:
+            return None
+
+        offset_columns = [col for col in temp_data.columns if 'OFFSET' in col]
+        temp_data.fillna(value={col: 0 for col in offset_columns}, inplace=True)
+
+        temp_data['eq_recipe'] = temp_data['eqp_id'] + '//' + temp_data['recipe_id']
+        temp_data.drop_duplicates(inplace=True)
+
+        temp_data['Pol_Time'] = temp_data[Pol_Para].sum(axis=1)
+        temp_data.dropna(subset=[Thk_Para], inplace=True)
+
+        b_cols = [col for col in temp_data.columns if '_B0' in col or '_B1' in col]
+        temp_data.fillna(temp_data.groupby(['eq_recipe'])[b_cols].transform('mean'), inplace=True)
+        temp_data[b_cols] = temp_data[b_cols].apply(pd.to_numeric, errors='coerce').fillna(temp_data[b_cols].mean())
+
+        if 'REV' in Thk_Para:
+            temp_data['RR'] = (temp_data[Thk_Para] - Pre_Target) / temp_data['Pol_Time']
+        else:
+            temp_data['RR'] = (Pre_Target - temp_data[Thk_Para]) / temp_data['Pol_Time']
+
+        b1_col = f"{APC_Para}_B1"
+        if b1_col not in temp_data.columns:
+            return None
+        temp_data['RR_Pad'] = temp_data[Pad_Para] * temp_data[b1_col] + temp_data[APC_Para + '_B0']
+
+        delta = (Target - Pre_Target) if 'REV' in Thk_Para else (Pre_Target - Target)
+        temp_data['OFFSET'] = delta / temp_data['RR'] - delta / temp_data['RR_Pad']
+        temp_data['OFFSET'] = temp_data['OFFSET'].clip(-5, 3)
+        temp_data.loc[temp_data['IDLE'].str.contains('LC_T_|LC_TB_'), 'OFFSET'] = 0
+
+        temp_data['recipe_group'] = temp_data['recipe_id'].apply(lambda x: '_'.join(x.split('_')[:3]))
+        temp_data['APC_Para']     = APC_Para
+
+        temp_data_idle = temp_data[
+            temp_data['IDLE'].str.contains('Idle_') | temp_data['IDLE'].str.contains('Layer_')
+        ]
+
+        # 레시피 무관, 장비+IDLE 기준으로 합산 집계
+        grouped         = temp_data_idle.groupby(['eqp_id', 'IDLE']).size().reset_index(name='count')
+        filtered_groups = grouped[grouped['count'] >= 5]
+        filtered_data   = temp_data_idle.merge(filtered_groups[['eqp_id', 'IDLE']], on=['eqp_id', 'IDLE'])
+        idle_base       = filtered_data.groupby(['eqp_id', 'IDLE'])['OFFSET'].mean().reset_index()
+
+        # 그룹 내 레시피별로 동일한 OFFSET 저장 (RR group 방식과 동일)
+        today     = datetime.now()
+        idle_rows = []
+        for _, key in search_keys.iterrows():
+            tmp              = idle_base.copy()
+            tmp['recipe_id'] = key.Recipe_ID
+            tmp['APC_Para']  = APC_Para
+            tmp['Date']      = today
+            idle_rows.append(tmp)
+
+        idle_table         = pd.concat(idle_rows, axis=0, ignore_index=True)
+        idle_table['IDLE'] = idle_table['IDLE'].replace('', 'Normal')
+
+        if not idle_table.empty:
+            mongo.push_df(idle_table)
+
+        return temp_data
+
+
     def compute_lc_offset(temp_data, Lot_Code, Oper_Desc, Fab, Offset_Group):
         # LC 계열(패드 교체/Truing) IDLE 구간에 대한 OFFSET 학습값 산출 및 MongoDB 저장.
         # Offset_Group='Y'이면 IDLE 레이블을 장비 번호 제거 후 그룹화하여 recipe_group 단위로 평균 집계.

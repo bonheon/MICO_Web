@@ -13,10 +13,10 @@ algorithm_new/test_dram_m1cu.py 와 동일한 merge_df(CSV)로 돌려
   → 파이프라인 스텝을 직접 호출하여 우회
 
 Mock 대상:
-  - MongoClient      : 빈 컬렉션 반환
-  - Removal_getdata  : CSV merge_df 기반 VM=0 처리 (MongoDB 우회)
-  - Offset_getdata   : 가상 B1/B0 삽입 (MongoDB RR 테이블 우회)
-  - offset_getdata   : Offset_getdata 소문자 alias (소스 코드 버그 fix)
+  - MongoClient    : 빈 컬렉션 반환
+  - Removal_getdata: Step 1 저장 Excel 캐시(pre_thk_cache/*.xlsx)에서 VM 로드
+  - Offset_getdata : 가상 B1/B0 삽입 (MongoDB RR 테이블 우회)
+  - offset_getdata : Offset_getdata 소문자 alias (소스 코드 버그 fix)
 """
 
 import sys
@@ -63,40 +63,38 @@ from Common.Module import Module_Get
 def _mock_removal_getdata(merge_df, fab, lot_code, oper_code, pre_oper_code,
                            recipe_id, oper_desc, recipe_info, mico_info_key,
                            ai_studio_url=None):
-    from pathlib import Path
-
-    cache_dir  = Path(__file__).parents[1] / 'algorithm_new' / 'pre_thk_cache'
-    cache_file = cache_dir / f'{lot_code}_{oper_desc.replace(" ", "_")}_{fab}.xlsx'
+    # Step 1(Pre_Thk_VM)에서 저장한 Excel 캐시를 읽어 VM 적용
+    # algorithm_new 의 load_pre_thk_data Excel 캐시 분기와 동일한 로직
+    cache_file = Path(__file__).parent / 'pre_thk_cache' / f'{lot_code}_{oper_desc.replace(" ", "_")}_{fab}.xlsx'
 
     merge_df_rr = merge_df.copy()
-    # algorithm_source 는 request_dtts 컬럼이 없으므로 rename 조건부 적용
     merge_df_rr.rename(columns={'pre_oper_time': 'Pre_Oper_Date', 'request_dtts': 'Date'}, inplace=True)
     merge_df_rr['Pre_Oper_Date'] = pd.to_datetime(merge_df_rr['Pre_Oper_Date'], errors='coerce')
-    merge_df_rr = merge_df_rr.sort_values('Pre_Oper_Date', ascending=True)
+    merge_df_rr.dropna(subset=['Pre_Oper_Date'], inplace=True)
+    merge_df_rr = merge_df_rr.sort_values(by='Pre_Oper_Date', ascending=True)
 
     if cache_file.exists():
-        Pre_Thk_Table = pd.read_excel(cache_file, parse_dates=['pre_oper_time'])
-        Pre_Thk_Table.rename(columns={'pre_oper_time': 'Pre_Oper_Date'}, inplace=True)
-        Pre_Thk_Table['Pre_Oper_Date'] = pd.to_datetime(Pre_Thk_Table['Pre_Oper_Date'])
+        pre_thk_table = pd.read_excel(cache_file, parse_dates=['pre_oper_time'])
+        pre_thk_table.rename(columns={'pre_oper_time': 'Pre_Oper_Date'}, inplace=True)
+        pre_thk_table['Pre_Oper_Date'] = pd.to_datetime(pre_thk_table['Pre_Oper_Date'])
 
-        for Thk_key in Pre_Thk_Table['THK_Para'].unique():
-            temp_pre = Pre_Thk_Table[Pre_Thk_Table['THK_Para'] == Thk_key].drop(
-                columns=[c for c in ['Date', 'THK_Para', 'Oper_Code'] if c in Pre_Thk_Table.columns]
-            ).sort_values('Pre_Oper_Date')
-            temp_pre = temp_pre.rename(columns={'Pre_Thk': Thk_key + '_VM', 'Count': Thk_key + '_Count'})
+        for thk_key in pre_thk_table['THK_Para'].unique():
+            temp = pre_thk_table[pre_thk_table['THK_Para'] == thk_key].drop(
+                columns=[c for c in ['Date', 'THK_Para', 'Oper_Code'] if c in pre_thk_table.columns]
+            )
+            temp = temp.sort_values(by='Pre_Oper_Date', ascending=True)
+            temp = temp.rename(columns={'Pre_Thk': thk_key + '_VM', 'Count': thk_key + '_Count'})
 
-            cols_drop = [c for c in merge_df_rr.columns if c.endswith('_x') or c.endswith('_y')]
-            merge_df_rr = merge_df_rr.drop(columns=cols_drop)
-            merge_df_rr = pd.merge_asof(merge_df_rr, temp_pre, on='Pre_Oper_Date', by=['pre_eq_ch'])
+            cols_to_drop = [c for c in merge_df_rr.columns if c.endswith('_x') or c.endswith('_y')]
+            merge_df_rr = merge_df_rr.drop(columns=cols_to_drop)
+            merge_df_rr = pd.merge_asof(merge_df_rr, temp, on='Pre_Oper_Date', by=['pre_eq_ch'])
             merge_df_rr.drop_duplicates(subset=['substrate_id'], inplace=True)
 
-        print(f'    [mock] Removal_getdata: Excel 캐시 로드 ({cache_file.name})')
-        vm_col = list(mico_info_key['Thk_Para'].unique())[0] + '_VM'
-        print(f'    [mock] {vm_col} 매칭: {merge_df_rr[vm_col].notna().sum()}/{len(merge_df_rr)}')
+        print(f'    [Excel 캐시] {cache_file.name} 로드: {len(merge_df_rr)}행')
     else:
         for thk_key in mico_info_key['Thk_Para'].unique():
             merge_df_rr[f'{thk_key}_VM'] = 0.0
-        print(f'    [mock] Excel 캐시 없음 → VM=0.0')
+        print(f'    [Excel 캐시 없음] VM=0.0 처리 — 먼저 Pre_Thk_VM 스텝을 실행하세요')
 
     return merge_df_rr
 
@@ -210,8 +208,84 @@ def run(Family, oper_desc, pol_type):
                 print('=' * 60)
 
         else:
-            # 그룹 처리 (현재 테스트 대상 아님)
-            print(f'  [GROUP] {group_name} 처리 (테스트 생략)')
+            for_key_list = mico_info_table[
+                mico_info_table['Group_Name'] == group_name
+            ]['for_key_list'].unique()
+
+            print(f'\n[그룹: {group_name}] 키 {len(for_key_list)}개 데이터 통합 중')
+
+            merge_df    = pd.DataFrame()
+            key_info_list = []
+
+            for key in for_key_list:
+                Lot_Code  = key.split('_')[0]
+                Oper_Code = key.split('_')[1]
+                Fab       = key.split('_')[2]
+
+                mico_info_key = mico_info_table[
+                    mico_info_table['for_key_list'] == key
+                ].copy()
+
+                key_info_list.append({
+                    'key': key, 'Lot_Code': Lot_Code,
+                    'Oper_Code': Oper_Code, 'Fab': Fab,
+                    'mico_info_key': mico_info_key,
+                })
+
+                merge_df_temp = Get_data.MongoDB_GetData(
+                    mico_info_key['Family'].unique()[0], Fab, Lot_Code, group_name
+                )
+                print(f'    [데이터 조회] {Fab} | {Lot_Code} | {group_name} ... {len(merge_df_temp)}행')
+                if merge_df_temp is not None and not merge_df_temp.empty:
+                    merge_df = pd.concat([merge_df, merge_df_temp])
+
+            merge_df['Group_Name'] = group_name
+            print(f'  그룹 통합 완료: {len(merge_df)}행')
+
+            for info in key_info_list:
+                Lot_Code      = info['Lot_Code']
+                Oper_Code     = info['Oper_Code']
+                Fab           = info['Fab']
+                mico_info_key = info['mico_info_key']
+
+                print('\n' + '=' * 60)
+                print(f'  파이프라인 시작: {Fab} | {Lot_Code} | {oper_desc}')
+                print('=' * 60)
+
+                print(f'\n  [Pre_Thk_VM] {Fab} | {Lot_Code} | {oper_desc} 시작')
+                try:
+                    Module_Get.Module_Get_Pre_VM(Lot_Code, oper_desc, merge_df, Fab, pol_type, mico_info_key)
+                    print(f'  [Pre_Thk_VM] {Fab} | {Lot_Code} | {oper_desc} 완료')
+                except Exception as e:
+                    print(f'  [Pre_Thk_VM] 오류: {e}')
+                    print(_tb.format_exc())
+
+                print(f'\n  [Removal Rate Group] {Fab} | {Lot_Code} | {oper_desc} 시작')
+                try:
+                    Module_Get.Module_Get_RR_Group(merge_df, Lot_Code, oper_desc, pol_type, Fab, mico_info_key)
+                    print(f'  [Removal Rate Group] {Fab} | {Lot_Code} | {oper_desc} 완료')
+                except Exception as e:
+                    print(f'  [Removal Rate Group] 오류: {e}')
+                    print(_tb.format_exc())
+
+                print(f'\n  [Offset] {Fab} | {Lot_Code} | {oper_desc} 시작')
+                try:
+                    Module_Get.Module_Get_Offset(Lot_Code, oper_desc, merge_df, pol_type, Fab, mico_info_key)
+                    print(f'  [Offset] {Fab} | {Lot_Code} | {oper_desc} 완료')
+                except Exception as e:
+                    print(f'  [Offset] 오류: {e}')
+                    print(_tb.format_exc())
+
+                print(f'\n  [Alarm 점검] {Fab} | {Lot_Code} | {oper_desc} 시작')
+                try:
+                    Module_Get.Module_Alarm(mico_info_key)
+                    print(f'  [Alarm 점검] {Fab} | {Lot_Code} | {oper_desc} 완료')
+                except Exception as e:
+                    print(f'  [Alarm 점검] 오류: {e}')
+
+                print('\n' + '=' * 60)
+                print(f'  파이프라인 완료: {Fab} | {Lot_Code} | {oper_desc}')
+                print('=' * 60)
 
     print('\n' + '#' * 60)
     print(f'  algorithm_source 학습 완료: Family={Family} | Oper_Desc={oper_desc}')
