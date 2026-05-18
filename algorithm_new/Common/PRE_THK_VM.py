@@ -100,20 +100,10 @@ class PRE_THK_VM_Get:
         oper_pairs: [(Pre_Oper_Desc, Pre_Oper_Para, 'PRE_OPER2'|'PRE_OPER3'|'PRE_OPER4'), ...]
         y_col: ITM 경로 → 'BIAS', detrend 경로 → 'Detrend_Thk' (둘 다 0-centered 학습값)
         """
-        # pre2_df에 alias_lot_id가 있으면 lot_id 기준 join, 없으면 substrate_id 기준 join
-        # 공정명을 코드에 하드코딩하지 않고 데이터 컬럼 존재 여부로 자동 판별
-        if 'alias_lot_id' in pre2_df.columns:
-            left_on, right_on = 'lot_id', 'alias_lot_id'
-        else:
-            left_on, right_on = None, None
-
         for desc, para, prefix in oper_pairs:
             if not (isinstance(para, str) and para != ''):
                 continue
-            if left_on and right_on:
-                merged = pd.merge(pre_thk_df_merge, pre2_df, left_on=left_on, right_on=right_on, how='left')
-            else:
-                merged = pd.merge(pre_thk_df_merge, pre2_df, on='substrate_id', how='left')
+            merged = pd.merge(pre_thk_df_merge, pre2_df, on='substrate_id', how='left')
             col       = desc + '.' + para
             linear_df = merged[[col, y_col]].replace('-', np.nan).dropna()
             lr        = LinearRegression()

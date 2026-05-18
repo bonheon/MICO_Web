@@ -416,12 +416,8 @@ class Removal_Rate_Get:
                 Pre_Thk_info_Table.rename(columns={'samp_matl_if': 'substrate_id'}, inplace=True)
                 Pre_Thk_info_Table.replace('-', 0, inplace=True)
 
-                if Oper_Desc == 'SOURCE OX CMP':
-                    exclude  = {'substrate_id', 'end_tm'}
-                    merge_kw = dict(left_on='lot_id', right_on='alias_lot_id')
-                else:
-                    exclude  = {'alias_lot_id', 'end_tm'}
-                    merge_kw = dict(on='substrate_id')
+                exclude  = {'alias_lot_id', 'end_tm'}
+                merge_kw = dict(on='substrate_id')
 
                 col_name = [c for c in Pre_Thk_info_Table.columns if c not in exclude]
                 merge_df = pd.merge(merge_df, Pre_Thk_info_Table[col_name], how='left', **merge_kw)
@@ -441,7 +437,7 @@ class Removal_Rate_Get:
 
                 ref = key.iloc[0]
                 oper_pairs = [
-                    (ref['Pre_Oper_Desc2'], ref['Pre_Oper_Para2'], 'PRE_OPER2', 2 if Oper_Desc == 'SOURCE OX CMP' else 1),
+                    (ref['Pre_Oper_Desc2'], ref['Pre_Oper_Para2'], 'PRE_OPER2', 1),
                     (ref['Pre_Oper_Desc3'], ref['Pre_Oper_Para3'], 'PRE_OPER3', 1),
                     (ref['Pre_Oper_Desc4'], ref['Pre_Oper_Para4'], 'PRE_OPER4', 1),
                 ]
