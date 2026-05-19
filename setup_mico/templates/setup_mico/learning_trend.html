@@ -608,7 +608,8 @@ function selectThkPara(para) {
   if (boxChart) { boxChart.destroy(); boxChart = null; }
   if (brushCleanup) { brushCleanup(); brushCleanup = null; }
 
-  const { formula_field } = trendData;
+  // THK는 effective_formula_field(모든 chamber coalesce)로 그룹핑
+  const formula_field = trendData.effective_formula_field || trendData.formula_field;
   const data = getFilteredData();
   const { formulas, colorMap }  = getColorMap(data, formula_field);
 
@@ -814,7 +815,7 @@ function addBrushSelection(chart, onSelect) {
 
 // ── 선택 영역 → boxplot 재생성 ────────────────────────────────────────
 function filterAndRebuildBoxplot(para, x1, x2, y1, y2, bpBox, resetBtn, badge) {
-  const { formula_field } = trendData;
+  const formula_field = trendData.effective_formula_field || trendData.formula_field;
   const data = getFilteredData();
   const { formulas, colorMap }  = getColorMap(data, formula_field);
 
@@ -861,7 +862,8 @@ function filterAndRebuildBoxplot(para, x1, x2, y1, y2, bpBox, resetBtn, badge) {
 function filterApcChart(substrates) {
   if (!apcChart || !currentApcPara) return;
   const para = currentApcPara;
-  const { formula_field } = trendData;
+  // 선택된 APC para 전용 formula 컬럼 사용 (chamber별 구분)
+  const formula_field = (trendData.formula_map && trendData.formula_map[para]) || trendData.formula_field;
   const baseData = getFilteredData();
   const { formulas, colorMap }  = getColorMap(baseData, formula_field);
 
@@ -889,7 +891,8 @@ function selectApcPara(para) {
 
   if (apcChart) { apcChart.destroy(); apcChart = null; }
 
-  const { formula_field } = trendData;
+  // 선택된 para의 formula 컬럼 사용 (EBARA/KCT chamber별 구분)
+  const formula_field = (trendData.formula_map && trendData.formula_map[para]) || trendData.formula_field;
   const data = getFilteredData();
   const { formulas, colorMap }  = getColorMap(data, formula_field);
 
