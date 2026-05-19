@@ -1,0 +1,1027 @@
+{% extends 'setup_mico/base.html' %}
+{% block title %}| Trend{% endblock %}
+{% block nav_trend %}active{% endblock %}
+
+{% block breadcrumb %}
+<li class="breadcrumb-item">Learning</li>
+<li class="breadcrumb-item active">Trend</li>
+{% endblock %}
+
+{% block content %}
+<style>
+  .selector-panel {
+    display: grid;
+    grid-template-columns: 1fr 1fr 1fr auto;
+    gap: 1rem;
+    margin-bottom: 1.25rem;
+    align-items: end;
+  }
+  .selector-card {
+    background: #fff;
+    border: 2px solid #e4e7ed;
+    border-radius: 12px;
+    padding: 1rem 1.25rem;
+    position: relative;
+    transition: border-color 0.15s;
+  }
+  .selector-card.selected { border-color: #4f8ef7; }
+  .step-badge {
+    position: absolute;
+    top: -10px; left: 14px;
+    font-size: 0.65rem; font-weight: 700;
+    padding: 2px 8px; border-radius: 999px;
+    letter-spacing: 0.05em; color: #fff;
+  }
+  .selector-card label {
+    font-size: 0.72rem; font-weight: 600; color: #8993a8;
+    text-transform: uppercase; letter-spacing: 0.06em;
+    display: block; margin-bottom: 0.5rem;
+  }
+  .selector-card select {
+    width: 100%; border: 1px solid #e4e7ed; border-radius: 8px;
+    padding: 0.45rem 0.75rem; font-size: 0.83rem; color: #344054;
+    background: #f8f9fc; outline: none; cursor: pointer;
+  }
+  .selector-card select:focus { border-color: #4f8ef7; background: #fff; }
+  .selector-card select:disabled { opacity: 0.4; cursor: not-allowed; }
+
+  .btn-search {
+    padding: 0.7rem 1.5rem;
+    border-radius: 10px;
+    background: #0f1729; color: #fff;
+    font-size: 0.85rem; font-weight: 700;
+    border: none; cursor: pointer;
+    transition: background 0.15s;
+    white-space: nowrap;
+  }
+  .btn-search:hover { background: #1a2744; }
+  .btn-search:disabled { opacity: 0.45; cursor: not-allowed; }
+
+  .algo-tab {
+    padding: 0.4rem 1rem; border-radius: 8px;
+    border: 1px solid #e4e7ed; background: #fff;
+    font-size: 0.8rem; font-weight: 500; color: #8993a8;
+    cursor: pointer; transition: all 0.15s;
+  }
+  .algo-tab:hover { border-color: #4f8ef7; color: #4f8ef7; }
+  .algo-tab.active { background: #4f8ef7; border-color: #4f8ef7; color: #fff; font-weight: 600; }
+
+  .content-card {
+    background: #fff; border: 1px solid #e4e7ed;
+    border-radius: 12px; overflow: hidden;
+  }
+  .content-header {
+    padding: 1rem 1.5rem; border-bottom: 1px solid #e4e7ed;
+    display: flex; align-items: center; gap: 0.75rem;
+  }
+  .content-title { font-size: 0.875rem; font-weight: 600; color: #1e2640; }
+  .content-sub   { font-size: 0.75rem; color: #8993a8; margin-top: 1px; }
+
+  .info-bar {
+    display: flex; align-items: center; gap: 0.5rem; flex-wrap: wrap;
+    padding: 0.6rem 1.5rem; background: #f8f9fc;
+    border-bottom: 1px solid #e4e7ed; font-size: 0.78rem;
+  }
+  .chip {
+    border-radius: 999px; padding: 0.2em 0.75em;
+    font-weight: 500; font-size: 0.75rem;
+  }
+  .empty-state { padding: 5rem 1.5rem; text-align: center; color: #8993a8; }
+  .empty-state i { font-size: 2.2rem; display: block; margin-bottom: 0.75rem; color: #c8d0e0; }
+  .empty-state .em-title { font-size: 0.9rem; font-weight: 600; color: #344054; margin-bottom: 0.3rem; }
+  .empty-state .em-sub   { font-size: 0.8rem; }
+  .loading-state { padding: 5rem 1.5rem; text-align: center; color: #8993a8; }
+  .error-state   { padding: 3rem 1.5rem; text-align: center; }
+
+  .date-filter-bar {
+    display: flex; align-items: center; gap: 0.5rem; flex-wrap: wrap;
+    background: #fff; border: 1px solid #e4e7ed; border-radius: 10px;
+    padding: 0.6rem 1rem; margin-bottom: 1rem;
+  }
+  .date-filter-label {
+    font-size: 0.72rem; font-weight: 600; color: #8993a8;
+    text-transform: uppercase; letter-spacing: 0.06em; white-space: nowrap;
+    margin-right: 0.25rem;
+  }
+  .date-quick-btn {
+    padding: 0.3rem 0.75rem; border-radius: 8px; font-size: 0.78rem;
+    border: 1px solid #e4e7ed; background: #f8f9fc; color: #344054;
+    cursor: pointer; transition: all 0.12s; white-space: nowrap;
+  }
+  .date-quick-btn:hover { border-color: #4f8ef7; color: #4f8ef7; }
+  .date-quick-btn.active { background: #4f8ef7; border-color: #4f8ef7; color: #fff; font-weight: 600; }
+  .date-divider { width: 1px; height: 20px; background: #e4e7ed; margin: 0 0.25rem; flex-shrink: 0; }
+  .date-input {
+    border: 1px solid #e4e7ed; border-radius: 7px; padding: 0.3rem 0.6rem;
+    font-size: 0.8rem; color: #344054; background: #f8f9fc; outline: none; cursor: pointer;
+  }
+  .date-input:focus { border-color: #4f8ef7; background: #fff; }
+  .date-clear-btn {
+    padding: 0.25rem 0.5rem; border-radius: 7px; border: none;
+    background: none; color: #c8d0e0; cursor: pointer; font-size: 0.9rem;
+    transition: color 0.12s; line-height: 1;
+  }
+  .date-clear-btn:hover { color: #ef4444; }
+
+  .eq-filter-bar {
+    display: flex; align-items: center; gap: 0.5rem; flex-wrap: wrap;
+    background: #fff; border: 1px solid #e4e7ed; border-radius: 10px;
+    padding: 0.5rem 1rem; margin-bottom: 1rem;
+  }
+  .eq-filter-select {
+    border: 1px solid #e4e7ed; border-radius: 7px; padding: 0.28rem 0.6rem;
+    font-size: 0.8rem; color: #344054; background: #f8f9fc; outline: none; cursor: pointer;
+    min-width: 140px;
+  }
+  .eq-filter-select:focus { border-color: #4f8ef7; background: #fff; }
+  .eq-filter-select:disabled { opacity: 0.4; cursor: not-allowed; }
+
+  .chart-box {
+    background: #f8f9fc; border: 1px solid #e4e7ed;
+    border-radius: 10px; padding: 1rem 1.25rem;
+  }
+  .chart-box-title {
+    font-size: 0.78rem; font-weight: 600; color: #344054;
+    margin-bottom: 0.75rem; display: flex; align-items: center; gap: 0.5rem;
+  }
+  .chart-box-title .dot { width: 8px; height: 8px; border-radius: 50%; flex-shrink: 0; }
+
+  .section-title {
+    font-size: 0.82rem; font-weight: 700; color: #344054;
+    display: flex; align-items: center; gap: 0.5rem;
+    padding: 1.1rem 0 0.7rem; border-top: 1px solid #e4e7ed;
+  }
+  .section-title:first-child { border-top: none; padding-top: 0; }
+
+  .para-hint { font-size: 0.78rem; color: #8993a8; padding: 1.5rem 0; text-align: center; }
+
+  /* Dark mode */
+  [data-theme="dark"] .content-card { background: #1f2937 !important; border-color: #374151 !important; }
+  [data-theme="dark"] .content-header { border-bottom-color: #374151 !important; }
+  [data-theme="dark"] .content-title { color: #f1f5f9 !important; }
+  [data-theme="dark"] .content-sub   { color: #9ca3af !important; }
+  [data-theme="dark"] .info-bar { background: #263348 !important; border-bottom-color: #374151 !important; }
+  [data-theme="dark"] .date-filter-bar { background: #1f2937 !important; border-color: #374151 !important; }
+  [data-theme="dark"] .eq-filter-bar { background: #1f2937 !important; border-color: #374151 !important; }
+  [data-theme="dark"] .eq-filter-select { background: #1e2a40 !important; border-color: #3d4f6d !important; color: #f1f5f9 !important; }
+  [data-theme="dark"] .eq-filter-select:focus { border-color: #4f8ef7 !important; }
+  [data-theme="dark"] .date-filter-label { color: #9ca3af !important; }
+  [data-theme="dark"] .date-quick-btn { background: #263348 !important; border-color: #374151 !important; color: #d1d5db !important; }
+  [data-theme="dark"] .date-quick-btn:hover { border-color: #4f8ef7 !important; color: #4f8ef7 !important; }
+  [data-theme="dark"] .date-divider { background: #374151 !important; }
+  [data-theme="dark"] .date-input { background: #1e2a40 !important; border-color: #3d4f6d !important; color: #f1f5f9 !important; }
+  [data-theme="dark"] .date-input:focus { border-color: #4f8ef7 !important; }
+  [data-theme="dark"] .chart-box { background: #263348 !important; border-color: #374151 !important; }
+  [data-theme="dark"] .chart-box-title { color: #d1d5db !important; }
+  [data-theme="dark"] #bp-reset-btn { border-color: #4f8ef7 !important; color: #6b9ef7 !important; }
+  [data-theme="dark"] .drag-hint { color: #6b7280 !important; }
+  [data-theme="dark"] .section-title { color: #d1d5db !important; border-top-color: #374151 !important; }
+  [data-theme="dark"] .empty-state { color: #9ca3af !important; }
+  [data-theme="dark"] .empty-state i { color: #4b5563 !important; }
+  [data-theme="dark"] .empty-state .em-title { color: #d1d5db !important; }
+  [data-theme="dark"] .loading-state { color: #9ca3af !important; }
+  [data-theme="dark"] .error-state   { color: #d1d5db !important; }
+  [data-theme="dark"] .para-hint { color: #9ca3af !important; }
+  [data-theme="dark"] .algo-tab { background: #1f2937 !important; border-color: #374151 !important; color: #d1d5db !important; }
+  [data-theme="dark"] .algo-tab:hover { border-color: #4f8ef7 !important; color: #4f8ef7 !important; }
+  [data-theme="dark"] .selector-card { background: #1f2937 !important; border-color: #374151 !important; }
+  [data-theme="dark"] .selector-card.selected { border-color: #4f8ef7 !important; }
+  [data-theme="dark"] .selector-card select { background: #1e2a40 !important; border-color: #3d4f6d !important; color: #f1f5f9 !important; }
+  [data-theme="dark"] .selector-card label { color: #9ca3af !important; }
+  [data-theme="dark"] .badge-pill-blue { background: #1e3a5f !important; color: #6b9ef7 !important; }
+</style>
+
+<!-- Selector -->
+<div class="selector-panel">
+  <div class="selector-card" id="card-device">
+    <span class="step-badge" style="background:#4f8ef7;">STEP 1</span>
+    <label>Device</label>
+    <select id="sel-device"><option value="">— 선택하세요 —</option></select>
+  </div>
+  <div class="selector-card" id="card-oper">
+    <span class="step-badge" style="background:#22c55e;">STEP 2</span>
+    <label>Oper Desc</label>
+    <select id="sel-oper" disabled><option value="">— Device 먼저 선택 —</option></select>
+  </div>
+  <div class="selector-card" id="card-fab">
+    <span class="step-badge" style="background:#a855f7;">STEP 3</span>
+    <label>FAB</label>
+    <select id="sel-fab" disabled><option value="">— Oper Desc 먼저 선택 —</option></select>
+  </div>
+  <button id="btn-search" class="btn-search" disabled>
+    <i class="bi bi-search me-1"></i> 조회
+  </button>
+</div>
+
+<!-- Date Filter -->
+<div class="date-filter-bar">
+  <span class="date-filter-label"><i class="bi bi-calendar3 me-1"></i>날짜 범위</span>
+  <button class="date-quick-btn" data-days="1">최근 1일</button>
+  <button class="date-quick-btn" data-days="7">최근 7일</button>
+  <button class="date-quick-btn" data-days="14">최근 2주</button>
+  <button class="date-quick-btn" data-days="30">최근 30일</button>
+  <div class="date-divider"></div>
+  <input type="date" id="date-from" class="date-input">
+  <span style="color:#8993a8; font-size:0.82rem;">~</span>
+  <input type="date" id="date-to" class="date-input">
+  <button class="date-clear-btn" id="date-clear" title="날짜 초기화">
+    <i class="bi bi-x-circle"></i>
+  </button>
+</div>
+
+<!-- EQP / Recipe Filter -->
+<div class="eq-filter-bar" id="eq-filter-bar" style="display:none;">
+  <span class="date-filter-label"><i class="bi bi-funnel me-1"></i>필터</span>
+  <span style="font-size:0.78rem; color:#8993a8; white-space:nowrap;">EQP</span>
+  <select id="sel-eqp" class="eq-filter-select">
+    <option value="">전체</option>
+  </select>
+  <div class="date-divider"></div>
+  <span style="font-size:0.78rem; color:#8993a8; white-space:nowrap;">Recipe</span>
+  <select id="sel-recipe" class="eq-filter-select">
+    <option value="">전체</option>
+  </select>
+</div>
+
+<!-- Content Card -->
+<div class="content-card">
+  <div class="content-header">
+    <div>
+      <div class="content-title">학습값 Trend</div>
+      <div class="content-sub" id="content-sub">Device → Oper Desc → FAB 선택 후 조회하세요</div>
+    </div>
+    <div class="ms-auto">
+      <span id="data-status" class="chip" style="background:#f0f2f7; color:#8993a8;">
+        <i class="bi bi-circle me-1"></i> 미조회
+      </span>
+    </div>
+  </div>
+
+  <!-- Info bar -->
+  <div class="info-bar" id="info-bar" style="display:none;">
+    <i class="bi bi-database" style="color:#8993a8;"></i>
+    <span id="info-device" class="chip" style="background:#eff6ff; color:#4f8ef7;"></span>
+    <i class="bi bi-chevron-right" style="color:#c8d0e0;"></i>
+    <span id="info-oper" class="chip" style="background:#f0fdf4; color:#22c55e;"></span>
+    <i class="bi bi-chevron-right" style="color:#c8d0e0;"></i>
+    <span id="info-fab" class="chip" style="background:#fdf4ff; color:#a855f7;"></span>
+    <code id="info-collection" style="font-size:0.7rem; color:#8993a8; margin-left:0.5rem;"></code>
+  </div>
+
+  <!-- Empty -->
+  <div class="empty-state" id="empty-state">
+    <i class="bi bi-graph-up-arrow"></i>
+    <div class="em-title">학습값 Trend</div>
+    <div class="em-sub" id="empty-msg">Device / Oper Desc / FAB을 선택하고<br>조회 버튼을 누르면 차트가 표시됩니다</div>
+  </div>
+
+  <!-- Loading -->
+  <div class="loading-state" id="loading-state" style="display:none;">
+    <div class="spinner-border spinner-border-sm text-primary mb-3" role="status"></div>
+    <div style="font-size:0.85rem; color:#344054; font-weight:600;">데이터 조회 중...</div>
+    <div id="loading-collection" style="font-size:0.72rem; color:#8993a8; margin-top:0.3rem;"></div>
+  </div>
+
+  <!-- Error -->
+  <div class="error-state" id="error-state" style="display:none;">
+    <i class="bi bi-exclamation-triangle" style="font-size:1.8rem; color:#ef4444; display:block; margin-bottom:0.75rem;"></i>
+    <div style="font-size:0.9rem; font-weight:600; color:#344054; margin-bottom:0.3rem;">조회 실패</div>
+    <div id="error-msg" style="font-size:0.82rem; color:#8993a8;"></div>
+  </div>
+
+  <!-- Results panel -->
+  <div id="results-panel" style="display:none; padding:1.25rem 1.5rem;">
+
+    <!-- ── Section 1: THK Para Trend ── -->
+    <div class="section-title" style="border-top:none; padding-top:0;">
+      <i class="bi bi-layers" style="color:#4f8ef7;"></i> THK Para Trend
+    </div>
+    <div style="display:flex; flex-wrap:wrap; gap:0.4rem; margin-bottom:1rem;" id="thk-pills"></div>
+    <div id="thk-charts-row" style="display:none; grid-template-columns:7fr 3fr; gap:1rem;"></div>
+    <div class="para-hint" id="thk-hint" style="display:none;">
+      위에서 THK Para를 선택하면 Trend가 표시됩니다
+    </div>
+
+    <!-- ── Section 2: APC Para Trend ── -->
+    <div class="section-title">
+      <i class="bi bi-sliders" style="color:#22c55e;"></i> APC Para Trend
+    </div>
+    <div style="display:flex; flex-wrap:wrap; gap:0.4rem; margin-bottom:1rem;" id="apc-pills"></div>
+    <div id="apc-charts-row" style="display:none;"></div>
+    <div class="para-hint" id="apc-hint" style="display:none;">
+      위에서 APC Para를 선택하면 Trend가 표시됩니다
+    </div>
+
+  </div>
+</div>
+{% endblock %}
+
+{% block scripts %}
+<script>
+const CASCADE = {{ cascade_json|safe }};
+const COLORS  = ['#4f8ef7','#22c55e','#f97316','#a855f7','#ef4444','#06b6d4','#eab308','#ec4899'];
+
+// ── Boxplot whisker plugin ────────────────────────────────────────────
+Chart.register({
+  id: 'boxplotWhiskers',
+  afterDatasetsDraw(chart) {
+    const groups = chart.data.datasets[0]?._groups;
+    if (!groups) return;
+    const ctx    = chart.ctx;
+    const yScale = chart.scales.y;
+    const meta   = chart.getDatasetMeta(0);
+    groups.forEach((g, i) => {
+      if (!g.stats) return;
+      const bar = meta.data[i];
+      if (!bar) return;
+      const x   = bar.x;
+      const bw  = Math.min((bar.width || 40) * 0.8, 60);
+      const hw  = bw / 2;
+      const ww  = bw * 0.4;
+      const { whiskerHigh, q3, median, q1, whiskerLow } = g.stats;
+      const yWH  = yScale.getPixelForValue(whiskerHigh);
+      const yQ3  = yScale.getPixelForValue(q3);
+      const yMed = yScale.getPixelForValue(median);
+      const yQ1  = yScale.getPixelForValue(q1);
+      const yWL  = yScale.getPixelForValue(whiskerLow);
+      ctx.save();
+      ctx.strokeStyle = g.color;
+      ctx.lineWidth = 1.5;
+      ctx.setLineDash([]);
+      ctx.beginPath(); ctx.moveTo(x - ww, yWH); ctx.lineTo(x + ww, yWH); ctx.stroke();
+      ctx.beginPath(); ctx.moveTo(x, yWH); ctx.lineTo(x, yQ3); ctx.stroke();
+      ctx.beginPath(); ctx.moveTo(x, yQ1); ctx.lineTo(x, yWL); ctx.stroke();
+      ctx.beginPath(); ctx.moveTo(x - ww, yWL); ctx.lineTo(x + ww, yWL); ctx.stroke();
+      ctx.lineWidth = 2.5;
+      ctx.beginPath(); ctx.moveTo(x - hw, yMed); ctx.lineTo(x + hw, yMed); ctx.stroke();
+      ctx.restore();
+    });
+  }
+});
+
+// ── State ────────────────────────────────────────────────────────────
+let trendData        = null;
+let thkChart         = null;
+let boxChart         = null;
+let apcChart         = null;
+let currentThkGroups = null;
+let currentThkPara   = null;
+let currentApcPara   = null;
+let brushCleanup     = null;
+
+// ── Cascade selectors ────────────────────────────────────────────────
+const selDevice = document.getElementById('sel-device');
+const selOper   = document.getElementById('sel-oper');
+const selFab    = document.getElementById('sel-fab');
+const btnSearch = document.getElementById('btn-search');
+
+Object.keys(CASCADE).sort().forEach(d => selDevice.add(new Option(d, d)));
+
+selDevice.addEventListener('change', () => {
+  const d = selDevice.value;
+  selOper.innerHTML = '<option value="">— 선택하세요 —</option>';
+  selFab.innerHTML  = '<option value="">— Oper Desc 먼저 선택 —</option>';
+  selOper.disabled  = !d;
+  selFab.disabled   = true;
+  btnSearch.disabled = true;
+  document.getElementById('card-device').classList.toggle('selected', !!d);
+  document.getElementById('card-oper').classList.remove('selected');
+  document.getElementById('card-fab').classList.remove('selected');
+  if (d) Object.keys(CASCADE[d]).sort().forEach(o => selOper.add(new Option(o, o)));
+});
+
+selOper.addEventListener('change', () => {
+  const d = selDevice.value, o = selOper.value;
+  selFab.innerHTML = '<option value="">— 선택하세요 —</option>';
+  selFab.disabled  = !o;
+  btnSearch.disabled = true;
+  document.getElementById('card-oper').classList.toggle('selected', !!o);
+  document.getElementById('card-fab').classList.remove('selected');
+  if (d && o) (CASCADE[d][o] || []).sort().forEach(f => selFab.add(new Option(f, f)));
+});
+
+selFab.addEventListener('change', () => {
+  const f = selFab.value;
+  document.getElementById('card-fab').classList.toggle('selected', !!f);
+  btnSearch.disabled = !f;
+});
+
+// ── Date filter ──────────────────────────────────────────────────────
+const dateFrom = document.getElementById('date-from');
+const dateTo   = document.getElementById('date-to');
+
+document.querySelectorAll('.date-quick-btn').forEach(btn => {
+  btn.addEventListener('click', function() {
+    document.querySelectorAll('.date-quick-btn').forEach(b => b.classList.remove('active'));
+    this.classList.add('active');
+    const days = +this.dataset.days;
+    const now  = new Date();
+    dateTo.value   = now.toISOString().slice(0, 10);
+    dateFrom.value = new Date(now - days * 86400000).toISOString().slice(0, 10);
+  });
+});
+
+document.getElementById('date-clear').addEventListener('click', () => {
+  dateFrom.value = dateTo.value = '';
+  document.querySelectorAll('.date-quick-btn').forEach(b => b.classList.remove('active'));
+});
+
+['sel-eqp', 'sel-recipe'].forEach(id => {
+  document.getElementById(id).addEventListener('change', () => {
+    if (!trendData) return;
+    if (currentThkPara) selectThkPara(currentThkPara);
+    if (currentApcPara) selectApcPara(currentApcPara);
+  });
+});
+
+// ── Search ───────────────────────────────────────────────────────────
+btnSearch.addEventListener('click', () => {
+  const d = selDevice.value, o = selOper.value, f = selFab.value;
+  if (!d || !o || !f) return;
+  fetchTrendData(d, o, f, dateFrom.value, dateTo.value);
+});
+
+// ── UI helpers ───────────────────────────────────────────────────────
+function showState(active) {
+  ['empty-state','loading-state','error-state','results-panel'].forEach(id => {
+    document.getElementById(id).style.display = (id === active) ? '' : 'none';
+  });
+  document.getElementById('info-bar').style.display = (active === 'results-panel') ? '' : 'none';
+}
+
+function isDark()     { return document.documentElement.getAttribute('data-theme') === 'dark'; }
+function gridColor()  { return isDark() ? '#374151' : '#f0f2f7'; }
+function labelColor() { return isDark() ? '#9ca3af' : '#8993a8'; }
+
+// ── Fetch ────────────────────────────────────────────────────────────
+async function fetchTrendData(device, oper_desc, fab, date_from, date_to) {
+  const col = `MICO_Trend_${device}_${oper_desc}_${fab}`;
+  showState('loading-state');
+  document.getElementById('loading-collection').textContent = col;
+
+  const params = new URLSearchParams({ device, oper_desc, fab });
+  if (date_from) params.set('date_from', date_from);
+  if (date_to)   params.set('date_to', date_to);
+
+  let resp;
+  try { resp = await fetch(`{% url 'learning_trend_data' %}?${params}`); }
+  catch(e) {
+    showState('error-state');
+    document.getElementById('error-msg').textContent = '네트워크 오류: ' + e.message;
+    return;
+  }
+  const json = await resp.json();
+  if (!resp.ok) {
+    showState('error-state');
+    document.getElementById('error-msg').textContent = json.error || '데이터 조회 실패';
+    return;
+  }
+
+  trendData = json;
+
+  document.getElementById('info-device').textContent    = device;
+  document.getElementById('info-oper').textContent      = oper_desc;
+  document.getElementById('info-fab').textContent       = fab;
+  document.getElementById('info-collection').textContent = json.collection;
+  document.getElementById('content-sub').textContent    =
+    `${device} / ${oper_desc} / ${fab}`;
+
+  const n = json.data.length;
+  const st = document.getElementById('data-status');
+  st.innerHTML = `<i class="bi bi-check-circle me-1"></i> ${n.toLocaleString()}건`;
+  st.style.background = n ? '#f0fdf4' : '#fef9c3';
+  st.style.color      = n ? '#22c55e' : '#ca8a04';
+
+  showState('results-panel');
+  populateEqFilters();
+  renderPills();
+}
+
+// ── EQP / Recipe 필터 populate ───────────────────────────────────────
+function populateEqFilters() {
+  const { data } = trendData;
+  const eqpSel    = document.getElementById('sel-eqp');
+  const recipeSel = document.getElementById('sel-recipe');
+
+  const prevEqp    = eqpSel.value;
+  const prevRecipe = recipeSel.value;
+
+  const eqps    = [...new Set(data.map(d => d.eqp_id).filter(Boolean))].sort();
+  const recipes = [...new Set(data.map(d => d.recipe_id).filter(Boolean))].sort();
+
+  eqpSel.innerHTML    = '<option value="">전체</option>' +
+    eqps.map(v => `<option value="${v}">${v}</option>`).join('');
+  recipeSel.innerHTML = '<option value="">전체</option>' +
+    recipes.map(v => `<option value="${v}">${v}</option>`).join('');
+
+  if (eqps.includes(prevEqp))       eqpSel.value    = prevEqp;
+  if (recipes.includes(prevRecipe)) recipeSel.value = prevRecipe;
+
+  document.getElementById('eq-filter-bar').style.display = '';
+}
+
+// ── 현재 필터 적용된 data 반환 ────────────────────────────────────────
+function getFilteredData() {
+  if (!trendData) return [];
+  const eqp    = document.getElementById('sel-eqp').value;
+  const recipe = document.getElementById('sel-recipe').value;
+  if (!eqp && !recipe) return trendData.data;
+  return trendData.data.filter(d =>
+    (!eqp    || d.eqp_id    === eqp) &&
+    (!recipe || d.recipe_id === recipe)
+  );
+}
+
+// ── Color map from formula field ─────────────────────────────────────
+function getColorMap(data, formulaField) {
+  const formulas = [...new Set(data.map(d => d[formulaField]).filter(Boolean))].sort();
+  const colorMap = {};
+  formulas.forEach((f, i) => { colorMap[f] = COLORS[i % COLORS.length]; });
+  return { formulas, colorMap };
+}
+
+// ── Box statistics ───────────────────────────────────────────────────
+function computeBoxStats(values) {
+  const sorted = values.filter(v => v != null && !isNaN(+v)).map(Number).sort((a, b) => a - b);
+  if (sorted.length < 4) return null;
+  const n = sorted.length;
+  const q1     = sorted[Math.floor(n * 0.25)];
+  const q3     = sorted[Math.floor(n * 0.75)];
+  const median = n % 2 === 0
+    ? (sorted[n / 2 - 1] + sorted[n / 2]) / 2
+    : sorted[Math.floor(n / 2)];
+  const iqr         = q3 - q1;
+  const whiskerLow  = sorted.find(v => v >= q1 - 1.5 * iqr) ?? sorted[0];
+  const whiskerHigh = [...sorted].reverse().find(v => v <= q3 + 1.5 * iqr) ?? sorted[n - 1];
+  return { min: sorted[0], q1, median, q3, max: sorted[n - 1], whiskerLow, whiskerHigh, n };
+}
+
+// ── Render pills ─────────────────────────────────────────────────────
+function renderPills() {
+  [thkChart, boxChart, apcChart].forEach(c => c && c.destroy());
+  thkChart = boxChart = apcChart = null;
+  if (brushCleanup) { brushCleanup(); brushCleanup = null; }
+
+  const { thk_paras, apc_paras } = trendData;
+
+  // THK pills
+  const thkDiv = document.getElementById('thk-pills');
+  thkDiv.innerHTML = '';
+  document.getElementById('thk-charts-row').style.display = 'none';
+  document.getElementById('thk-hint').style.display = '';
+  if (!thk_paras.length) {
+    thkDiv.innerHTML = '<span style="font-size:0.8rem;color:#8993a8;">Set-up에 THK Para가 없습니다</span>';
+  } else {
+    thk_paras.forEach(p => {
+      const btn = document.createElement('button');
+      btn.className = 'algo-tab'; btn.textContent = p; btn.dataset.para = p;
+      btn.onclick = () => selectThkPara(p);
+      thkDiv.appendChild(btn);
+    });
+    selectThkPara(thk_paras[0]);
+  }
+
+  // APC pills
+  const apcDiv = document.getElementById('apc-pills');
+  apcDiv.innerHTML = '';
+  document.getElementById('apc-charts-row').style.display = 'none';
+  document.getElementById('apc-hint').style.display = '';
+  if (!apc_paras.length) {
+    apcDiv.innerHTML = '<span style="font-size:0.8rem;color:#8993a8;">Set-up에 APC Para가 없습니다</span>';
+  } else {
+    apc_paras.forEach(p => {
+      const btn = document.createElement('button');
+      btn.className = 'algo-tab'; btn.textContent = p; btn.dataset.para = p;
+      btn.onclick = () => selectApcPara(p);
+      apcDiv.appendChild(btn);
+    });
+    selectApcPara(apc_paras[0]);
+  }
+}
+
+// ── THK Para selection ───────────────────────────────────────────────
+function selectThkPara(para) {
+  document.querySelectorAll('#thk-pills .algo-tab').forEach(b =>
+    b.classList.toggle('active', b.dataset.para === para));
+
+  if (thkChart) { thkChart.destroy(); thkChart = null; }
+  if (boxChart) { boxChart.destroy(); boxChart = null; }
+  if (brushCleanup) { brushCleanup(); brushCleanup = null; }
+
+  const { formula_field } = trendData;
+  const data = getFilteredData();
+  const { formulas, colorMap }  = getColorMap(data, formula_field);
+
+  const row = document.getElementById('thk-charts-row');
+  row.innerHTML = '';
+  row.style.display = 'grid';
+  document.getElementById('thk-hint').style.display = 'none';
+
+  const lineBox = makeChartBoxEl(`THK Trend — ${para}`, '#4f8ef7', 'chart-thk-line', '320px',
+    `${data.filter(d => d[para] != null).length}pts`);
+  const bpBox   = makeChartBoxEl(`Boxplot — ${para}`, '#4f8ef7', 'chart-thk-box', '320px');
+
+  // Boxplot 헤더에 "전체 보기" 리셋 버튼 추가
+  const bpTitleRow = bpBox.querySelector('.chart-box-title');
+  const resetBtn = document.createElement('button');
+  resetBtn.id = 'bp-reset-btn';
+  resetBtn.innerHTML = '<i class="bi bi-arrow-counterclockwise"></i> 전체';
+  resetBtn.style.cssText = 'margin-left:auto; padding:2px 9px; border-radius:6px; border:1px solid #4f8ef7; background:transparent; font-size:0.7rem; color:#4f8ef7; cursor:pointer; display:none; white-space:nowrap;';
+  resetBtn.onclick = () => {
+    rebuildBoxplot();
+    filterApcChart(null);
+    resetBtn.style.display = 'none';
+    const titleSpan = bpBox.querySelector('.chart-box-title .bp-title-text');
+    if (titleSpan) titleSpan.textContent = `Boxplot — ${para}`;
+  };
+  bpTitleRow.appendChild(resetBtn);
+
+  // title span에 클래스 부여 (나중에 텍스트 교체용)
+  const titleSpan = bpTitleRow.querySelectorAll('span')[1];
+  if (titleSpan) titleSpan.classList.add('bp-title-text');
+
+  // 드래그 안내 hint
+  const dragHint = document.createElement('div');
+  dragHint.style.cssText = 'font-size:0.68rem; color:#8993a8; margin-bottom:0.5rem; display:flex; align-items:center; gap:0.3rem;';
+  dragHint.innerHTML = '<i class="bi bi-arrows-move" style="font-size:0.75rem;"></i> 차트 위에서 드래그하면 선택된 타점으로 Boxplot이 업데이트됩니다';
+  lineBox.insertBefore(dragHint, lineBox.querySelector('div[style]'));
+
+  row.appendChild(lineBox);
+  row.appendChild(bpBox);
+
+  // Scatter datasets per formula
+  const scatterDS = formulas.map(f => {
+    const pts = data
+      .filter(d => d[formula_field] === f && d[para] != null && !isNaN(+d[para]))
+      .map(d  => ({ x: new Date(d.Date).getTime(), y: +d[para] }))
+      .sort((a, b) => a.x - b.x);
+    return { label: f, data: pts,
+      backgroundColor: colorMap[f] + 'bb', pointRadius: 3, pointHoverRadius: 5 };
+  }).filter(ds => ds.data.length);
+
+  // Boxplot groups (전체 데이터 기준, rebuild 시 재사용)
+  const groups = formulas.map(f => {
+    const vals = data.filter(d => d[formula_field] === f).map(d => d[para]);
+    return { label: f, stats: computeBoxStats(vals), color: colorMap[f] };
+  }).filter(g => g.stats);
+
+  currentThkGroups = groups;
+  currentThkPara   = para;
+
+  const scatterCfg = makeScatterCfg(scatterDS, false, para);
+
+  // Legend 클릭 시 boxplot 동기화
+  scatterCfg.options.plugins.legend.onClick = function(e, legendItem, legend) {
+    Chart.defaults.plugins.legend.onClick.call(this, e, legendItem, legend);
+    rebuildBoxplot();
+    resetBtn.style.display = 'none';
+    const ts = bpBox.querySelector('.bp-title-text');
+    if (ts) ts.textContent = `Boxplot — ${para}`;
+  };
+
+  thkChart = new Chart(document.getElementById('chart-thk-line'), scatterCfg);
+
+  if (groups.length) {
+    boxChart = new Chart(document.getElementById('chart-thk-box'),
+      makeBoxplotCfg(groups, para));
+  }
+
+  // 드래그 선택 활성화 — callback 방식
+  brushCleanup = addBrushSelection(thkChart, (x1, x2, y1, y2, badge) =>
+    filterAndRebuildBoxplot(para, x1, x2, y1, y2, bpBox, resetBtn, badge));
+}
+
+// ── Boxplot rebuild (legend 선택 기준) ───────────────────────────────
+function rebuildBoxplot() {
+  if (!thkChart || !currentThkGroups || !currentThkPara) return;
+
+  // scatter chart에서 현재 visible한 formula 목록
+  const visibleLabels = new Set(
+    thkChart.data.datasets
+      .filter((_, i) => !thkChart.getDatasetMeta(i).hidden)
+      .map(ds => ds.label)
+  );
+
+  const visibleGroups = currentThkGroups.filter(g => visibleLabels.has(g.label));
+
+  if (boxChart) { boxChart.destroy(); boxChart = null; }
+  const canvas = document.getElementById('chart-thk-box');
+  if (canvas && visibleGroups.length) {
+    boxChart = new Chart(canvas, makeBoxplotCfg(visibleGroups, currentThkPara));
+  }
+}
+
+// ── Brush (drag) selection on scatter chart ──────────────────────────
+// onSelect(x1, x2, y1, y2, badge) — 선택 완료 시 호출
+function addBrushSelection(chart, onSelect) {
+  const canvas  = chart.canvas;
+  const wrapper = canvas.parentElement; // position:relative container
+
+  // 선택 영역 시각화 overlay
+  const overlay = document.createElement('div');
+  overlay.style.cssText = [
+    'position:absolute', 'pointer-events:none',
+    'border:1.5px dashed #4f8ef7',
+    'background:rgba(79,142,247,0.08)',
+    'border-radius:2px', 'display:none',
+  ].join(';');
+  wrapper.appendChild(overlay);
+
+  // 선택 카운트 배지
+  const badge = document.createElement('div');
+  badge.style.cssText = [
+    'position:absolute', 'bottom:6px', 'right:8px',
+    'font-size:0.7rem', 'color:#4f8ef7',
+    'background:rgba(255,255,255,0.9)',
+    'padding:2px 7px', 'border-radius:4px',
+    'display:none', 'pointer-events:none',
+  ].join(';');
+  wrapper.appendChild(badge);
+
+  let dragging = false, sx = 0, sy = 0;
+  canvas.style.cursor = 'crosshair';
+
+  function onDown(e) {
+    if (e.button !== 0) return;
+    const r = canvas.getBoundingClientRect();
+    sx = e.clientX - r.left;
+    sy = e.clientY - r.top;
+    dragging = true;
+    Object.assign(overlay.style, { left: sx+'px', top: sy+'px', width:'0', height:'0', display:'' });
+  }
+
+  function onMove(e) {
+    if (!dragging) return;
+    const r  = canvas.getBoundingClientRect();
+    const cx = e.clientX - r.left;
+    const cy = e.clientY - r.top;
+    Object.assign(overlay.style, {
+      left:   Math.min(sx, cx) + 'px',
+      top:    Math.min(sy, cy) + 'px',
+      width:  Math.abs(cx - sx) + 'px',
+      height: Math.abs(cy - sy) + 'px',
+    });
+  }
+
+  function onUp(e) {
+    if (!dragging) return;
+    dragging = false;
+    overlay.style.display = 'none';
+
+    const r  = canvas.getBoundingClientRect();
+    const ex = e.clientX - r.left;
+    const ey = e.clientY - r.top;
+
+    // 너무 작은 드래그는 무시 (단순 클릭)
+    if (Math.abs(ex - sx) < 8 || Math.abs(ey - sy) < 8) return;
+
+    // CSS 좌표 → 데이터 값 변환
+    const xs = chart.scales.x;
+    const ys = chart.scales.y;
+    const x1 = xs.getValueForPixel(Math.min(sx, ex));
+    const x2 = xs.getValueForPixel(Math.max(sx, ex));
+    const y1 = ys.getValueForPixel(Math.max(sy, ey)); // y축 반전
+    const y2 = ys.getValueForPixel(Math.min(sy, ey));
+
+    const n = onSelect(x1, x2, y1, y2, badge);
+    if (n > 0) {
+      badge.textContent = `${n}개 선택`;
+      badge.style.display = '';
+      clearTimeout(badge._timer);
+      badge._timer = setTimeout(() => { badge.style.display = 'none'; }, 2500);
+    }
+  }
+
+  function onLeave() {
+    if (dragging) { dragging = false; overlay.style.display = 'none'; }
+  }
+
+  canvas.addEventListener('mousedown', onDown);
+  canvas.addEventListener('mousemove', onMove);
+  canvas.addEventListener('mouseup',   onUp);
+  canvas.addEventListener('mouseleave', onLeave);
+
+  return function cleanup() {
+    canvas.removeEventListener('mousedown', onDown);
+    canvas.removeEventListener('mousemove', onMove);
+    canvas.removeEventListener('mouseup',   onUp);
+    canvas.removeEventListener('mouseleave', onLeave);
+    canvas.style.cursor = '';
+    overlay.remove();
+    badge.remove();
+  };
+}
+
+// ── 선택 영역 → boxplot 재생성 ────────────────────────────────────────
+function filterAndRebuildBoxplot(para, x1, x2, y1, y2, bpBox, resetBtn, badge) {
+  const { formula_field } = trendData;
+  const data = getFilteredData();
+  const { formulas, colorMap }  = getColorMap(data, formula_field);
+
+  const selected = data.filter(d => {
+    const t = new Date(d.Date).getTime();
+    const v = +d[para];
+    return d[para] != null && !isNaN(v) && t >= x1 && t <= x2 && v >= y1 && v <= y2;
+  });
+
+  if (!selected.length) return;
+
+  // legend 에서 숨겨진 formula는 제외
+  const visibleLabels = thkChart
+    ? new Set(thkChart.data.datasets.filter((_, i) => !thkChart.getDatasetMeta(i).hidden).map(ds => ds.label))
+    : new Set(formulas);
+
+  const groups = formulas
+    .filter(f => visibleLabels.has(f))
+    .map(f => {
+      const vals = selected.filter(d => d[formula_field] === f).map(d => +d[para]);
+      return { label: f, stats: computeBoxStats(vals), color: colorMap[f] };
+    }).filter(g => g.stats);
+
+  if (!groups.length) return;
+
+  if (boxChart) { boxChart.destroy(); boxChart = null; }
+  const bpCanvas = document.getElementById('chart-thk-box');
+  if (bpCanvas) {
+    boxChart = new Chart(bpCanvas, makeBoxplotCfg(groups, para));
+  }
+
+  const titleSpan = bpBox?.querySelector('.bp-title-text');
+  if (titleSpan) titleSpan.textContent = `Boxplot — ${para}  (${selected.length}pts 선택)`;
+  if (resetBtn) resetBtn.style.display = '';
+
+  // 선택된 substrate_id 기준으로 APC 라인차트 필터링
+  const selectedIds = new Set(selected.map(d => d.substrate_id).filter(Boolean));
+  filterApcChart(selectedIds);
+
+  return selected.length;
+}
+
+// ── APC 라인차트 substrate_id 기준 필터 (null = 전체 초기화) ──────────
+function filterApcChart(substrates) {
+  if (!apcChart || !currentApcPara) return;
+  const para = currentApcPara;
+  const { formula_field } = trendData;
+  const baseData = getFilteredData();
+  const { formulas, colorMap }  = getColorMap(baseData, formula_field);
+
+  const source = (substrates !== null)
+    ? baseData.filter(d => substrates.has(d.substrate_id))
+    : baseData;
+
+  apcChart.data.datasets = formulas.map(f => ({
+    label: f,
+    data: source
+      .filter(d => d[formula_field] === f && d[para] != null && !isNaN(+d[para]))
+      .map(d => ({ x: new Date(d.Date).getTime(), y: +d[para] }))
+      .sort((a, b) => a.x - b.x),
+    backgroundColor: colorMap[f] + 'bb',
+    pointRadius: 3, pointHoverRadius: 5,
+  })).filter(ds => ds.data.length);
+
+  apcChart.update('none');
+}
+
+// ── APC Para selection ───────────────────────────────────────────────
+function selectApcPara(para) {
+  document.querySelectorAll('#apc-pills .algo-tab').forEach(b =>
+    b.classList.toggle('active', b.dataset.para === para));
+
+  if (apcChart) { apcChart.destroy(); apcChart = null; }
+
+  const { formula_field } = trendData;
+  const data = getFilteredData();
+  const { formulas, colorMap }  = getColorMap(data, formula_field);
+
+  currentApcPara = para;
+
+  const row = document.getElementById('apc-charts-row');
+  row.innerHTML = '';
+  row.style.display = '';
+  document.getElementById('apc-hint').style.display = 'none';
+
+  row.appendChild(makeChartBoxEl(`APC Trend — ${para}`, '#22c55e', 'chart-apc-line', '300px',
+    `${data.filter(d => d[para] != null).length}pts`));
+
+  const scatterDS = formulas.map(f => {
+    const pts = data
+      .filter(d => d[formula_field] === f && d[para] != null && !isNaN(+d[para]))
+      .map(d  => ({ x: new Date(d.Date).getTime(), y: +d[para] }))
+      .sort((a, b) => a.x - b.x);
+    return { label: f, data: pts,
+      backgroundColor: colorMap[f] + 'bb', pointRadius: 3, pointHoverRadius: 5 };
+  }).filter(ds => ds.data.length);
+
+  apcChart = new Chart(document.getElementById('chart-apc-line'),
+    makeScatterCfg(scatterDS, false, para));
+}
+
+// ── Chart configs ────────────────────────────────────────────────────
+function makeScatterCfg(datasets, hideLegend, yLabel) {
+  return {
+    type: 'scatter',
+    data: { datasets },
+    options: {
+      responsive: true, maintainAspectRatio: false, animation: { duration: 300 },
+      plugins: {
+        legend: {
+          display: !hideLegend, position: 'bottom',
+          labels: { font: { size: 10 }, boxWidth: 10, padding: 8, color: labelColor() },
+        },
+        tooltip: {
+          callbacks: {
+            title: items => {
+              const d = new Date(items[0].parsed.x);
+              return d.toLocaleString('ko-KR',
+                { month: '2-digit', day: '2-digit', hour: '2-digit', minute: '2-digit' });
+            },
+            label: item => `${item.dataset.label}: ${item.parsed.y.toFixed(3)}`,
+          }
+        }
+      },
+      scales: {
+        x: {
+          type: 'linear', grid: { display: false },
+          ticks: {
+            font: { size: 9 }, maxTicksLimit: 10, color: labelColor(),
+            callback: v => {
+              const d = new Date(v);
+              return `${String(d.getMonth()+1).padStart(2,'0')}-${String(d.getDate()).padStart(2,'0')}`;
+            }
+          }
+        },
+        y: {
+          title: { display: !!yLabel, text: yLabel, font: { size: 9 }, color: labelColor() },
+          grid: { color: gridColor() },
+          ticks: { font: { size: 9 }, color: labelColor() }
+        }
+      }
+    }
+  };
+}
+
+function makeBoxplotCfg(groups, para) {
+  const yMin = Math.min(...groups.map(g => g.stats.whiskerLow));
+  const yMax = Math.max(...groups.map(g => g.stats.whiskerHigh));
+  const pad  = (yMax - yMin) * 0.12 || 1;
+  return {
+    type: 'bar',
+    data: {
+      labels: groups.map(g => g.label),
+      datasets: [{
+        data: groups.map(g => [g.stats.q1, g.stats.q3]),
+        backgroundColor: groups.map(g => g.color + '44'),
+        borderColor:     groups.map(g => g.color),
+        borderWidth: 1.5, borderRadius: 0, barPercentage: 0.5,
+        _groups: groups,
+      }]
+    },
+    options: {
+      responsive: true, maintainAspectRatio: false, animation: { duration: 300 },
+      plugins: {
+        legend: { display: false },
+        tooltip: {
+          callbacks: {
+            label: ctx => {
+              const s = groups[ctx.dataIndex]?.stats;
+              if (!s) return '';
+              return [`n: ${s.n}`, `Max: ${s.max.toFixed(3)}`, `Q3: ${s.q3.toFixed(3)}`,
+                `Median: ${s.median.toFixed(3)}`, `Q1: ${s.q1.toFixed(3)}`, `Min: ${s.min.toFixed(3)}`];
+            }
+          }
+        }
+      },
+      scales: {
+        x: {
+          ticks: { font: { size: 9 }, maxRotation: 25, color: labelColor() },
+          grid: { display: false }
+        },
+        y: {
+          min: yMin - pad, max: yMax + pad,
+          title: { display: true, text: para, font: { size: 9 }, color: labelColor() },
+          grid: { color: gridColor() },
+          ticks: { font: { size: 9 }, color: labelColor() }
+        }
+      }
+    }
+  };
+}
+
+// ── Chart box element ────────────────────────────────────────────────
+function makeChartBoxEl(title, dotColor, canvasId, height, badge) {
+  const div = document.createElement('div');
+  div.className = 'chart-box';
+  const badgeHtml = badge
+    ? `<span class="badge-pill ms-auto" style="background:#eff6ff;color:#4f8ef7;font-size:0.7rem;">${badge}</span>`
+    : '';
+  div.innerHTML = `
+    <div class="chart-box-title">
+      <span class="dot" style="background:${dotColor};"></span>
+      <span style="font-size:0.75rem; word-break:break-all;">${title}</span>
+      ${badgeHtml}
+    </div>
+    <div style="position:relative; height:${height};"><canvas id="${canvasId}"></canvas></div>`;
+  return div;
+}
+</script>
+{% endblock %}

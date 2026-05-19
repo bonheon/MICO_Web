@@ -419,6 +419,141 @@ def learning_offset_data(request):
 
 
 @login_required
+def learning_trend(request):
+    import json
+    rows = (
+        SubCategory.objects
+        .select_related('category')
+        .exclude(device='')
+        .exclude(fab='')
+        .values('device', 'category__oper_desc', 'fab')
+        .distinct()
+        .order_by('device', 'category__oper_desc', 'fab')
+    )
+    cascade = {}
+    for r in rows:
+        device    = r['device']
+        oper_desc = r['category__oper_desc'] or ''
+        fab       = r['fab']
+        if not oper_desc:
+            continue
+        cascade.setdefault(device, {}).setdefault(oper_desc, [])
+        if fab not in cascade[device][oper_desc]:
+            cascade[device][oper_desc].append(fab)
+    return render(request, 'setup_mico/learning_trend.html', {
+        'cascade_json': json.dumps(cascade, ensure_ascii=False),
+    })
+
+
+@login_required
+def learning_trend_data(request):
+    import os
+    import pandas as pd
+
+    device    = request.GET.get('device', '').strip()
+    oper_desc = request.GET.get('oper_desc', '').strip()
+    fab       = request.GET.get('fab', '').strip()
+    date_from = request.GET.get('date_from', '').strip()
+    date_to   = request.GET.get('date_to', '').strip()
+
+    if not all([device, oper_desc, fab]):
+        return JsonResponse({'error': 'device / oper_desc / fab 파라미터가 필요합니다'}, status=400)
+
+    # Setup DB에서 thk_para / apc_para 조회
+    subcats = SubCategory.objects.filter(
+        device=device, fab=fab, category__oper_desc=oper_desc
+    )
+    details = Detail.objects.filter(subcategory__in=subcats)
+    thk_paras = list(filter(None, details.values_list('thk_para', flat=True).distinct()))
+    apc_paras = list(filter(None, details.values_list('apc_para', flat=True).distinct()))
+
+    collection_name = f"MICO_Trend_{device}_{oper_desc}_{fab}"
+
+    # ════════════════════════════════════════════════════════════════════
+    # [개발] 샘플 CSV 사용 (algorithm_new/merge_df_sample.csv)
+    # ════════════════════════════════════════════════════════════════════
+    csv_path = os.path.normpath(
+        os.path.join(os.path.dirname(__file__), '..', 'algorithm_new', 'merge_df_sample.csv')
+    )
+    try:
+        df = pd.read_csv(csv_path)
+    except FileNotFoundError:
+        return JsonResponse({'error': '샘플 데이터 파일을 찾을 수 없습니다'}, status=500)
+
+    # ════════════════════════════════════════════════════════════════════
+    # [사내] MongoDB 연결 — 위 CSV 블록 주석 처리 후 아래 블록 주석 해제
+    # pip install pymongo 필요
+    # ════════════════════════════════════════════════════════════════════
+    # from pymongo import MongoClient
+    # MONGO_URI = 'mongodb://TODO_HOST:TODO_PORT'   # ← 실제 접속 정보 입력
+    # MONGO_DB  = 'TODO_DB_NAME'                    # ← 실제 DB명 입력
+    # try:
+    #     client = MongoClient(MONGO_URI, serverSelectionTimeoutMS=5000)
+    #     col = client[MONGO_DB][collection_name]
+    #     docs = list(col.find({}, {'_id': 0}).sort('Date', 1))
+    #     client.close()
+    # except Exception as e:
+    #     return JsonResponse({'error': f'DB 연결 오류: {str(e)}'}, status=500)
+    # def _ser(doc):
+    #     return {k: (v.isoformat() if hasattr(v, 'isoformat') else v) for k, v in doc.items()}
+    # df = pd.DataFrame([_ser(d) for d in docs])
+
+    # ── 이하 공통 로직 (CSV / MongoDB 무관) ─────────────────────────────
+    df_cols = set(df.columns.tolist())
+
+    # Setup DB 파라 중 실제 컬럼에 존재하는 것만 유지
+    thk_paras = [p for p in thk_paras if p in df_cols]
+    apc_paras = [p for p in apc_paras if p in df_cols]
+
+    # Setup 결과 없으면 컬럼 패턴 기반 fallback
+    if not thk_paras:
+        thk_paras = [c for c in df.select_dtypes(include='number').columns
+                     if any(kw in c for kw in ('OCD', 'THK', 'POST'))][:6]
+    if not apc_paras:
+        apc_paras = [c for c in df.select_dtypes(include='number').columns
+                     if any(kw in c for kw in ('P3', 'PB_'))][:8]
+
+    # 날짜 필터
+    if date_from or date_to:
+        df['_dt'] = pd.to_datetime(df['Date'], errors='coerce')
+        if date_from:
+            df = df[df['_dt'] >= pd.Timestamp(date_from)]
+        if date_to:
+            df = df[df['_dt'] <= pd.Timestamp(date_to) + pd.Timedelta(days=1)]
+        df = df.drop(columns=['_dt'])
+
+    # formula_field: {apc_para}_formula 컬럼이 있으면 그것을, 없으면 recipe_id 사용
+    formula_field = 'recipe_id'
+    for ap in apc_paras:
+        candidate = f"{ap}_formula"
+        if candidate in df_cols:
+            formula_field = candidate
+            break
+
+    # 반환 컬럼 선택
+    meta_cols = [c for c in ['Date', 'substrate_id', 'recipe_id', formula_field, 'eqp_id', 'IDLE']
+                 if c in df_cols]
+    value_cols = [c for c in (thk_paras + apc_paras) if c in df_cols]
+    keep = meta_cols + [c for c in value_cols if c not in meta_cols]
+    df_out = df[keep].copy()
+
+    # # 로우 수 제한 (3000 초과 시 균등 sampling)
+    # if len(df_out) > 3000:
+    #     step = len(df_out) // 3000 + 1
+    #     df_out = df_out.iloc[::step]
+
+    df_out = df_out.where(df_out.notna(), None)
+
+    return JsonResponse({
+        'collection': collection_name,
+        'thk_paras': thk_paras,
+        'apc_paras': apc_paras,
+        'formula_field': formula_field,
+        'data': df_out.to_dict('records'),
+    })
+
+
+@login_required
 def learning_history(request):
     import json
 

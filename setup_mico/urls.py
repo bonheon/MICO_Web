@@ -10,6 +10,8 @@ urlpatterns = [
 
     path('', views.dashboard, name='dashboard'),
     path('learning/', views.learning_values, name='learning_values'),
+    path('learning/trend/', views.learning_trend, name='learning_trend'),
+    path('learning/trend/data/', views.learning_trend_data, name='learning_trend_data'),
     path('learning/pre-thk-data/', views.learning_pre_thk_data, name='learning_pre_thk_data'),
     path('learning/rr-data/', views.learning_rr_data, name='learning_rr_data'),
     path('learning/offset-data/', views.learning_offset_data, name='learning_offset_data'),
