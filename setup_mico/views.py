@@ -534,13 +534,28 @@ def learning_trend_data(request):
         else:
             formula_map[ap] = 'recipe_id' if 'recipe_id' in df_cols else None
 
-    # _effective_formula: 모든 chamber formula를 coalesce → THK scatter 그룹핑용
+    # _effective_formula: 실제로 진행한 chamber의 formula를 사용 → THK scatter 그룹핑용
+    # fillna 방식은 "-" 문자열을 null로 인식하지 못해 PD 와퍼가 "-"로 표시되는 문제 발생
+    # 대신 apc_para 컬럼에 유효한 숫자값이 있는 chamber = 실제 진행 chamber로 판단
+    _INVALID_FORMULA = {'-', '', 'None', 'none', 'null', 'NULL', 'N/A', 'n/a'}
+    import numpy as _np
     unique_formula_cols = list(dict.fromkeys(v for v in formula_map.values() if v and v != 'recipe_id'))
     if unique_formula_cols:
         effective_formula_field = '_effective_formula'
-        df[effective_formula_field] = df[unique_formula_cols[0]].copy()
-        for col in unique_formula_cols[1:]:
-            df[effective_formula_field] = df[effective_formula_field].fillna(df[col])
+        df[effective_formula_field] = _np.nan
+        for ap in apc_paras:
+            formula_col = formula_map.get(ap)
+            if not formula_col or formula_col == 'recipe_id':
+                continue
+            if ap not in df_cols or formula_col not in df_cols:
+                continue
+            # 이 chamber가 실제로 진행한 행: apc_para가 유효한 숫자
+            apc_active = pd.to_numeric(df[ap], errors='coerce').notna()
+            eff_missing = df[effective_formula_field].isna()
+            # formula 값 중 "-" 등 무효 문자열은 NaN 처리
+            formula_vals = df[formula_col].where(~df[formula_col].isin(_INVALID_FORMULA))
+            df.loc[apc_active & eff_missing, effective_formula_field] = \
+                formula_vals[apc_active & eff_missing].values
     else:
         effective_formula_field = 'recipe_id' if 'recipe_id' in df_cols else None
 
