@@ -522,19 +522,34 @@ def learning_trend_data(request):
             df = df[df['_dt'] <= pd.Timestamp(date_to) + pd.Timedelta(days=1)]
         df = df.drop(columns=['_dt'])
 
-    # formula_field: {apc_para}_formula 컬럼이 있으면 그것을, 없으면 recipe_id 사용
-    formula_field = 'recipe_id'
+    # formula_map: apc_para별로 {apc_para}_formula 컬럼이 있으면 해당 컬럼명, 없으면 recipe_id
+    # ebara(PB_04_Time / PD_04_Time), kct(PR1_4_TIME / PR2_4_TIME) 등 chamber별 분리 대응
+    formula_map = {}
+    extra_formula_cols = []
     for ap in apc_paras:
         candidate = f"{ap}_formula"
         if candidate in df_cols:
-            formula_field = candidate
-            break
+            formula_map[ap] = candidate
+            extra_formula_cols.append(candidate)
+        else:
+            formula_map[ap] = 'recipe_id' if 'recipe_id' in df_cols else None
+
+    # _effective_formula: 모든 chamber formula를 coalesce → THK scatter 그룹핑용
+    unique_formula_cols = list(dict.fromkeys(v for v in formula_map.values() if v and v != 'recipe_id'))
+    if unique_formula_cols:
+        effective_formula_field = '_effective_formula'
+        df[effective_formula_field] = df[unique_formula_cols[0]].copy()
+        for col in unique_formula_cols[1:]:
+            df[effective_formula_field] = df[effective_formula_field].fillna(df[col])
+    else:
+        effective_formula_field = 'recipe_id' if 'recipe_id' in df_cols else None
 
     # 반환 컬럼 선택
-    meta_cols = [c for c in ['Date', 'substrate_id', 'recipe_id', formula_field, 'eqp_id', 'IDLE']
-                 if c in df_cols]
+    meta_cols = [c for c in ['Date', 'substrate_id', 'recipe_id', effective_formula_field, 'eqp_id', 'IDLE']
+                 if c in df_cols or c == effective_formula_field]
     value_cols = [c for c in (thk_paras + apc_paras) if c in df_cols]
-    keep = meta_cols + [c for c in value_cols if c not in meta_cols]
+    keep = meta_cols + [c for c in value_cols if c not in meta_cols] + \
+           [c for c in extra_formula_cols if c not in meta_cols]
     df_out = df[keep].copy()
 
     # # 로우 수 제한 (3000 초과 시 균등 sampling)
@@ -548,7 +563,9 @@ def learning_trend_data(request):
         'collection': collection_name,
         'thk_paras': thk_paras,
         'apc_paras': apc_paras,
-        'formula_field': formula_field,
+        'formula_field': effective_formula_field,   # THK용 (backward compat)
+        'formula_map': formula_map,                  # APC 차트용: para별 formula 컬럼
+        'effective_formula_field': effective_formula_field,
         'data': df_out.to_dict('records'),
     })
 
