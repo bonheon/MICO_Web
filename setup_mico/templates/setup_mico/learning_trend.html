@@ -477,6 +477,19 @@ async function fetchTrendData(device, oper_desc, fab, date_from, date_to) {
     return;
   }
 
+  // 서버가 컬럼형 포맷(columns + rows)으로 반환 → records 배열로 변환
+  // 컬럼명 반복 없이 전송 → JSON 크기 및 서버 메모리 절감
+  if (json.columns && json.rows) {
+    const cols = json.columns;
+    json.data = json.rows.map(r => {
+      const obj = {};
+      for (let i = 0; i < cols.length; i++) obj[cols[i]] = r[i];
+      return obj;
+    });
+    delete json.rows;
+    delete json.columns;
+  }
+
   trendData = json;
 
   document.getElementById('info-device').textContent    = device;
@@ -487,8 +500,12 @@ async function fetchTrendData(device, oper_desc, fab, date_from, date_to) {
     `${device} / ${oper_desc} / ${fab}`;
 
   const n = json.data.length;
+  const totalRows = json.total_rows || n;
   const st = document.getElementById('data-status');
-  st.innerHTML = `<i class="bi bi-check-circle me-1"></i> ${n.toLocaleString()}건`;
+  const sampledNote = json.sampled
+    ? ` <span style="font-size:0.7rem;opacity:0.8;">(전체 ${totalRows.toLocaleString()}건 중 균등샘플)</span>`
+    : '';
+  st.innerHTML = `<i class="bi bi-check-circle me-1"></i> ${n.toLocaleString()}건${sampledNote}`;
   st.style.background = n ? '#f0fdf4' : '#fef9c3';
   st.style.color      = n ? '#22c55e' : '#ca8a04';
 
