@@ -366,7 +366,8 @@ let boxChart         = null;
 let apcChart         = null;
 let currentThkGroups = null;
 let currentThkPara   = null;
-let currentApcPara   = null;
+let currentApcParas  = new Set();  // 복수 선택 지원
+let apcColorMap      = {};          // label → color (rebuildApcChart에서 할당, filterApcChart에서 재사용)
 let brushCleanup     = null;
 
 // ── Cascade selectors ────────────────────────────────────────────────
@@ -430,7 +431,7 @@ document.getElementById('date-clear').addEventListener('click', () => {
   document.getElementById(id).addEventListener('change', () => {
     if (!trendData) return;
     if (currentThkPara) selectThkPara(currentThkPara);
-    if (currentApcPara) selectApcPara(currentApcPara);
+    if (currentApcParas.size) rebuildApcChart();
   });
 });
 
@@ -477,6 +478,19 @@ async function fetchTrendData(device, oper_desc, fab, date_from, date_to) {
     return;
   }
 
+  // 서버가 컬럼형 포맷(columns + rows)으로 반환 → records 배열로 변환
+  // 컬럼명 반복 없이 전송 → JSON 크기 및 서버 메모리 절감
+  if (json.columns && json.rows) {
+    const cols = json.columns;
+    json.data = json.rows.map(r => {
+      const obj = {};
+      for (let i = 0; i < cols.length; i++) obj[cols[i]] = r[i];
+      return obj;
+    });
+    delete json.rows;
+    delete json.columns;
+  }
+
   trendData = json;
 
   document.getElementById('info-device').textContent    = device;
@@ -487,8 +501,12 @@ async function fetchTrendData(device, oper_desc, fab, date_from, date_to) {
     `${device} / ${oper_desc} / ${fab}`;
 
   const n = json.data.length;
+  const totalRows = json.total_rows || n;
   const st = document.getElementById('data-status');
-  st.innerHTML = `<i class="bi bi-check-circle me-1"></i> ${n.toLocaleString()}건`;
+  const sampledNote = json.sampled
+    ? ` <span style="font-size:0.7rem;opacity:0.8;">(전체 ${totalRows.toLocaleString()}건 중 균등샘플)</span>`
+    : '';
+  st.innerHTML = `<i class="bi bi-check-circle me-1"></i> ${n.toLocaleString()}건${sampledNote}`;
   st.style.background = n ? '#f0fdf4' : '#fef9c3';
   st.style.color      = n ? '#22c55e' : '#ca8a04';
 
@@ -553,7 +571,9 @@ function computeBoxStats(values) {
   const iqr         = q3 - q1;
   const whiskerLow  = sorted.find(v => v >= q1 - 1.5 * iqr) ?? sorted[0];
   const whiskerHigh = [...sorted].reverse().find(v => v <= q3 + 1.5 * iqr) ?? sorted[n - 1];
-  return { min: sorted[0], q1, median, q3, max: sorted[n - 1], whiskerLow, whiskerHigh, n };
+  const avg = sorted.reduce((s, v) => s + v, 0) / n;
+  const std = Math.sqrt(sorted.reduce((s, v) => s + (v - avg) ** 2, 0) / n);
+  return { min: sorted[0], q1, median, q3, max: sorted[n - 1], whiskerLow, whiskerHigh, n, avg, std };
 }
 
 // ── Render pills ─────────────────────────────────────────────────────
@@ -581,9 +601,10 @@ function renderPills() {
     selectThkPara(thk_paras[0]);
   }
 
-  // APC pills
+  // APC pills (다중 선택 — 클릭으로 toggle)
   const apcDiv = document.getElementById('apc-pills');
   apcDiv.innerHTML = '';
+  currentApcParas.clear();
   document.getElementById('apc-charts-row').style.display = 'none';
   document.getElementById('apc-hint').style.display = '';
   if (!apc_paras.length) {
@@ -592,10 +613,12 @@ function renderPills() {
     apc_paras.forEach(p => {
       const btn = document.createElement('button');
       btn.className = 'algo-tab'; btn.textContent = p; btn.dataset.para = p;
-      btn.onclick = () => selectApcPara(p);
+      btn.title = '클릭하여 선택 / 재클릭으로 해제 (복수 선택 가능)';
+      btn.onclick = () => toggleApcPara(p);
       apcDiv.appendChild(btn);
     });
-    selectApcPara(apc_paras[0]);
+    // 첫 번째 para 자동 선택
+    toggleApcPara(apc_paras[0]);
   }
 }
 
@@ -685,6 +708,7 @@ function selectThkPara(para) {
   if (groups.length) {
     boxChart = new Chart(document.getElementById('chart-thk-box'),
       makeBoxplotCfg(groups, para));
+    renderBoxplotStatsTable(groups);
   }
 
   // 드래그 선택 활성화 — callback 방식
@@ -709,6 +733,7 @@ function rebuildBoxplot() {
   const canvas = document.getElementById('chart-thk-box');
   if (canvas && visibleGroups.length) {
     boxChart = new Chart(canvas, makeBoxplotCfg(visibleGroups, currentThkPara));
+    renderBoxplotStatsTable(visibleGroups);
   }
 }
 
@@ -845,6 +870,7 @@ function filterAndRebuildBoxplot(para, x1, x2, y1, y2, bpBox, resetBtn, badge) {
   const bpCanvas = document.getElementById('chart-thk-box');
   if (bpCanvas) {
     boxChart = new Chart(bpCanvas, makeBoxplotCfg(groups, para));
+    renderBoxplotStatsTable(groups);
   }
 
   const titleSpan = bpBox?.querySelector('.bp-title-text');
@@ -860,63 +886,86 @@ function filterAndRebuildBoxplot(para, x1, x2, y1, y2, bpBox, resetBtn, badge) {
 
 // ── APC 라인차트 substrate_id 기준 필터 (null = 전체 초기화) ──────────
 function filterApcChart(substrates) {
-  if (!apcChart || !currentApcPara) return;
-  const para = currentApcPara;
-  // 선택된 APC para 전용 formula 컬럼 사용 (chamber별 구분)
-  const formula_field = (trendData.formula_map && trendData.formula_map[para]) || trendData.formula_field;
+  if (!apcChart || !currentApcParas.size) return;
+  const paras = [...currentApcParas];
   const baseData = getFilteredData();
-  const { formulas, colorMap }  = getColorMap(baseData, formula_field);
+  const source = substrates !== null ? baseData.filter(d => substrates.has(d.substrate_id)) : baseData;
 
-  const source = (substrates !== null)
-    ? baseData.filter(d => substrates.has(d.substrate_id))
-    : baseData;
-
-  apcChart.data.datasets = formulas.map(f => ({
-    label: f,
-    data: source
-      .filter(d => d[formula_field] === f && d[para] != null && !isNaN(+d[para]))
-      .map(d => ({ x: new Date(d.Date).getTime(), y: +d[para] }))
-      .sort((a, b) => a.x - b.x),
-    backgroundColor: colorMap[f] + 'bb',
-    pointRadius: 3, pointHoverRadius: 5,
-  })).filter(ds => ds.data.length);
-
+  const datasets = _buildApcDatasets(source, baseData, paras);
+  apcChart.data.datasets = datasets.filter(ds => ds.data.length);
   apcChart.update('none');
 }
 
-// ── APC Para selection ───────────────────────────────────────────────
-function selectApcPara(para) {
+// ── APC Para toggle (다중 선택) ──────────────────────────────────────
+function toggleApcPara(para) {
+  if (currentApcParas.has(para)) {
+    currentApcParas.delete(para);
+  } else {
+    currentApcParas.add(para);
+  }
   document.querySelectorAll('#apc-pills .algo-tab').forEach(b =>
-    b.classList.toggle('active', b.dataset.para === para));
+    b.classList.toggle('active', currentApcParas.has(b.dataset.para)));
+  rebuildApcChart();
+}
 
+// ── (para, formula) → dataset 목록 생성 (rebuildApcChart / filterApcChart 공용) ──
+function _buildApcDatasets(sourceData, baseData, paras) {
+  const isMulti = paras.length > 1;
+  const datasets = [];
+  paras.forEach(para => {
+    const formula_field = (trendData.formula_map && trendData.formula_map[para]) || trendData.formula_field;
+    // baseData 기준으로 formula 목록·색상 확정 (필터 시 색상 일관성 유지)
+    const { formulas, colorMap } = getColorMap(baseData, formula_field);
+    formulas.forEach(f => {
+      const label = isMulti ? `${para} · ${f}` : f;
+      // 처음 할당된 색상을 apcColorMap에 보존 → filterApcChart에서 동일 색상 재사용
+      if (!apcColorMap[label]) {
+        apcColorMap[label] = isMulti
+          ? COLORS[Object.keys(apcColorMap).length % COLORS.length]
+          : colorMap[f];
+      }
+      const pts = sourceData
+        .filter(d => d[formula_field] === f && d[para] != null && !isNaN(+d[para]))
+        .map(d => ({ x: new Date(d.Date).getTime(), y: +d[para] }))
+        .sort((a, b) => a.x - b.x);
+      if (!pts.length) return;
+      datasets.push({ label, data: pts,
+        backgroundColor: apcColorMap[label] + 'bb', pointRadius: 3, pointHoverRadius: 5 });
+    });
+  });
+  return datasets;
+}
+
+// ── APC 차트 전체 재빌드 ─────────────────────────────────────────────
+function rebuildApcChart() {
   if (apcChart) { apcChart.destroy(); apcChart = null; }
+  apcColorMap = {};  // 색상 맵 초기화 (선택 변경 시 새로 할당)
 
-  // 선택된 para의 formula 컬럼 사용 (EBARA/KCT chamber별 구분)
-  const formula_field = (trendData.formula_map && trendData.formula_map[para]) || trendData.formula_field;
-  const data = getFilteredData();
-  const { formulas, colorMap }  = getColorMap(data, formula_field);
-
-  currentApcPara = para;
-
+  const paras = [...currentApcParas];
   const row = document.getElementById('apc-charts-row');
+
+  if (!paras.length) {
+    row.style.display = 'none';
+    document.getElementById('apc-hint').style.display = '';
+    return;
+  }
+
+  const data = getFilteredData();
+  const datasets = _buildApcDatasets(data, data, paras);
+
+  const title = paras.join(' + ');
+  const totalPts = paras.reduce((s, p) => s + data.filter(d => d[p] != null).length, 0);
+
   row.innerHTML = '';
   row.style.display = '';
   document.getElementById('apc-hint').style.display = 'none';
+  row.appendChild(makeChartBoxEl(
+    `APC Trend — ${title}`, '#22c55e', 'chart-apc-line', '300px', `${totalPts.toLocaleString()}pts`
+  ));
 
-  row.appendChild(makeChartBoxEl(`APC Trend — ${para}`, '#22c55e', 'chart-apc-line', '300px',
-    `${data.filter(d => d[para] != null).length}pts`));
-
-  const scatterDS = formulas.map(f => {
-    const pts = data
-      .filter(d => d[formula_field] === f && d[para] != null && !isNaN(+d[para]))
-      .map(d  => ({ x: new Date(d.Date).getTime(), y: +d[para] }))
-      .sort((a, b) => a.x - b.x);
-    return { label: f, data: pts,
-      backgroundColor: colorMap[f] + 'bb', pointRadius: 3, pointHoverRadius: 5 };
-  }).filter(ds => ds.data.length);
-
+  const yLabel = paras.length === 1 ? paras[0] : 'Value';
   apcChart = new Chart(document.getElementById('chart-apc-line'),
-    makeScatterCfg(scatterDS, false, para));
+    makeScatterCfg(datasets, false, yLabel));
 }
 
 // ── Chart configs ────────────────────────────────────────────────────
@@ -961,6 +1010,51 @@ function makeScatterCfg(datasets, hideLegend, yLabel) {
       }
     }
   };
+}
+
+// ── Boxplot 하단 통계 테이블 (count / avg / std) ──────────────────────
+function renderBoxplotStatsTable(groups) {
+  const canvas = document.getElementById('chart-thk-box');
+  if (!canvas) return;
+  const container = canvas.closest('.chart-box');
+  if (!container) return;
+
+  const prev = container.querySelector('.bp-stats-table');
+  if (prev) prev.remove();
+  if (!groups || !groups.length) return;
+
+  const isDark = document.documentElement.getAttribute('data-theme') === 'dark';
+  const headerClr = isDark ? '#6b7280' : '#9ca3af';
+  const rowClr    = isDark ? '#cbd5e1' : '#374151';
+  const borderClr = isDark ? '#334155' : '#e5e7eb';
+
+  let rows = '';
+  groups.forEach(g => {
+    const s = g.stats;
+    const dot = `<span style="display:inline-block;width:7px;height:7px;border-radius:50%;
+                  background:${g.color};margin-right:4px;vertical-align:middle;"></span>`;
+    rows += `<tr style="color:${rowClr};">
+      <td style="padding:3px 6px;">${dot}${g.label}</td>
+      <td style="text-align:right;padding:3px 6px;">${s.n.toLocaleString()}</td>
+      <td style="text-align:right;padding:3px 6px;">${s.avg.toFixed(3)}</td>
+      <td style="text-align:right;padding:3px 6px;">${s.std.toFixed(3)}</td>
+    </tr>`;
+  });
+
+  const wrap = document.createElement('div');
+  wrap.className = 'bp-stats-table';
+  wrap.style.cssText = `padding:4px 2px 6px; border-top:1px solid ${borderClr}; overflow-x:auto;`;
+  wrap.innerHTML = `
+    <table style="width:100%;border-collapse:collapse;font-size:0.7rem;">
+      <thead><tr style="color:${headerClr};font-weight:500;">
+        <th style="text-align:left;padding:2px 6px;">Formula</th>
+        <th style="text-align:right;padding:2px 6px;">Count</th>
+        <th style="text-align:right;padding:2px 6px;">Avg</th>
+        <th style="text-align:right;padding:2px 6px;">Std</th>
+      </tr></thead>
+      <tbody>${rows}</tbody>
+    </table>`;
+  container.appendChild(wrap);
 }
 
 function makeBoxplotCfg(groups, para) {

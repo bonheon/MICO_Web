@@ -447,8 +447,11 @@ def learning_trend(request):
 
 @login_required
 def learning_trend_data(request):
-    import os
+    import os, gc, math
     import pandas as pd
+    import numpy as _np
+
+    _MAX_ROWS = 5000  # 차트 렌더링 상한 — 초과 시 균등 샘플링
 
     device    = request.GET.get('device', '').strip()
     oper_desc = request.GET.get('oper_desc', '').strip()
@@ -476,7 +479,14 @@ def learning_trend_data(request):
         os.path.join(os.path.dirname(__file__), '..', 'algorithm_new', 'merge_df_sample.csv')
     )
     try:
-        df = pd.read_csv(csv_path)
+        # 헤더만 먼저 읽어 필요한 컬럼만 usecols로 로드 → 불필요한 컬럼 메모리 절감
+        all_csv_cols = pd.read_csv(csv_path, nrows=0).columns.tolist()
+        _meta = {'Date', 'substrate_id', 'recipe_id', 'eqp_id', 'IDLE'}
+        _para_needed = set(thk_paras) | set(apc_paras) | {f"{ap}_formula" for ap in apc_paras}
+        _fallback_thk = {c for c in all_csv_cols if not thk_paras and any(kw in c for kw in ('OCD', 'THK', 'POST'))}
+        _fallback_apc = {c for c in all_csv_cols if not apc_paras and any(kw in c for kw in ('P3', 'PB_', 'PD_', 'PR1', 'PR2'))}
+        usecols = [c for c in all_csv_cols if c in (_meta | _para_needed | _fallback_thk | _fallback_apc)]
+        df = pd.read_csv(csv_path, usecols=usecols or None)
     except FileNotFoundError:
         return JsonResponse({'error': '샘플 데이터 파일을 찾을 수 없습니다'}, status=500)
 
@@ -487,10 +497,14 @@ def learning_trend_data(request):
     # from pymongo import MongoClient
     # MONGO_URI = 'mongodb://TODO_HOST:TODO_PORT'   # ← 실제 접속 정보 입력
     # MONGO_DB  = 'TODO_DB_NAME'                    # ← 실제 DB명 입력
+    # _meta = {'Date', 'substrate_id', 'recipe_id', 'eqp_id', 'IDLE'}
+    # _para_needed = set(thk_paras) | set(apc_paras) | {f"{ap}_formula" for ap in apc_paras}
+    # _proj = {c: 1 for c in (_meta | _para_needed)}
+    # _proj['_id'] = 0
     # try:
     #     client = MongoClient(MONGO_URI, serverSelectionTimeoutMS=5000)
     #     col = client[MONGO_DB][collection_name]
-    #     docs = list(col.find({}, {'_id': 0}).sort('Date', 1))
+    #     docs = list(col.find({}, _proj).sort('Date', 1))
     #     client.close()
     # except Exception as e:
     #     return JsonResponse({'error': f'DB 연결 오류: {str(e)}'}, status=500)
@@ -534,39 +548,69 @@ def learning_trend_data(request):
         else:
             formula_map[ap] = 'recipe_id' if 'recipe_id' in df_cols else None
 
-    # _effective_formula: 모든 chamber formula를 coalesce → THK scatter 그룹핑용
+    # _effective_formula: 실제로 진행한 chamber의 formula를 사용 → THK scatter 그룹핑용
+    _INVALID_FORMULA = {'-', '', 'None', 'none', 'null', 'NULL', 'N/A', 'n/a'}
     unique_formula_cols = list(dict.fromkeys(v for v in formula_map.values() if v and v != 'recipe_id'))
     if unique_formula_cols:
         effective_formula_field = '_effective_formula'
-        df[effective_formula_field] = df[unique_formula_cols[0]].copy()
-        for col in unique_formula_cols[1:]:
-            df[effective_formula_field] = df[effective_formula_field].fillna(df[col])
+        df[effective_formula_field] = _np.nan
+        for ap in apc_paras:
+            formula_col = formula_map.get(ap)
+            if not formula_col or formula_col == 'recipe_id':
+                continue
+            if ap not in df_cols or formula_col not in df_cols:
+                continue
+            apc_active = pd.to_numeric(df[ap], errors='coerce').notna()
+            eff_missing = df[effective_formula_field].isna()
+            formula_vals = df[formula_col].where(~df[formula_col].isin(_INVALID_FORMULA))
+            df.loc[apc_active & eff_missing, effective_formula_field] = \
+                formula_vals[apc_active & eff_missing].values
     else:
         effective_formula_field = 'recipe_id' if 'recipe_id' in df_cols else None
 
-    # 반환 컬럼 선택
+    # 반환 컬럼 선택 후 원본 df 즉시 해제
     meta_cols = [c for c in ['Date', 'substrate_id', 'recipe_id', effective_formula_field, 'eqp_id', 'IDLE']
                  if c in df_cols or c == effective_formula_field]
     value_cols = [c for c in (thk_paras + apc_paras) if c in df_cols]
     keep = meta_cols + [c for c in value_cols if c not in meta_cols] + \
            [c for c in extra_formula_cols if c not in meta_cols]
     df_out = df[keep].copy()
+    del df  # 원본 DataFrame 즉시 해제
+    gc.collect()
 
-    # # 로우 수 제한 (3000 초과 시 균등 sampling)
-    # if len(df_out) > 3000:
-    #     step = len(df_out) // 3000 + 1
-    #     df_out = df_out.iloc[::step]
+    # 행 수 제한: _MAX_ROWS 초과 시 균등 샘플링
+    total_rows = len(df_out)
+    if total_rows > _MAX_ROWS:
+        step = total_rows // _MAX_ROWS
+        df_out = df_out.iloc[::step].head(_MAX_ROWS).copy()
+    sampled = len(df_out) < total_rows
 
-    df_out = df_out.where(df_out.notna(), None)
+    # float 소수점 3자리 제한 (JSON 크기 절감)
+    float_cols = df_out.select_dtypes(include='float').columns.tolist()
+    if float_cols:
+        df_out[float_cols] = df_out[float_cols].round(3)
+
+    # 컬럼형 JSON: records 대비 컬럼명 반복 없음 → 크기/직렬화 메모리 절감
+    # 프론트에서 { columns, rows } → records 변환 처리
+    columns = df_out.columns.tolist()
+    rows = [
+        [None if (isinstance(v, float) and math.isnan(v)) else v for v in row]
+        for row in df_out.values.tolist()
+    ]
+    del df_out
+    gc.collect()
 
     return JsonResponse({
         'collection': collection_name,
         'thk_paras': thk_paras,
         'apc_paras': apc_paras,
-        'formula_field': effective_formula_field,   # THK용 (backward compat)
-        'formula_map': formula_map,                  # APC 차트용: para별 formula 컬럼
+        'formula_field': effective_formula_field,
+        'formula_map': formula_map,
         'effective_formula_field': effective_formula_field,
-        'data': df_out.to_dict('records'),
+        'columns': columns,
+        'rows': rows,
+        'total_rows': total_rows,
+        'sampled': sampled,
     })
 
 
