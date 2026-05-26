@@ -579,10 +579,11 @@ def learning_trend_data(request):
     gc.collect()
 
     # 행 수 제한: _MAX_ROWS 초과 시 균등 샘플링
+    # linspace 인덱스로 첫 행~마지막 행을 고르게 포함 (step+head 방식은 뒷부분 누락 위험)
     total_rows = len(df_out)
     if total_rows > _MAX_ROWS:
-        step = total_rows // _MAX_ROWS
-        df_out = df_out.iloc[::step].head(_MAX_ROWS).copy()
+        idx = _np.linspace(0, total_rows - 1, _MAX_ROWS, dtype=int)
+        df_out = df_out.iloc[idx].copy()
     sampled = len(df_out) < total_rows
 
     # float 소수점 3자리 제한 (JSON 크기 절감)

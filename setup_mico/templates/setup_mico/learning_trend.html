@@ -411,14 +411,21 @@ selFab.addEventListener('change', () => {
 const dateFrom = document.getElementById('date-from');
 const dateTo   = document.getElementById('date-to');
 
+// toISOString()은 UTC 기준이라 KST 오전 9시 이전에 날짜가 하루 밀림 → 로컬 날짜로 변환
+const toLocalDate = d =>
+  d.getFullYear() + '-' +
+  String(d.getMonth() + 1).padStart(2, '0') + '-' +
+  String(d.getDate()).padStart(2, '0');
+
 document.querySelectorAll('.date-quick-btn').forEach(btn => {
   btn.addEventListener('click', function() {
     document.querySelectorAll('.date-quick-btn').forEach(b => b.classList.remove('active'));
     this.classList.add('active');
     const days = +this.dataset.days;
     const now  = new Date();
-    dateTo.value   = now.toISOString().slice(0, 10);
-    dateFrom.value = new Date(now - days * 86400000).toISOString().slice(0, 10);
+    dateTo.value   = toLocalDate(now);
+    // (days-1)일 전 ~ 오늘 = 정확히 days일 범위
+    dateFrom.value = toLocalDate(new Date(now - (days - 1) * 86400000));
   });
 });
 
