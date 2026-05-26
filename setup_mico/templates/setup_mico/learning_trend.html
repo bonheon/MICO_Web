@@ -128,13 +128,69 @@
     background: #fff; border: 1px solid #e4e7ed; border-radius: 10px;
     padding: 0.5rem 1rem; margin-bottom: 1rem;
   }
-  .eq-filter-select {
-    border: 1px solid #e4e7ed; border-radius: 7px; padding: 0.28rem 0.6rem;
-    font-size: 0.8rem; color: #344054; background: #f8f9fc; outline: none; cursor: pointer;
-    min-width: 140px;
+
+  /* ── Multi-select FilterSelect component ── */
+  .fsel-wrap { position: relative; }
+  .fsel-btn {
+    display: inline-flex; align-items: center; gap: 0.35rem;
+    border: 1px solid #e4e7ed; border-radius: 7px;
+    padding: 0.28rem 0.65rem; font-size: 0.8rem; color: #344054;
+    background: #f8f9fc; cursor: pointer; white-space: nowrap;
+    transition: border-color 0.12s, background 0.12s;
   }
-  .eq-filter-select:focus { border-color: #4f8ef7; background: #fff; }
-  .eq-filter-select:disabled { opacity: 0.4; cursor: not-allowed; }
+  .fsel-btn:hover { border-color: #4f8ef7; background: #fff; }
+  .fsel-btn.open  { border-color: #4f8ef7; background: #fff; }
+  .fsel-lbl { font-size: 0.7rem; font-weight: 700; color: #8993a8; text-transform: uppercase; letter-spacing: 0.04em; }
+  .fsel-sep { color: #c8d0e0; font-size: 0.75rem; }
+  .fsel-val { font-size: 0.8rem; color: #344054; min-width: 2.2rem; text-align: center; }
+  .fsel-val.active { color: #4f8ef7; font-weight: 600; }
+  .fsel-chev { font-size: 0.68rem; color: #b0b8cc; transition: transform 0.15s; margin-left: 1px; }
+  .fsel-btn.open .fsel-chev { transform: rotate(180deg); }
+
+  .fsel-dropdown {
+    position: absolute; top: calc(100% + 5px); left: 0; z-index: 200;
+    background: #fff; border: 1px solid #e4e7ed; border-radius: 9px;
+    box-shadow: 0 6px 20px rgba(0,0,0,0.1);
+    min-width: 190px; max-width: 260px;
+  }
+  .fsel-toolbar {
+    display: flex; align-items: center; gap: 0.4rem;
+    padding: 0.45rem 0.65rem; border-bottom: 1px solid #f0f2f7;
+  }
+  .fsel-toolbar-btn {
+    flex: 1; padding: 0.22rem 0.4rem;
+    border: 1px solid #e4e7ed; border-radius: 5px;
+    font-size: 0.72rem; font-weight: 500; background: #f8f9fc;
+    color: #344054; cursor: pointer; transition: all 0.1s; text-align: center;
+  }
+  .fsel-toolbar-btn:hover { border-color: #4f8ef7; color: #4f8ef7; background: #eff6ff; }
+  .fsel-list {
+    max-height: 200px; overflow-y: auto;
+    padding: 0.3rem 0.4rem 0.4rem;
+  }
+  .fsel-item {
+    display: flex; align-items: center; gap: 0.5rem;
+    padding: 0.28rem 0.45rem; border-radius: 5px;
+    cursor: pointer; font-size: 0.8rem; color: #344054; line-height: 1.3;
+    transition: background 0.1s;
+  }
+  .fsel-item:hover { background: #f0f6ff; }
+  .fsel-item input[type=checkbox] { cursor: pointer; flex-shrink: 0; accent-color: #4f8ef7; }
+  .fsel-empty { padding: 0.6rem 0.7rem; font-size: 0.78rem; color: #b0b8cc; text-align: center; }
+
+  /* Dark mode — FilterSelect */
+  [data-theme="dark"] .fsel-btn { background: #1e2a40 !important; border-color: #3d4f6d !important; color: #f1f5f9 !important; }
+  [data-theme="dark"] .fsel-btn:hover, [data-theme="dark"] .fsel-btn.open { border-color: #4f8ef7 !important; background: #263348 !important; }
+  [data-theme="dark"] .fsel-lbl { color: #6b7280 !important; }
+  [data-theme="dark"] .fsel-sep { color: #4b5563 !important; }
+  [data-theme="dark"] .fsel-val { color: #d1d5db !important; }
+  [data-theme="dark"] .fsel-val.active { color: #6b9ef7 !important; }
+  [data-theme="dark"] .fsel-dropdown { background: #1f2937 !important; border-color: #374151 !important; box-shadow: 0 6px 20px rgba(0,0,0,0.35) !important; }
+  [data-theme="dark"] .fsel-toolbar { border-bottom-color: #374151 !important; }
+  [data-theme="dark"] .fsel-toolbar-btn { background: #263348 !important; border-color: #374151 !important; color: #d1d5db !important; }
+  [data-theme="dark"] .fsel-toolbar-btn:hover { border-color: #4f8ef7 !important; color: #6b9ef7 !important; background: #1e3a5f !important; }
+  [data-theme="dark"] .fsel-item { color: #d1d5db !important; }
+  [data-theme="dark"] .fsel-item:hover { background: #1e3a5f !important; }
 
   .chart-box {
     background: #f8f9fc; border: 1px solid #e4e7ed;
@@ -163,8 +219,7 @@
   [data-theme="dark"] .info-bar { background: #263348 !important; border-bottom-color: #374151 !important; }
   [data-theme="dark"] .date-filter-bar { background: #1f2937 !important; border-color: #374151 !important; }
   [data-theme="dark"] .eq-filter-bar { background: #1f2937 !important; border-color: #374151 !important; }
-  [data-theme="dark"] .eq-filter-select { background: #1e2a40 !important; border-color: #3d4f6d !important; color: #f1f5f9 !important; }
-  [data-theme="dark"] .eq-filter-select:focus { border-color: #4f8ef7 !important; }
+  /* eq-filter-select는 FilterSelect로 대체됨 — dark mode는 fsel-* 에서 처리 */
   [data-theme="dark"] .date-filter-label { color: #9ca3af !important; }
   [data-theme="dark"] .date-quick-btn { background: #263348 !important; border-color: #374151 !important; color: #d1d5db !important; }
   [data-theme="dark"] .date-quick-btn:hover { border-color: #4f8ef7 !important; color: #4f8ef7 !important; }
@@ -229,18 +284,14 @@
   </button>
 </div>
 
-<!-- EQP / Recipe Filter -->
+<!-- EQP / Recipe / Process ID 다중선택 필터 -->
 <div class="eq-filter-bar" id="eq-filter-bar" style="display:none;">
   <span class="date-filter-label"><i class="bi bi-funnel me-1"></i>필터</span>
-  <span style="font-size:0.78rem; color:#8993a8; white-space:nowrap;">EQP</span>
-  <select id="sel-eqp" class="eq-filter-select">
-    <option value="">전체</option>
-  </select>
+  <div id="fsel-eqp"></div>
   <div class="date-divider"></div>
-  <span style="font-size:0.78rem; color:#8993a8; white-space:nowrap;">Recipe</span>
-  <select id="sel-recipe" class="eq-filter-select">
-    <option value="">전체</option>
-  </select>
+  <div id="fsel-recipe"></div>
+  <div class="date-divider"></div>
+  <div id="fsel-process"></div>
 </div>
 
 <!-- Content Card -->
@@ -411,14 +462,21 @@ selFab.addEventListener('change', () => {
 const dateFrom = document.getElementById('date-from');
 const dateTo   = document.getElementById('date-to');
 
+// toISOString()은 UTC 기준이라 KST 오전 9시 이전에 날짜가 하루 밀림 → 로컬 날짜로 변환
+const toLocalDate = d =>
+  d.getFullYear() + '-' +
+  String(d.getMonth() + 1).padStart(2, '0') + '-' +
+  String(d.getDate()).padStart(2, '0');
+
 document.querySelectorAll('.date-quick-btn').forEach(btn => {
   btn.addEventListener('click', function() {
     document.querySelectorAll('.date-quick-btn').forEach(b => b.classList.remove('active'));
     this.classList.add('active');
     const days = +this.dataset.days;
     const now  = new Date();
-    dateTo.value   = now.toISOString().slice(0, 10);
-    dateFrom.value = new Date(now - days * 86400000).toISOString().slice(0, 10);
+    dateTo.value   = toLocalDate(now);
+    // (days-1)일 전 ~ 오늘 = 정확히 days일 범위
+    dateFrom.value = toLocalDate(new Date(now - (days - 1) * 86400000));
   });
 });
 
@@ -427,13 +485,8 @@ document.getElementById('date-clear').addEventListener('click', () => {
   document.querySelectorAll('.date-quick-btn').forEach(b => b.classList.remove('active'));
 });
 
-['sel-eqp', 'sel-recipe'].forEach(id => {
-  document.getElementById(id).addEventListener('change', () => {
-    if (!trendData) return;
-    if (currentThkPara) selectThkPara(currentThkPara);
-    if (currentApcParas.size) rebuildApcChart();
-  });
-});
+// FilterSelect 인스턴스는 populateEqFilters() 에서 초기화
+let fselEqp = null, fselRecipe = null, fselProcess = null;
 
 // ── Search ───────────────────────────────────────────────────────────
 btnSearch.addEventListener('click', () => {
@@ -515,25 +568,150 @@ async function fetchTrendData(device, oper_desc, fab, date_from, date_to) {
   renderPills();
 }
 
-// ── EQP / Recipe 필터 populate ───────────────────────────────────────
+// ── FilterSelect: 다중선택 드롭다운 컴포넌트 ─────────────────────────
+// 체크된 항목 = 포함할 항목. 전체 체크(또는 전체 해제) 시 필터 없음.
+class FilterSelect {
+  constructor(el, label, onChange) {
+    this.el       = el;
+    this.label    = label;
+    this.onChange = onChange;
+    this.items    = [];
+    this.checked  = new Set();
+    this._open    = false;
+    this._build();
+  }
+
+  _build() {
+    this.el.innerHTML = `
+      <div class="fsel-wrap">
+        <button class="fsel-btn" type="button">
+          <span class="fsel-lbl">${this.label}</span>
+          <span class="fsel-sep">|</span>
+          <span class="fsel-val">전체</span>
+          <i class="bi bi-chevron-down fsel-chev"></i>
+        </button>
+        <div class="fsel-dropdown" style="display:none;">
+          <div class="fsel-toolbar">
+            <button class="fsel-toolbar-btn fsel-all" type="button">전체 선택</button>
+            <button class="fsel-toolbar-btn fsel-none" type="button">전체 해제</button>
+          </div>
+          <div class="fsel-list"></div>
+        </div>
+      </div>`;
+    this._btn  = this.el.querySelector('.fsel-btn');
+    this._valEl= this.el.querySelector('.fsel-val');
+    this._drop = this.el.querySelector('.fsel-dropdown');
+    this._list = this.el.querySelector('.fsel-list');
+    this._btn.addEventListener('click', e => { e.stopPropagation(); this._toggle(); });
+    this.el.querySelector('.fsel-all').addEventListener('click', () => {
+      this.items.forEach(v => this.checked.add(v));
+      this._renderList(); this._updateLabel(); this.onChange();
+    });
+    this.el.querySelector('.fsel-none').addEventListener('click', () => {
+      this.checked.clear();
+      this._renderList(); this._updateLabel(); this.onChange();
+    });
+    this._outsideHandler = e => { if (!this.el.contains(e.target)) this._close(); };
+  }
+
+  setItems(items) {
+    this.items   = items;
+    this.checked = new Set(items);   // 기본: 전체 선택
+    this._renderList();
+    this._updateLabel();
+  }
+
+  _renderList() {
+    if (!this.items.length) {
+      this._list.innerHTML = '<div class="fsel-empty">항목 없음</div>';
+      return;
+    }
+    this._list.innerHTML = this.items.map(v => `
+      <label class="fsel-item">
+        <input type="checkbox" value="${v}" ${this.checked.has(v) ? 'checked' : ''}>
+        <span>${v}</span>
+      </label>`).join('');
+    this._list.querySelectorAll('input').forEach(cb => {
+      cb.addEventListener('change', () => {
+        if (cb.checked) this.checked.add(cb.value);
+        else            this.checked.delete(cb.value);
+        this._updateLabel();
+        this.onChange();
+      });
+    });
+  }
+
+  _updateLabel() {
+    const total = this.items.length;
+    const n     = this.checked.size;
+    const allSelected  = (n === total);
+    const noneSelected = (n === 0);
+    if (allSelected || total === 0) {
+      this._valEl.textContent = '전체';
+      this._valEl.classList.remove('active');
+    } else if (noneSelected) {
+      this._valEl.textContent = '없음';
+      this._valEl.classList.add('active');
+    } else {
+      // 제외 모드가 더 짧을 때: "N개 제외" vs "N/M 선택"
+      const excluded = total - n;
+      if (excluded <= 2 && excluded < n) {
+        this._valEl.textContent = `${excluded}개 제외`;
+      } else {
+        this._valEl.textContent = `${n}/${total}`;
+      }
+      this._valEl.classList.add('active');
+    }
+  }
+
+  // 필터 함수 반환 (null = 필터 없음)
+  getFilterFn(field) {
+    const total = this.items.length;
+    const n     = this.checked.size;
+    if (n === total || n === 0 || total === 0) return null;
+    const checked = this.checked;
+    return d => checked.has(d[field]);
+  }
+
+  _toggle() { this._open ? this._close() : this._openDropdown(); }
+
+  _openDropdown() {
+    this._drop.style.display = '';
+    this._btn.classList.add('open');
+    this._open = true;
+    document.addEventListener('click', this._outsideHandler);
+  }
+
+  _close() {
+    this._drop.style.display = 'none';
+    this._btn.classList.remove('open');
+    this._open = false;
+    document.removeEventListener('click', this._outsideHandler);
+  }
+}
+
+// ── EQP / Recipe / Process ID 필터 populate ──────────────────────────
+function _onFilterChange() {
+  if (!trendData) return;
+  if (currentThkPara) selectThkPara(currentThkPara);
+  if (currentApcParas.size) rebuildApcChart();
+}
+
 function populateEqFilters() {
   const { data } = trendData;
-  const eqpSel    = document.getElementById('sel-eqp');
-  const recipeSel = document.getElementById('sel-recipe');
 
-  const prevEqp    = eqpSel.value;
-  const prevRecipe = recipeSel.value;
+  const eqps      = [...new Set(data.map(d => d.eqp_id    ).filter(Boolean))].sort();
+  const recipes   = [...new Set(data.map(d => d.recipe_id ).filter(Boolean))].sort();
+  const processes = [...new Set(data.map(d => d.process_id).filter(Boolean))].sort();
 
-  const eqps    = [...new Set(data.map(d => d.eqp_id).filter(Boolean))].sort();
-  const recipes = [...new Set(data.map(d => d.recipe_id).filter(Boolean))].sort();
+  // 새 조회마다 컴포넌트 재생성 (항목 세트가 달라질 수 있음)
+  fselEqp     = new FilterSelect(document.getElementById('fsel-eqp'),     'EQP',        _onFilterChange);
+  fselRecipe  = new FilterSelect(document.getElementById('fsel-recipe'),  'Recipe',     _onFilterChange);
+  fselProcess = new FilterSelect(document.getElementById('fsel-process'), 'Process ID', _onFilterChange);
 
-  eqpSel.innerHTML    = '<option value="">전체</option>' +
-    eqps.map(v => `<option value="${v}">${v}</option>`).join('');
-  recipeSel.innerHTML = '<option value="">전체</option>' +
-    recipes.map(v => `<option value="${v}">${v}</option>`).join('');
-
-  if (eqps.includes(prevEqp))       eqpSel.value    = prevEqp;
-  if (recipes.includes(prevRecipe)) recipeSel.value = prevRecipe;
+  fselEqp.setItems(eqps);
+  fselRecipe.setItems(recipes);
+  fselProcess.setItems(processes);
 
   document.getElementById('eq-filter-bar').style.display = '';
 }
@@ -541,13 +719,13 @@ function populateEqFilters() {
 // ── 현재 필터 적용된 data 반환 ────────────────────────────────────────
 function getFilteredData() {
   if (!trendData) return [];
-  const eqp    = document.getElementById('sel-eqp').value;
-  const recipe = document.getElementById('sel-recipe').value;
-  if (!eqp && !recipe) return trendData.data;
-  return trendData.data.filter(d =>
-    (!eqp    || d.eqp_id    === eqp) &&
-    (!recipe || d.recipe_id === recipe)
-  );
+  const fns = [
+    fselEqp     ? fselEqp.getFilterFn('eqp_id')     : null,
+    fselRecipe  ? fselRecipe.getFilterFn('recipe_id'): null,
+    fselProcess ? fselProcess.getFilterFn('process_id'): null,
+  ].filter(Boolean);
+  if (!fns.length) return trendData.data;
+  return trendData.data.filter(d => fns.every(fn => fn(d)));
 }
 
 // ── Color map from formula field ─────────────────────────────────────
