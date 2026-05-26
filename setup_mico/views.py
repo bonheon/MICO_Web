@@ -481,7 +481,7 @@ def learning_trend_data(request):
     try:
         # 헤더만 먼저 읽어 필요한 컬럼만 usecols로 로드 → 불필요한 컬럼 메모리 절감
         all_csv_cols = pd.read_csv(csv_path, nrows=0).columns.tolist()
-        _meta = {'Date', 'substrate_id', 'recipe_id', 'eqp_id', 'IDLE'}
+        _meta = {'Date', 'substrate_id', 'recipe_id', 'eqp_id', 'process_id', 'IDLE'}
         _para_needed = set(thk_paras) | set(apc_paras) | {f"{ap}_formula" for ap in apc_paras}
         _fallback_thk = {c for c in all_csv_cols if not thk_paras and any(kw in c for kw in ('OCD', 'THK', 'POST'))}
         _fallback_apc = {c for c in all_csv_cols if not apc_paras and any(kw in c for kw in ('P3', 'PB_', 'PD_', 'PR1', 'PR2'))}
@@ -497,7 +497,7 @@ def learning_trend_data(request):
     # from pymongo import MongoClient
     # MONGO_URI = 'mongodb://TODO_HOST:TODO_PORT'   # ← 실제 접속 정보 입력
     # MONGO_DB  = 'TODO_DB_NAME'                    # ← 실제 DB명 입력
-    # _meta = {'Date', 'substrate_id', 'recipe_id', 'eqp_id', 'IDLE'}
+    # _meta = {'Date', 'substrate_id', 'recipe_id', 'eqp_id', 'process_id', 'IDLE'}
     # _para_needed = set(thk_paras) | set(apc_paras) | {f"{ap}_formula" for ap in apc_paras}
     # _proj = {c: 1 for c in (_meta | _para_needed)}
     # _proj['_id'] = 0
@@ -569,7 +569,7 @@ def learning_trend_data(request):
         effective_formula_field = 'recipe_id' if 'recipe_id' in df_cols else None
 
     # 반환 컬럼 선택 후 원본 df 즉시 해제
-    meta_cols = [c for c in ['Date', 'substrate_id', 'recipe_id', effective_formula_field, 'eqp_id', 'IDLE']
+    meta_cols = [c for c in ['Date', 'substrate_id', 'recipe_id', 'process_id', effective_formula_field, 'eqp_id', 'IDLE']
                  if c in df_cols or c == effective_formula_field]
     value_cols = [c for c in (thk_paras + apc_paras) if c in df_cols]
     keep = meta_cols + [c for c in value_cols if c not in meta_cols] + \
