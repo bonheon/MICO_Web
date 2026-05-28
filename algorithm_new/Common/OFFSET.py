@@ -26,6 +26,10 @@ class OFFSET_Get:
 
     def _build_idle_table(combined):
         # eq_recipe_apc / IDLE 기준으로 OFFSET 평균 집계 후 전체 조합 생성
+        if combined.empty:
+            return pd.DataFrame(columns=['eq_recipe_apc', 'IDLE', 'OFFSET_Origin', 'OFFSET',
+                                         'eqp_id', 'recipe_id', 'APC_Para', 'recipe_group'])
+
         IDLE_RR_Table = combined.groupby(['eq_recipe_apc', 'IDLE'])['OFFSET'].mean().reset_index()
 
         all_combination = pd.DataFrame(
