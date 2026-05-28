@@ -16,10 +16,12 @@ class PRE_THK_VM_Get:
         pre_thk_df = pd.DataFrame()
 
         temp_df  = merge_df[(merge_df['IDLE'] == '') | (merge_df['IDLE'].isna())]
-        col_list = ['Date', 'process_id', 'recipe_id', 'eqp_id', 'operation_id', 'lot_id', 'substrate_id',
-                    'pre_eqp_id', 'pre_eqp_ch', 'pre_oper_time', Thk_Para, Pad_Para, 'BIAS'] + APC_Para_merge
+        required_cols = ['Date', 'process_id', 'recipe_id', 'eqp_id', 'operation_id', 'lot_id', 'substrate_id',
+                         Thk_Para, Pad_Para, 'BIAS'] + APC_Para_merge
+        optional_cols = ['pre_eqp_id', 'pre_eqp_ch', 'pre_oper_time']
+        col_list      = required_cols + [c for c in optional_cols if c in temp_df.columns]
 
-        temp_df = temp_df.loc[:, col_list].dropna(axis=0).drop_duplicates()
+        temp_df = temp_df.loc[:, col_list].dropna(subset=required_cols).drop_duplicates()
 
         temp_df['Pol_Time'] = temp_df[APC_Para_merge].sum(axis=1)
 
@@ -105,7 +107,11 @@ class PRE_THK_VM_Get:
                 continue
             merged = pd.merge(pre_thk_df_merge, pre2_df, on='substrate_id', how='left')
             col       = desc + '.' + para
+            if col not in merged.columns or y_col not in merged.columns:
+                continue
             linear_df = merged[[col, y_col]].replace('-', np.nan).dropna()
+            if len(linear_df) < 2:
+                continue
             lr        = LinearRegression()
             lr.fit(linear_df[[col]], linear_df[[y_col]])
             pre_thk_table[f'{prefix}_b1'] = round(lr.coef_[0][0], 3)

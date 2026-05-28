@@ -493,3 +493,82 @@ class Removal_Rate_Get:
             client.close()
 
         return merge_df
+
+
+    def apply_pre_oper2_correction(merge_df, mico_info_key, mongo_url, mongo_db):
+        """
+        pre_oper1 미설정, pre_oper2~4만 set-up된 경우 VM=0 기준으로 전공정 회귀 보정 적용.
+        Period 컬렉션(또는 Excel 캐시)에서 최신 b1/b0를 읽고,
+        INFO 컬렉션에서 pre_oper2~4 파라미터 값을 substrate_id로 결합하여 _VM 컬럼에 보정값 적용.
+        """
+        Fab       = mico_info_key['Fab'].unique()[0]
+        Lot_Code  = mico_info_key['Lot_Code'].unique()[0]
+        Oper_Desc = mico_info_key['Oper_Desc'].unique()[0]
+
+        def _apply_correction(merge_df, Pre_Thk_Table, mico_info_key):
+            for Thk_key in Pre_Thk_Table['THK_Para'].unique():
+                key = mico_info_key[
+                    (mico_info_key['Thk_Para'] == Thk_key) |
+                    (mico_info_key['Pre_Thk_Para_ITM'] == Thk_key)
+                ].copy()
+                if key.empty:
+                    continue
+                # 같은 THK_Para가 여러 날짜로 저장돼 있을 경우 최신 1행만 사용
+                thk_rows = Pre_Thk_Table[Pre_Thk_Table['THK_Para'] == Thk_key]
+                if 'Date' in thk_rows.columns:
+                    thk_rows = thk_rows.sort_values('Date', ascending=False)
+                row = thk_rows.iloc[0]
+                ref = key.iloc[0]
+                for desc, para, prefix, weight in [
+                    (ref['Pre_Oper_Desc2'], ref['Pre_Oper_Para2'], 'PRE_OPER2', 1),
+                    (ref['Pre_Oper_Desc3'], ref['Pre_Oper_Para3'], 'PRE_OPER3', 1),
+                    (ref['Pre_Oper_Desc4'], ref['Pre_Oper_Para4'], 'PRE_OPER4', 1),
+                ]:
+                    if not (isinstance(desc, str) and desc != ''):
+                        continue
+                    b1_col = f'{prefix}_b1'
+                    b0_col = f'{prefix}_b0'
+                    col    = desc + '.' + para
+                    if b1_col not in row.index or col not in merge_df.columns:
+                        continue
+                    b1 = float(row[b1_col])
+                    b0 = float(row[b0_col])
+                    param_vals = pd.to_numeric(
+                        merge_df[col].replace('-', np.nan), errors='coerce'
+                    ).fillna(0)
+                    merge_df[Thk_key + '_VM'] = merge_df[Thk_key + '_VM'].fillna(0) + weight * (param_vals * b1 + b0)
+            return merge_df
+
+        # ── [TEST 삭제] Excel 캐시 분기 ──────────────────────────────────────
+        _cache_dir  = Path(__file__).parents[1] / 'pre_thk_cache'
+        _cache_file = _cache_dir / f'{Lot_Code}_{Oper_Desc.replace(" ", "_")}_{Fab}.xlsx'
+        if _cache_file.exists():
+            print(f'    [Excel 캐시] {_cache_file.name} 로드 (pre_oper2 보정)')
+            Pre_Thk_Table = pd.read_excel(_cache_file)
+            merge_df = _apply_correction(merge_df, Pre_Thk_Table, mico_info_key)
+            return merge_df
+        # ── [TEST 삭제 끝] ────────────────────────────────────────────────────
+
+        client = MongoClient(mongo_url)
+        try:
+            db         = client[mongo_db]
+            period_col = 'MICO_PRE_THK_' + Lot_Code + '_' + Oper_Desc + '_' + Fab + '_Period'
+            Pre_Thk_Table = pd.DataFrame(list(db[period_col].find({}, {'_id': False})))
+            if Pre_Thk_Table.empty:
+                return merge_df
+
+            # INFO 컬렉션에서 pre_oper2~4 파라미터 값 결합
+            info_col = 'MICO_PRE_THK_INFO_' + Lot_Code + '_' + Oper_Desc + '_' + Fab
+            if info_col in db.list_collection_names():
+                info_df = pd.DataFrame(list(db[info_col].find({}, {'_id': False})))
+                info_df.rename(columns={'samp_matl_id': 'substrate_id'}, inplace=True)
+                info_df.replace('-', 0, inplace=True)
+                exclude  = {'alias_lot_id', 'end_tm'}
+                col_name = [c for c in info_df.columns if c not in exclude]
+                merge_df = pd.merge(merge_df, info_df[col_name], on='substrate_id', how='left')
+
+            merge_df = _apply_correction(merge_df, Pre_Thk_Table, mico_info_key)
+        finally:
+            client.close()
+
+        return merge_df

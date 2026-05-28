@@ -226,7 +226,8 @@ class Module_Get:
                         pre_thk_df['THK_Para'] = Thk_Para
                         pre_thk_df_merge       = pre_thk_df if pre_thk_df_merge.empty else pd.concat([pre_thk_df_merge, pre_thk_df])
 
-                    pre_thk_df_merge = PRE_THK_VM_Get.iqr_filter(pre_thk_df_merge, 'Detrend_Thk')
+                    if not pre_thk_df_merge.empty and 'Detrend_Thk' in pre_thk_df_merge.columns:
+                        pre_thk_df_merge = PRE_THK_VM_Get.iqr_filter(pre_thk_df_merge, 'Detrend_Thk')
                     min_count        = 5 if ('ED' in Thk_Para or 'EX' in Thk_Para) else 10
                     pre_thk_df_merge = PRE_THK_VM_Get.rolling_mean(pre_thk_df_merge, 'Detrend_Thk', Pre_Thk_Period, min_count)
                     pre_thk_table    = _extract_latest(pre_thk_df_merge, ['pre_oper_time', 'pre_eq_ch', 'Pre_Thk', 'Pre_Thk_Count', 'THK_Para'])
@@ -317,6 +318,10 @@ class Module_Get:
                 merge_df_rr = merge_df.copy()
                 for Thk_key in Thk_Para_List:
                     merge_df_rr[Thk_key + '_VM'] = 0
+                Pre_Oper_Code2 = mico_info_key['Pre_Oper_Code2'].iloc[0]
+                if isinstance(Pre_Oper_Code2, str) and Pre_Oper_Code2 != '':
+                    print(f'    Pre_Oper2 회귀 보정 적용 중 ...')
+                    merge_df_rr = Removal_Rate_Get.apply_pre_oper2_correction(merge_df_rr, mico_info_key, _MONGO_URL, _MONGO_DB)
             else:
                 print(f'    Pre_Thk_VM 로드 중 ...')
                 merge_df_rr = Removal_Rate_Get.load_pre_thk_data(merge_df, mico_info_key, _MONGO_URL, _MONGO_DB)
@@ -368,6 +373,10 @@ class Module_Get:
                 merge_df_rr = merge_df.copy()
                 for Thk_key in Thk_Para_List:
                     merge_df_rr[Thk_key + '_VM'] = 0
+                Pre_Oper_Code2 = mico_info_key['Pre_Oper_Code2'].iloc[0]
+                if isinstance(Pre_Oper_Code2, str) and Pre_Oper_Code2 != '':
+                    print(f'    Pre_Oper2 회귀 보정 적용 중 ...')
+                    merge_df_rr = Removal_Rate_Get.apply_pre_oper2_correction(merge_df_rr, mico_info_key, _MONGO_URL, _MONGO_DB)
             else:
                 merge_df_rr = pd.DataFrame()
                 for lc in Lot_Code_List:
