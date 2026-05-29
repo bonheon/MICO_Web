@@ -236,9 +236,6 @@ class Module_Get:
                         pre2_df = pd.DataFrame(raw)
                     finally:
                         client.close()
-                    # samp_matl_id → substrate_id: 컬렉션에 substrate_id 필드가 이미 있으면 제거 후 rename
-                    if 'substrate_id' in pre2_df.columns:
-                        pre2_df.drop(columns=['substrate_id'], inplace=True)
                     pre2_df.rename(columns={'samp_matl_id': 'substrate_id'}, inplace=True)
                     pre2_df.drop_duplicates(subset=['substrate_id'], inplace=True)
 
