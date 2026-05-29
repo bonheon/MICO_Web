@@ -186,8 +186,10 @@ class Module_Get:
                     pre_thk_table['Pre_THK_Para'] = Pre_Thk_Para
                     y_col = 'BIAS'  # 두 경우 모두 BIAS가 0-centered → 회귀 y축 통일
 
-                else:
-
+                elif use_moving_avg:
+                    # pre_oper1 설정됨: detrend + MA (pre_eqp 채널별 rolling mean)
+                    # compute_detrend는 pre_eqp_id/pre_eqp_ch/pre_oper_time 컬럼이 필요하므로
+                    # pre_oper1이 설정된 경우에만 호출
                     pre_thk_df_merge = pd.DataFrame()
 
                     for i in range(len(key_df)):
@@ -209,17 +211,21 @@ class Module_Get:
                         pre_thk_df_merge       = pre_thk_df if pre_thk_df_merge.empty else pd.concat([pre_thk_df_merge, pre_thk_df])
 
                     pre_thk_df_merge = PRE_THK_VM_Get.iqr_filter(pre_thk_df_merge, 'Detrend_Thk')
+                    min_count        = 5 if ('ED' in Thk_Para or 'EX' in Thk_Para) else 10
+                    pre_thk_df_merge = PRE_THK_VM_Get.rolling_mean(pre_thk_df_merge, 'Detrend_Thk', Pre_Thk_Period, min_count)
+                    pre_thk_table    = _extract_latest(pre_thk_df_merge, ['pre_oper_time', 'pre_eq_ch', 'Pre_Thk', 'Pre_Thk_Count', 'THK_Para'])
+                    y_col            = 'Detrend_Thk'
 
-                    if use_moving_avg:
-                        min_count        = 5 if ('ED' in Thk_Para or 'EX' in Thk_Para) else 10
-                        pre_thk_df_merge = PRE_THK_VM_Get.rolling_mean(pre_thk_df_merge, 'Detrend_Thk', Pre_Thk_Period, min_count)
-                        pre_thk_table    = _extract_latest(pre_thk_df_merge, ['pre_oper_time', 'pre_eq_ch', 'Pre_Thk', 'Pre_Thk_Count', 'THK_Para'])
-                    else:
-                        # pre_oper_time/pre_eq_ch 데이터 없음 → _extract_latest 불필요
-                        # has_regression 결과(b1/b0)만 저장할 1행 테이블 생성
-                        pre_thk_table = pd.DataFrame([{'THK_Para': Thk_Para}])
-
-                    y_col = 'Detrend_Thk'   # 회귀 y축: 0-centered 후 CMP 두께 편차
+                else:
+                    # pre_oper1 미설정, pre_oper2~4 회귀만 산출
+                    # pre_eqp 채널 데이터 없이 BIAS(CMP 두께 편차, 0-centered)를 y축으로 직접 회귀
+                    ref          = key_df.iloc[0]
+                    Post_Target  = float(ref['Target'])
+                    Target_13P   = mico_info_key[(mico_info_key['Recipe_ID'] == ref['Recipe_ID']) & (mico_info_key['FB_Type'] == 'TIME')]['Target'].unique()[0]
+                    merge_df['BIAS']  = (merge_df[Thk_Para] - merge_df[Thk_Para_13P]) - (Post_Target - Target_13P)
+                    pre_thk_df_merge  = merge_df[['substrate_id', 'BIAS']].dropna().copy()
+                    pre_thk_table     = pd.DataFrame([{'THK_Para': Thk_Para}])
+                    y_col             = 'BIAS'
 
                 # ITM/detrend 경로 공통: Pre_Oper2~4 회귀계수 산출
                 # join key(substrate_id vs lot_id/alias_lot_id)는 fit_pre_oper_regression 내부에서 자동 판별
@@ -287,7 +293,10 @@ class Module_Get:
             Thk_Para_List = mico_info_key['Thk_Para'].unique()
             Thk_Para_13P  = mico_info_key[mico_info_key['FB_Type'] == 'TIME']['Thk_Para'].unique()[0]
 
-            if Pre_Oper_Code == '':
+            pre_oper2_vals = mico_info_key['Pre_Oper_Code2'].dropna()
+            has_pre_oper2  = len(pre_oper2_vals[pre_oper2_vals != '']) > 0
+
+            if Pre_Oper_Code == '' and not has_pre_oper2:
                 print(f'    Pre_Oper_Code 없음 → VM=0 처리')
                 merge_df_rr = merge_df.copy()
                 for Thk_key in Thk_Para_List:
@@ -335,7 +344,10 @@ class Module_Get:
             Thk_Para_13P  = mico_info_key[mico_info_key['FB_Type'] == 'TIME']['Thk_Para'].unique()[0]
             Lot_Code_List = merge_df['Lot_Code'].unique()
 
-            if Pre_Oper_Code == '':
+            pre_oper2_vals = mico_info_key['Pre_Oper_Code2'].dropna()
+            has_pre_oper2  = len(pre_oper2_vals[pre_oper2_vals != '']) > 0
+
+            if Pre_Oper_Code == '' and not has_pre_oper2:
                 print(f'    Pre_Oper_Code 없음 → VM=0 처리')
                 merge_df_rr = merge_df.copy()
                 for Thk_key in Thk_Para_List:

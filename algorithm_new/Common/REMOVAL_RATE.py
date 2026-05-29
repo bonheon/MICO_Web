@@ -349,13 +349,17 @@ class Removal_Rate_Get:
             print(f'    [Excel 캐시] {_cache_file.name} 로드')
             Pre_Thk_Table = pd.read_excel(_cache_file, parse_dates=['pre_oper_time'])
             Pre_Thk_Table.rename(columns={'pre_oper_time': 'Pre_Oper_Date'}, inplace=True)
-            Pre_Thk_Table['Pre_Oper_Date'] = pd.to_datetime(Pre_Thk_Table['Pre_Oper_Date'])
+            has_pre_thk = 'Pre_Thk' in Pre_Thk_Table.columns  # MA 기반 VM 존재 여부
 
             merge_df = merge_df.copy()
-            merge_df.rename(columns={'pre_oper_time': 'Pre_Oper_Date', 'request_dtts': 'Date'}, inplace=True)
-            merge_df.dropna(subset=['Pre_Oper_Date'], inplace=True)
-            merge_df['Pre_Oper_Date'] = pd.to_datetime(merge_df['Pre_Oper_Date'])
-            merge_df = merge_df.sort_values(by='Pre_Oper_Date', ascending=True)
+            merge_df.rename(columns={'request_dtts': 'Date'}, inplace=True)
+
+            if has_pre_thk:
+                Pre_Thk_Table['Pre_Oper_Date'] = pd.to_datetime(Pre_Thk_Table['Pre_Oper_Date'])
+                merge_df.rename(columns={'pre_oper_time': 'Pre_Oper_Date'}, inplace=True)
+                merge_df.dropna(subset=['Pre_Oper_Date'], inplace=True)
+                merge_df['Pre_Oper_Date'] = pd.to_datetime(merge_df['Pre_Oper_Date'])
+                merge_df = merge_df.sort_values(by='Pre_Oper_Date', ascending=True)
 
             for Thk_key in Pre_Thk_Table['THK_Para'].unique():
                 key = mico_info_key[
@@ -363,18 +367,28 @@ class Removal_Rate_Get:
                     (mico_info_key['Pre_Thk_Para_ITM'] == Thk_key)
                 ].copy()
 
-                temp_pre_thk = Pre_Thk_Table[Pre_Thk_Table['THK_Para'] == Thk_key].drop(
-                    columns=[c for c in ['Date', 'THK_Para', 'Oper_Code'] if c in Pre_Thk_Table.columns]
-                )
-                temp_pre_thk = temp_pre_thk.sort_values(by='Pre_Oper_Date', ascending=True)
-                temp_pre_thk.rename(columns={'Pre_Thk': Thk_key + '_VM', 'Count': Thk_key + '_Count'}, inplace=True)
+                if has_pre_thk:
+                    temp_pre_thk = Pre_Thk_Table[Pre_Thk_Table['THK_Para'] == Thk_key].drop(
+                        columns=[c for c in ['Date', 'THK_Para', 'Oper_Code'] if c in Pre_Thk_Table.columns]
+                    )
+                    temp_pre_thk = temp_pre_thk.sort_values(by='Pre_Oper_Date', ascending=True)
+                    temp_pre_thk.rename(columns={'Pre_Thk': Thk_key + '_VM', 'Count': Thk_key + '_Count'}, inplace=True)
 
-                cols_to_drop = [c for c in merge_df.columns if c.endswith('_x') or c.endswith('_y')]
-                merge_df = merge_df.drop(columns=cols_to_drop)
-                merge_df = pd.merge_asof(merge_df, temp_pre_thk, on='Pre_Oper_Date', by=['pre_eq_ch'])
-                merge_df.drop_duplicates(subset=['substrate_id'], inplace=True)
-
-                print(f'    → {Thk_key}_VM: {merge_df[Thk_key+"_VM"].notna().sum()}/{len(merge_df)} 매칭')
+                    cols_to_drop = [c for c in merge_df.columns if c.endswith('_x') or c.endswith('_y')]
+                    merge_df = merge_df.drop(columns=cols_to_drop)
+                    merge_df = pd.merge_asof(merge_df, temp_pre_thk, on='Pre_Oper_Date', by=['pre_eq_ch'])
+                    merge_df.drop_duplicates(subset=['substrate_id'], inplace=True)
+                    print(f'    → {Thk_key}_VM: {merge_df[Thk_key+"_VM"].notna().sum()}/{len(merge_df)} 매칭')
+                else:
+                    # pre_oper1 미설정: MA 기반 VM 없음 → 0 초기화 후 회귀 보정만 적용
+                    merge_df[Thk_key + '_VM'] = 0.0
+                    row_ptk = Pre_Thk_Table[Pre_Thk_Table['THK_Para'] == Thk_key].iloc[0]
+                    for prefix in ['PRE_OPER2', 'PRE_OPER3', 'PRE_OPER4']:
+                        b1_col, b0_col = f'{prefix}_b1', f'{prefix}_b0'
+                        if b1_col in row_ptk.index and not pd.isna(row_ptk[b1_col]):
+                            merge_df[b1_col] = float(row_ptk[b1_col])
+                            merge_df[b0_col] = float(row_ptk[b0_col]) if b0_col in row_ptk.index and not pd.isna(row_ptk[b0_col]) else 0.0
+                    print(f'    → {Thk_key}_VM: pre_oper1 미설정, 회귀 보정만 적용')
 
                 ref = key.iloc[0]
                 for desc, para, prefix, weight in [
@@ -403,12 +417,16 @@ class Removal_Rate_Get:
             period_col    = 'MICO_PRE_THK_' + Lot_Code + '_' + Oper_Desc + '_' + Fab + '_Period'
             Pre_Thk_Table = pd.DataFrame(list(db[period_col].find({}, {'_id': False})))
             Pre_Thk_Table.rename(columns={'Pre_THK_Para': 'Thk_Para', 'pre_oper_time': 'Pre_Oper_Date'}, inplace=True)
-            Pre_Thk_Table['Pre_Oper_Date'] = pd.to_datetime(Pre_Thk_Table['Pre_Oper_Date'])
+            has_pre_thk   = 'Pre_Thk' in Pre_Thk_Table.columns  # MA 기반 VM 존재 여부
 
-            merge_df.rename(columns={'pre_oper_time': 'Pre_Oper_Date', 'request_dtts': 'Date'}, inplace=True)
-            merge_df.dropna(subset=['Pre_Oper_Date'], inplace=True)
-            merge_df['Pre_Oper_Date'] = pd.to_datetime(merge_df['Pre_Oper_Date'])
-            merge_df = merge_df.sort_values(by='Pre_Oper_Date', ascending=True)
+            merge_df.rename(columns={'request_dtts': 'Date'}, inplace=True)
+
+            if has_pre_thk:
+                Pre_Thk_Table['Pre_Oper_Date'] = pd.to_datetime(Pre_Thk_Table['Pre_Oper_Date'])
+                merge_df.rename(columns={'pre_oper_time': 'Pre_Oper_Date'}, inplace=True)
+                merge_df.dropna(subset=['Pre_Oper_Date'], inplace=True)
+                merge_df['Pre_Oper_Date'] = pd.to_datetime(merge_df['Pre_Oper_Date'])
+                merge_df = merge_df.sort_values(by='Pre_Oper_Date', ascending=True)
 
             info_col = 'MICO_PRE_THK_INFO_' + Lot_Code + '_' + Oper_Desc + '_' + Fab
             if info_col in db.list_collection_names():
@@ -426,14 +444,24 @@ class Removal_Rate_Get:
 
                 key = mico_info_key[(mico_info_key['Thk_Para'] == Thk_key) | (mico_info_key['Pre_Thk_Para_ITM'] == Thk_key)].copy()
 
-                temp_pre_thk = Pre_Thk_Table[Pre_Thk_Table['THK_Para'] == Thk_key].drop(columns=['Date', 'THK_Para'])
-                temp_pre_thk = temp_pre_thk.sort_values(by='Pre_Oper_Date', ascending=True)
-                temp_pre_thk.rename(columns={'Pre_Thk': Thk_key+'_VM', 'Count': Thk_key+'_Count'}, inplace=True)
+                if has_pre_thk:
+                    temp_pre_thk = Pre_Thk_Table[Pre_Thk_Table['THK_Para'] == Thk_key].drop(columns=['Date', 'THK_Para'])
+                    temp_pre_thk = temp_pre_thk.sort_values(by='Pre_Oper_Date', ascending=True)
+                    temp_pre_thk.rename(columns={'Pre_Thk': Thk_key+'_VM', 'Count': Thk_key+'_Count'}, inplace=True)
 
-                cols_to_drop = [c for c in merge_df.columns if c.endswith('_x') or c.endswith('_y')]
-                merge_df = merge_df.drop(columns=cols_to_drop)
-                merge_df = pd.merge_asof(merge_df, temp_pre_thk, on='Pre_Oper_Date', by=['pre_eq_ch'])
-                merge_df.drop_duplicates(subset=['substrate_id'], inplace=True)
+                    cols_to_drop = [c for c in merge_df.columns if c.endswith('_x') or c.endswith('_y')]
+                    merge_df = merge_df.drop(columns=cols_to_drop)
+                    merge_df = pd.merge_asof(merge_df, temp_pre_thk, on='Pre_Oper_Date', by=['pre_eq_ch'])
+                    merge_df.drop_duplicates(subset=['substrate_id'], inplace=True)
+                else:
+                    # pre_oper1 미설정: MA 기반 VM 없음 → 0 초기화 후 회귀 보정만 적용
+                    merge_df[Thk_key + '_VM'] = 0.0
+                    row_ptk = Pre_Thk_Table[Pre_Thk_Table['THK_Para'] == Thk_key].iloc[0]
+                    for prefix in ['PRE_OPER2', 'PRE_OPER3', 'PRE_OPER4']:
+                        b1_col, b0_col = f'{prefix}_b1', f'{prefix}_b0'
+                        if b1_col in row_ptk.index and not pd.isna(row_ptk[b1_col]):
+                            merge_df[b1_col] = float(row_ptk[b1_col])
+                            merge_df[b0_col] = float(row_ptk[b0_col]) if b0_col in row_ptk.index and not pd.isna(row_ptk[b0_col]) else 0.0
 
                 ref = key.iloc[0]
                 oper_pairs = [
