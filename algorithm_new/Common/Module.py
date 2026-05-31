@@ -530,12 +530,16 @@ def _parse_for_key(key):
     return parts[0], parts[1], parts[2]  # lot_code, oper_code, fab
 
 
-def _run_pipeline(merge_df, mico_info_key, pol_type, use_group_rr=False):
+def _run_pipeline(merge_df, mico_info_key, use_group_rr=False):
     # Pre VM → RR → Offset → Alarm 순서로 학습 모듈 전체 실행
     # use_group_rr=True: 여러 Lot_Code가 합쳐진 merge_df로 RR_Group 실행 (그룹 공정용)
     lot_code  = mico_info_key['Lot_Code'].unique()[0]
     oper_desc = mico_info_key['Oper_Desc'].unique()[0]
     fab       = mico_info_key['Fab'].unique()[0]
+
+    # Category.pol_type (web DB set-up 값)에서 pol_type 결정
+    pol_type_vals = mico_info_key['Pol_Type'].dropna().unique()
+    pol_type = int(pol_type_vals[0]) if len(pol_type_vals) > 0 else None
 
     print(f'\n{"=" * 60}')
     print(f'  파이프라인 시작: {fab} | {lot_code} | {oper_desc}')
@@ -552,12 +556,13 @@ def _run_pipeline(merge_df, mico_info_key, pol_type, use_group_rr=False):
     except Exception as e:
         tb = traceback.format_exc()
         Get_data.Cube_Msg(lot_code, oper_desc, 'Module', e, tb)
+
     print(f'{"=" * 60}')
     print(f'  파이프라인 완료: {fab} | {lot_code} | {oper_desc}')
     print(f'{"=" * 60}')
 
 
-def _run_single(mico_info_table, for_key_list, pol_type):
+def _run_single(mico_info_table, for_key_list):
     # 그룹 미지정 공정: for_key_list 키마다 독립적으로 merge_df를 조회 후 실행
     total = len(for_key_list)
     for idx, key in enumerate(for_key_list, 1):
@@ -569,10 +574,10 @@ def _run_single(mico_info_table, for_key_list, pol_type):
         merge_df = merge_df[merge_df['operation_id'] == oper_code].copy()
         print(f'    Oper 필터 후: {len(merge_df)}행')
 
-        _run_pipeline(merge_df, mico_info_key, pol_type)
+        _run_pipeline(merge_df, mico_info_key)
 
 
-def _run_grouped(mico_info_table, group_name, pol_type):
+def _run_grouped(mico_info_table, group_name):
     # 그룹 지정 공정: 같은 Group_Name의 모든 키 데이터를 먼저 합산(merge_df)한 후
     # 각 mico_info_key에 동일한 merge_df로 실행 → Group RR처럼 복수 Lot_Code 통합 처리
     mico_info_keys = []
@@ -592,12 +597,13 @@ def _run_grouped(mico_info_table, group_name, pol_type):
     print(f'  그룹 통합 완료: {len(merge_df)}행')
 
     for mico_info_key in mico_info_keys:
-        _run_pipeline(merge_df, mico_info_key, pol_type, use_group_rr=True)
+        _run_pipeline(merge_df, mico_info_key, use_group_rr=True)
 
 
-def run(family, oper_desc, pol_type):
+def run(family, oper_desc):
     # 최상위 진입점: set-up 정보 로드 → for_key_list(Lot_Code+Oper_Code+Fab) 생성
     # → Group 여부에 따라 _run_single / _run_grouped 분기
+    # pol_type은 Category.pol_type (web DB set-up 값)에서 자동으로 읽어옴
     print(f'\n{"#" * 60}')
     print(f'  MICO 학습 시작: Family={family} | Oper_Desc={oper_desc}')
     print(f'{"#" * 60}')
@@ -613,17 +619,19 @@ def run(family, oper_desc, pol_type):
         key_list = mico_info_table['for_key_list'].unique()
         print(f'  처리 키 목록 ({len(key_list)}개):')
         for k in key_list:
-            grp = mico_info_table[mico_info_table['for_key_list'] == k]['Group_Name'].unique()[0]
+            grp      = mico_info_table[mico_info_table['for_key_list'] == k]['Group_Name'].unique()[0]
+            pol_vals = mico_info_table[mico_info_table['for_key_list'] == k]['Pol_Type'].dropna().unique()
+            pol_label = f'pol_type={int(pol_vals[0])}' if len(pol_vals) > 0 else 'pol_type=미설정'
             grp_label = f'그룹={grp}' if grp != 'not_group' else '단독'
-            print(f'    - {k}  ({grp_label})')
+            print(f'    - {k}  ({grp_label} | {pol_label})')
 
         for group_name in mico_info_table['Group_Name'].unique():
             for_key_list = mico_info_table[mico_info_table['Group_Name'] == group_name]['for_key_list'].unique()
 
             if group_name == 'not_group':
-                _run_single(mico_info_table, for_key_list, pol_type)
+                _run_single(mico_info_table, for_key_list)
             else:
-                _run_grouped(mico_info_table, group_name, pol_type)
+                _run_grouped(mico_info_table, group_name)
 
     except Exception as e:
         tb = traceback.format_exc()

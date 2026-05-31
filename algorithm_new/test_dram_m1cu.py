@@ -74,7 +74,6 @@ from Common.Module import run
 
 FAMILY    = 'DRAM'
 OPER_DESC = 'M1 CU CMP'
-POL_TYPE  = 3
 
 if __name__ == '__main__':
-    run(FAMILY, OPER_DESC, POL_TYPE)
+    run(FAMILY, OPER_DESC)
