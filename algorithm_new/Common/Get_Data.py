@@ -95,16 +95,11 @@ class Get_data:
 
 
     def APCParaGet(APC_Para, pol_type):
-        """pol_type에 해당하는 PolTypeConfig.steps 컬럼명 리스트 반환. 미설정 시 [APC_Para] 반환."""
-        if pol_type is None:
+        """pol_type에 따른 APC 파라미터 컬럼명 리스트 반환."""
+        if pol_type == 3:
+            return [APC_Para]   # P3 단일 플래튼
+        if pol_type == 13:
             return [APC_Para]
-        from setup_mico.models import PolTypeConfig
-        try:
-            config = PolTypeConfig.objects.get(pol_type=pol_type)
-            if config.steps:
-                return list(config.steps)
-        except PolTypeConfig.DoesNotExist:
-            pass
         return [APC_Para]
 
 
