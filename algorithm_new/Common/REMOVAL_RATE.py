@@ -348,6 +348,11 @@ class Removal_Rate_Get:
         if _cache_file.exists():
             print(f'    [Excel 캐시] {_cache_file.name} 로드')
             Pre_Thk_Table = pd.read_excel(_cache_file, parse_dates=['pre_oper_time'])
+            # ITM 학습 시 Pre_THK_Para(ITM 파라)와 THK_Para(후공정 파라)가 모두 적재된 경우,
+            # THK_Para를 제거하고 Pre_THK_Para를 THK_Para로 정규화하여 VM 컬럼명 일치
+            if 'Pre_THK_Para' in Pre_Thk_Table.columns:
+                Pre_Thk_Table = Pre_Thk_Table.drop(columns='THK_Para', errors='ignore')
+                Pre_Thk_Table.rename(columns={'Pre_THK_Para': 'THK_Para', 'pre_oper_time': 'Pre_Oper_Date'}, inplace=True)
             Pre_Thk_Table.rename(columns={'pre_oper_time': 'Pre_Oper_Date'}, inplace=True)
             has_pre_thk = 'Pre_Thk' in Pre_Thk_Table.columns  # MA 기반 VM 존재 여부
 
@@ -416,7 +421,12 @@ class Removal_Rate_Get:
 
             period_col    = 'MICO_PRE_THK_' + Lot_Code + '_' + Oper_Desc + '_' + Fab + '_Period'
             Pre_Thk_Table = pd.DataFrame(list(db[period_col].find({}, {'_id': False})))
-            Pre_Thk_Table.rename(columns={'Pre_THK_Para': 'Thk_Para', 'pre_oper_time': 'Pre_Oper_Date'}, inplace=True)
+            # ITM 학습 시 Pre_THK_Para(ITM 파라)와 THK_Para(후공정 파라)가 모두 적재된 경우,
+            # THK_Para를 제거하고 Pre_THK_Para를 THK_Para로 정규화하여 VM 컬럼명 일치
+            if 'Pre_THK_Para' in Pre_Thk_Table.columns:
+                Pre_Thk_Table = Pre_Thk_Table.drop(columns='THK_Para', errors='ignore')
+                Pre_Thk_Table.rename(columns={'Pre_THK_Para': 'THK_Para', 'pre_oper_time': 'Pre_Oper_Date'}, inplace=True)
+            Pre_Thk_Table.rename(columns={'pre_oper_time': 'Pre_Oper_Date'}, inplace=True)
             has_pre_thk   = 'Pre_Thk' in Pre_Thk_Table.columns  # MA 기반 VM 존재 여부
 
             merge_df.rename(columns={'request_dtts': 'Date'}, inplace=True)

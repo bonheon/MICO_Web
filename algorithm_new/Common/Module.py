@@ -571,8 +571,15 @@ def _run_single(mico_info_table, for_key_list):
 
         print(f'\n[{idx}/{total}] {key}')
         merge_df = Module_Get.fetch_merge_data(mico_info_key)
+        if merge_df is None or merge_df.empty:
+            print(f'    → 조회 데이터 없음 (0행), 스킵')
+            continue
+
         merge_df = merge_df[merge_df['operation_id'] == oper_code].copy()
         print(f'    Oper 필터 후: {len(merge_df)}행')
+        if merge_df.empty:
+            print(f'    → Oper 필터 후 데이터 없음 (0행), 스킵')
+            continue
 
         _run_pipeline(merge_df, mico_info_key)
 
@@ -595,6 +602,9 @@ def _run_grouped(mico_info_table, group_name):
 
     merge_df['Group_Name'] = group_name
     print(f'  그룹 통합 완료: {len(merge_df)}행')
+    if merge_df.empty:
+        print(f'  → 그룹 통합 데이터 없음 (0행), 스킵')
+        return
 
     for mico_info_key in mico_info_keys:
         _run_pipeline(merge_df, mico_info_key, use_group_rr=True)
