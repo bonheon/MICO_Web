@@ -72,6 +72,15 @@ class PRE_THK_VM_Get:
         df.reset_index(inplace=True, drop=True)
         df = df.dropna(subset=['pre_oper_time'])
 
+        # pre_eq_ch 유효 데이터가 없으면 루프 미실행 → UnboundLocalError 방지
+        if df.empty or df['pre_eq_ch'].nunique() == 0:
+            df['Pre_Thk']       = float('nan')
+            df['Pre_Thk_Count'] = 0
+            return df
+
+        pre_thk_list       = None
+        pre_thk_count_list = None
+
         for j, i in enumerate(df['pre_eq_ch'].unique()):
             raw   = df[df['pre_eq_ch'] == i][[value_col, 'pre_oper_time']].rolling(window=Pre_Thk_Period, on='pre_oper_time', min_periods=min_count).mean()[value_col]
             count = df[df['pre_eq_ch'] == i][[value_col, 'pre_oper_time']].rolling(window=Pre_Thk_Period, on='pre_oper_time', min_periods=min_count).count()[value_col]
