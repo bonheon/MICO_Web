@@ -74,7 +74,7 @@ class PRE_THK_VM_Get:
 
         # pre_eq_ch 유효 데이터가 없으면 루프 미실행 → UnboundLocalError 방지
         if df.empty or df['pre_eq_ch'].nunique() == 0:
-            df['Pre_Thk']       = float('nan')
+            df['Pre_Thk']       = 0
             df['Pre_Thk_Count'] = 0
             return df
 
