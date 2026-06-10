@@ -50,19 +50,19 @@ def _build_eqpm_df(merge_df_rr, Maker, Fab):
         merge_df_rr['eqp_id_ch'] = merge_df_rr['eqp_id'] + '_' + merge_df_rr['CH']
         eqp_col = 'eqp_id_ch'
 
-    recipe_id_list = tuple(merge_df_rr['recipe_id'].unique())
-
     if 'Fab' in merge_df_rr.columns:
-        # 그룹 공정: fab별로 해당 fab 장비 목록만 조회한 뒤 결과를 합산
+        # 그룹 공정: fab별로 해당 fab의 장비·레시피 목록만 조회한 뒤 결과를 합산
         eqpm_parts = []
         for fab in merge_df_rr['Fab'].unique():
-            fab_df = merge_df_rr[merge_df_rr['Fab'] == fab]
-            eqp_id_list = tuple(fab_df[eqp_col].unique())
+            fab_df         = merge_df_rr[merge_df_rr['Fab'] == fab]
+            eqp_id_list    = tuple(fab_df[eqp_col].unique())
+            recipe_id_list = tuple(fab_df['recipe_id'].unique())
             if eqp_id_list:
                 eqpm_parts.append(Get_data.EQPMGetData_HUB(fab, eqp_id_list, recipe_id_list))
         EQPM_df = pd.concat(eqpm_parts, ignore_index=True) if eqpm_parts else pd.DataFrame()
     else:
-        eqp_id_list = tuple(merge_df_rr[eqp_col].unique())
+        eqp_id_list    = tuple(merge_df_rr[eqp_col].unique())
+        recipe_id_list = tuple(merge_df_rr['recipe_id'].unique())
         EQPM_df = Get_data.EQPMGetData_HUB(Fab, eqp_id_list, recipe_id_list)
 
     EQPM_df = EQPM_df.sort_values(by=['EQP_ID', 'EVENT_TM']).reset_index(drop=True)
