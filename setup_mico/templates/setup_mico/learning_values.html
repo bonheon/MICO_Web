@@ -331,16 +331,17 @@ let currentRRApara  = null;  // RR 현재 선택된 APC_Para (null = 전체)
 const selDateFrom = document.getElementById('date-from');
 const selDateTo   = document.getElementById('date-to');
 
+// toISOString()은 UTC 기준이라 KST 오전 9시 이전에 날짜가 하루 밀림 → 로컬 날짜로 변환
 function toYMD(date) {
-  return date.toISOString().slice(0, 10);
+  return date.getFullYear() + '-' +
+    String(date.getMonth() + 1).padStart(2, '0') + '-' +
+    String(date.getDate()).padStart(2, '0');
 }
 
 function setQuickDate(days) {
-  const to   = new Date();
-  const from = new Date();
-  from.setDate(from.getDate() - (days - 1));
-  selDateFrom.value = toYMD(from);
-  selDateTo.value   = toYMD(to);
+  const now  = new Date();
+  selDateTo.value   = toYMD(now);
+  selDateFrom.value = toYMD(new Date(now - (days - 1) * 86400000));
 }
 
 function getDateParams() {
