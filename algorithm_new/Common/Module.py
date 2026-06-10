@@ -38,19 +38,33 @@ def _make_rr_mongo(Lot_Code, Oper_Desc, Fab):
 
 def _build_eqpm_df(merge_df_rr, Maker, Fab):
     # Maker별 EQP 채널 컬럼 구성 후 PM 이벤트 기준 pad rank 산출하여 EQPM_df 반환
+    # merge_df_rr에 'Fab' 컬럼이 있으면 fab별로 EQPMGetData_HUB를 호출해 결과를 합산한다
     if Maker == 'AMAT':
-        eqp_id_list = tuple(merge_df_rr['eqp_id'].unique())
+        eqp_col = 'eqp_id'
     elif Maker == 'EBARA':
         merge_df_rr['CH'] = merge_df_rr['recipe_id'].apply(lambda x: 'AB' if 'AB' in x else 'CD')
         merge_df_rr['eqp_id_ch'] = merge_df_rr['eqp_id'] + '_' + merge_df_rr['CH']
-        eqp_id_list = tuple(merge_df_rr['eqp_id_ch'].unique())
+        eqp_col = 'eqp_id_ch'
     elif Maker == 'KCT':
         merge_df_rr['CH'] = merge_df_rr['recipe_id'].apply(lambda x: 'L' if '_L' in x else 'R')
         merge_df_rr['eqp_id_ch'] = merge_df_rr['eqp_id'] + '_' + merge_df_rr['CH']
-        eqp_id_list = tuple(merge_df_rr['eqp_id_ch'].unique())
+        eqp_col = 'eqp_id_ch'
 
     recipe_id_list = tuple(merge_df_rr['recipe_id'].unique())
-    EQPM_df = Get_data.EQPMGetData_HUB(Fab, eqp_id_list, recipe_id_list)
+
+    if 'Fab' in merge_df_rr.columns:
+        # 그룹 공정: fab별로 해당 fab 장비 목록만 조회한 뒤 결과를 합산
+        eqpm_parts = []
+        for fab in merge_df_rr['Fab'].unique():
+            fab_df = merge_df_rr[merge_df_rr['Fab'] == fab]
+            eqp_id_list = tuple(fab_df[eqp_col].unique())
+            if eqp_id_list:
+                eqpm_parts.append(Get_data.EQPMGetData_HUB(fab, eqp_id_list, recipe_id_list))
+        EQPM_df = pd.concat(eqpm_parts, ignore_index=True) if eqpm_parts else pd.DataFrame()
+    else:
+        eqp_id_list = tuple(merge_df_rr[eqp_col].unique())
+        EQPM_df = Get_data.EQPMGetData_HUB(Fab, eqp_id_list, recipe_id_list)
+
     EQPM_df = EQPM_df.sort_values(by=['EQP_ID', 'EVENT_TM']).reset_index(drop=True)
 
     def compute_rank(group):
@@ -598,6 +612,7 @@ def _run_grouped(mico_info_table, group_name):
 
         temp = Module_Get.fetch_merge_data(mico_info_key)
         if temp is not None and not temp.empty:
+            temp['Fab'] = mico_info_key['Fab'].unique()[0]
             merge_df = pd.concat([merge_df, temp])
 
     merge_df['Group_Name'] = group_name
