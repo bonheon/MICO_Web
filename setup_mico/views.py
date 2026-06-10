@@ -1004,7 +1004,11 @@ def dashboard(request):
 
         oper_desc_detail[composite_key] = {
             'devices':     devices,
-            'setup_trend': {'dates': s_dates, 'counts': s_counts},
+            'setup_trend': {
+                'dates':  s_dates,
+                'counts': s_counts,
+                'daily':  dict(date_cnt),
+            },
         }
 
     # ── 요약 통계 ──
