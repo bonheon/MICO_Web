@@ -54,6 +54,8 @@ def _build_eqpm_df(merge_df_rr, Maker, Fab):
         # 그룹 공정: fab별로 해당 fab의 장비·레시피 목록만 조회한 뒤 결과를 합산
         eqpm_parts = []
         for fab in merge_df_rr['Fab'].unique():
+            if not fab or fab == '':
+                continue
             fab_df         = merge_df_rr[merge_df_rr['Fab'] == fab]
             eqp_id_list    = tuple(fab_df[eqp_col].unique())
             recipe_id_list = tuple(fab_df['recipe_id'].unique())
