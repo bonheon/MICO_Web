@@ -236,10 +236,19 @@ class Module_Get:
                 else:
                     # pre_oper1 미설정, pre_oper2~4 회귀만 산출
                     # pre_eqp 채널 데이터 없이 BIAS(CMP 두께 편차, 0-centered)를 y축으로 직접 회귀
+                    # ITM·detrend 경로와 동일하게 use_pressure로 분기해야 함.
+                    #  - PRESSURE(ED/EX): 13P 대비 편차를 0-centering
+                    #  - TIME(13P)     : 자기 자신 단독 0-centering
+                    #    (13P는 Thk_Para == Thk_Para_13P 이므로 pressure 식을 쓰면
+                    #     자기 자신을 빼 BIAS가 항상 0이 되어 학습값이 0으로 나오는 버그 발생)
                     ref          = key_df.iloc[0]
-                    Post_Target  = float(ref['Target'])
-                    Target_13P   = mico_info_key[(mico_info_key['Recipe_ID'] == ref['Recipe_ID']) & (mico_info_key['FB_Type'] == 'TIME')]['Target'].unique()[0]
-                    merge_df['BIAS']  = (merge_df[Thk_Para] - merge_df[Thk_Para_13P]) - (Post_Target - Target_13P)
+                    use_pressure = (key_df['FB_Type'] == 'PRESSURE').any()
+                    if use_pressure:
+                        Post_Target  = float(ref['Target'])
+                        Target_13P   = mico_info_key[(mico_info_key['Recipe_ID'] == ref['Recipe_ID']) & (mico_info_key['FB_Type'] == 'TIME')]['Target'].unique()[0]
+                        merge_df['BIAS']  = (merge_df[Thk_Para] - merge_df[Thk_Para_13P]) - (Post_Target - Target_13P)
+                    else:
+                        merge_df['BIAS']  = merge_df[Thk_Para] - merge_df[Thk_Para].mean()
                     pre_thk_df_merge  = merge_df[['substrate_id', 'BIAS']].dropna().copy()
                     pre_thk_table     = pd.DataFrame([{'THK_Para': Thk_Para}])
                     y_col             = 'BIAS'
