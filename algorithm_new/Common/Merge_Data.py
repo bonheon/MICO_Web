@@ -9,7 +9,6 @@ from pymongo import MongoClient, UpdateOne
 sys.path.append(str(Path(__file__).parents[1]))
 from Common.MongoDB_Control import mongodb_controller
 from Common.Get_Data import Get_data
-from Common.Merge_GetData import Merge_Get_Data
 from day.commc.cube import Cube_Connector
 
 _MERGE_URL = 'mongodb:// ... '
@@ -21,6 +20,18 @@ _WEB_DB    = 'mico-platform-web-db'
 
 _CUBE_BOT_ID    = 'C0000361'
 _CUBE_BOT_TOKEN = 'C000036-0D1CHDB40- ... '
+
+
+# ── Merge GetData (회사 서버 Merge_Get_Data.py 내용 붙여넣기) ──────────────
+
+def getdatalake(Fab, Maker, Lot_Code, Oper_Code,
+                Pre_Oper_Code, Recipe_ID_List, Recipe_info, Days):
+    pass  # TODO: Merge_Get_Data.getdatalake 본문 붙여넣기
+
+
+def getdatahub(Fab, Maker, Lot_Code, Oper_Code,
+               Pre_Oper_Code, Recipe_ID_List, Recipe_info, Oper_Desc):
+    pass  # TODO: Merge_Get_Data.getdatahub 본문 붙여넣기
 
 
 # ── Set-up 조회 ────────────────────────────────────────────────────────────
@@ -81,7 +92,7 @@ def _load_initial_lake(mongo_db, Fab, Maker, Lot_Code, Oper_Code,
     if mongo_db.count_row() > 0:
         return
     print('MongoDB 없어 DataLake 30일치 조회 시작!!')
-    df = Merge_Get_Data.getdatalake(
+    df = getdatalake(
         Fab, Maker, Lot_Code, Oper_Code,
         Pre_Oper_Code, Recipe_ID_List, Recipe_info, Days,
     )
@@ -456,7 +467,7 @@ def run(Family, oper_desc,
                 )
 
                 # 3. HUB 최신 데이터 업데이트
-                hub_df = Merge_Get_Data.getdatahub(
+                hub_df = getdatahub(
                     Fab, Maker, Lot_Code, Oper_Code,
                     Pre_Oper_Code, Recipe_ID_List, Recipe_info, Oper_Desc,
                 )
