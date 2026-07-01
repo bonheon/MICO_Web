@@ -261,6 +261,29 @@ def _mongo_date_filter(date_from, date_to, field='Date'):
     return {field: cond}
 
 
+def _mongo_sorted(col, match_filter, sort_field='Date', ascending=True,
+                  projection=None, limit=None):
+    """MongoDB collection 을 aggregation 으로 정렬 조회 (cursor 반환).
+
+    find().sort().allow_disk_use() 대신 aggregate + allowDiskUse 사용 이유:
+      - find 의 allowDiskUse 옵션은 MongoDB 4.4+ 에서만 지원 →
+        구버전에서는 'Failed to parse' 발생.
+      - aggregation 의 allowDiskUse 는 2.6+ 부터 지원 → 전 버전 호환.
+      - 두 방식 모두 32MB in-memory sort 한도를 disk 정렬로 회피.
+
+    $match(기간 필터) → $sort → $limit → $project 순으로 파이프라인 구성.
+    """
+    pipeline = []
+    if match_filter:
+        pipeline.append({'$match': match_filter})
+    pipeline.append({'$sort': {sort_field: 1 if ascending else -1}})
+    if limit:
+        pipeline.append({'$limit': limit})
+    if projection:
+        pipeline.append({'$project': projection})
+    return col.aggregate(pipeline, allowDiskUse=True)
+
+
 @login_required
 def learning_pre_thk_data(request):
     """
@@ -309,13 +332,11 @@ def learning_pre_thk_data(request):
     #     client = MongoClient(MONGO_URI, serverSelectionTimeoutMS=5000)
     #     db  = client[MONGO_DB]
     #     col = db[collection_name]
-    #     # 선택 기간만 서버에서 조회(find 필터) + allow_disk_use 로 32MB in-memory
-    #     # sort 한도 회피. Date 인덱스가 있으면 정렬도 인덱스로 처리되어 더 빠름.
-    #     docs = list(
-    #         col.find(_mongo_date_filter(date_from, date_to), {'_id': 0})
-    #            .sort('Date', 1)
-    #            .allow_disk_use(True)
-    #     )
+    #     # aggregate + allowDiskUse: find 의 allowDiskUse 는 MongoDB 4.4+ 에서만
+    #     # 지원되어 구버전에서 'Failed to parse' 발생. aggregation 은 2.6+ 부터
+    #     # allowDiskUse 지원 → 전 버전 호환하며 32MB in-memory sort 한도도 회피.
+    #     docs = list(_mongo_sorted(col, _mongo_date_filter(date_from, date_to),
+    #                               sort_field='Date', ascending=True, projection={'_id': 0}))
     #     client.close()
     # except Exception as e:
     #     return JsonResponse({'error': f'DB 연결 오류: {str(e)}'}, status=500)
@@ -373,12 +394,9 @@ def learning_rr_data(request):
     #     client = MongoClient(MONGO_URI, serverSelectionTimeoutMS=5000)
     #     db     = client[MONGO_DB]
     #     col    = db[collection_name]
-    #     # 선택 기간만 서버에서 조회 + allow_disk_use 로 32MB in-memory sort 한도 회피
-    #     docs   = list(
-    #         col.find(_mongo_date_filter(date_from, date_to), {'_id': 0})
-    #            .sort('Date', 1)
-    #            .allow_disk_use(True)
-    #     )
+    #     # aggregate + allowDiskUse → 구버전 호환 + 32MB in-memory sort 한도 회피
+    #     docs   = list(_mongo_sorted(col, _mongo_date_filter(date_from, date_to),
+    #                                 sort_field='Date', ascending=True, projection={'_id': 0}))
     #     client.close()
     # except Exception as e:
     #     return JsonResponse({'error': f'DB 연결 오류: {str(e)}'}, status=500)
@@ -437,12 +455,9 @@ def learning_offset_data(request):
     #     client = MongoClient(MONGO_URI, serverSelectionTimeoutMS=5000)
     #     db     = client[MONGO_DB]
     #     col    = db[collection_name]
-    #     # 선택 기간만 서버에서 조회 + allow_disk_use 로 32MB in-memory sort 한도 회피
-    #     docs   = list(
-    #         col.find(_mongo_date_filter(date_from, date_to), {'_id': 0})
-    #            .sort('Date', 1)
-    #            .allow_disk_use(True)
-    #     )
+    #     # aggregate + allowDiskUse → 구버전 호환 + 32MB in-memory sort 한도 회피
+    #     docs   = list(_mongo_sorted(col, _mongo_date_filter(date_from, date_to),
+    #                                 sort_field='Date', ascending=True, projection={'_id': 0}))
     #     client.close()
     # except Exception as e:
     #     return JsonResponse({'error': f'DB 연결 오류: {str(e)}'}, status=500)
@@ -542,12 +557,9 @@ def learning_trend_data(request):
     # try:
     #     client = MongoClient(MONGO_URI, serverSelectionTimeoutMS=5000)
     #     col = client[MONGO_DB][collection_name]
-    #     # 선택 기간만 서버에서 조회 + allow_disk_use 로 32MB in-memory sort 한도 회피
-    #     docs = list(
-    #         col.find(_mongo_date_filter(date_from, date_to), _proj)
-    #            .sort('Date', 1)
-    #            .allow_disk_use(True)
-    #     )
+    #     # aggregate + allowDiskUse → 구버전 호환 + 32MB in-memory sort 한도 회피
+    #     docs = list(_mongo_sorted(col, _mongo_date_filter(date_from, date_to),
+    #                               sort_field='Date', ascending=True, projection=_proj))
     #     client.close()
     # except Exception as e:
     #     return JsonResponse({'error': f'DB 연결 오류: {str(e)}'}, status=500)
@@ -705,8 +717,9 @@ def learning_history(request):
         # query = {}
         # if lot_id:  query['LOT_ID']  = {'$regex': lot_id,  '$options': 'i'}
         # if slot_id: query['SLOT_ID'] = {'$regex': slot_id, '$options': 'i'}
-        # # allow_disk_use 로 32MB in-memory sort 한도 회피 (Date 인덱스 있으면 불필요)
-        # docs = list(col.find(query, {'_id': 0}).sort('Date', -1).limit(500).allow_disk_use(True))
+        # # aggregate + allowDiskUse → 구버전 호환 + 32MB in-memory sort 한도 회피
+        # docs = list(_mongo_sorted(col, query, sort_field='Date', ascending=False,
+        #                           projection={'_id': 0}, limit=500))
         # rows = docs
         # if rows:
         #     all_keys = set()
