@@ -384,16 +384,21 @@ def _process_pre_pivot_one(collection, info, Lot_Code, Data_lv):
     para_list = info['para_list']
     para_13p, para_ed, para_ex = _classify_para_zones(para_list)
 
-    # 기존 데이터 조회 → 없으면 초기 전체 로드
+    # 이 pre_oper 의 pivot 기준 컬럼명 (underscore → dot-path 이슈 없음)
+    col_13p = f'{desc}_{para_13p}'
+    col_ed  = f'{desc}_{para_ed}'
+    col_ex  = f'{desc}_{para_ex}'
+
+    # 기존 데이터 조회 → collection 이 비었거나, (공유 collection 에 다른
+    # pre_oper 데이터만 있어) 이 pre_oper 의 컬럼이 아직 없으면 초기 전체 로드.
+    # 예전엔 empty 만 봐서, 다른 pre_oper 가 collection 을 이미 채운 경우
+    # 자기 초기 로드를 건너뛰고 col_13p 접근에서 KeyError 발생했음.
     pre_thk_all = pd.DataFrame(collection.find({}, {'_id': 0}))
-    if pre_thk_all.empty:
+    if pre_thk_all.empty or col_13p not in pre_thk_all.columns:
         pre_thk_all = _load_initial_pivot_one(collection, info, Lot_Code)
 
     # 전체 데이터에서 최신 기준값 갱신
     pre_thk_all = pre_thk_all.replace('-', np.nan)
-    col_13p = f'{desc}_{para_13p}'
-    col_ed  = f'{desc}_{para_ed}'
-    col_ex  = f'{desc}_{para_ex}'
     for col in (col_13p, col_ed, col_ex):
         pre_thk_all[col] = pd.to_numeric(pre_thk_all[col], errors='coerce')
 
