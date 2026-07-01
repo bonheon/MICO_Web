@@ -127,12 +127,24 @@ def _load_initial_lake(mongo_db, Fab, Maker, Lot_Code, Oper_Code,
 
 # ── PRE_THK_INFO 컬렉션 관리 ───────────────────────────────────────────────
 
-def _setup_pre_thk_db(Lot_Code, oper_desc, Fab):
-    """PRE_THK_INFO 컬렉션 연결 + end_tm 인덱스 설정 후 collection 반환"""
-    coll_name  = f'MICO_PRE_THK_INFO_{Lot_Code}_{oper_desc}_{Fab}'
-    client     = MongoClient(_MICO_URL)
-    collection = client[_MICO_DB][coll_name]
+def _get_pre_thk_collection(Lot_Code, oper_desc, Fab):
+    """PRE_THK_INFO 컬렉션 handle 반환 (연결만 — 컬렉션/인덱스를 생성하지 않음).
 
+    MongoDB 는 write(insert) 가 있어야 컬렉션이 실제 생성되므로, 연결만 해서는
+    빈 테이블이 만들어지지 않는다. (인덱스 생성은 데이터가 생긴 뒤 _ensure_pre_thk_index)
+    """
+    coll_name = f'MICO_PRE_THK_INFO_{Lot_Code}_{oper_desc}_{Fab}'
+    return MongoClient(_MICO_URL)[_MICO_DB][coll_name]
+
+
+def _ensure_pre_thk_index(Lot_Code, oper_desc, Fab):
+    """PRE_THK_INFO 컬렉션에 end_tm 인덱스 설정.
+
+    반드시 문서가 1건 이상 적재된 뒤에만 호출할 것.
+    (빈 컬렉션에 인덱스를 걸면 substrate_id 컬럼 없는 빈 테이블이 생성되어
+     Removal_Rate.load_pre_thk_data 에서 오류 발생)
+    """
+    coll_name  = f'MICO_PRE_THK_INFO_{Lot_Code}_{oper_desc}_{Fab}'
     pre_thk_db = mongodb_controller(_MICO_URL, _MICO_DB, coll_name)
     try:
         pre_thk_db.set_index('end_tm', 31)
@@ -140,7 +152,6 @@ def _setup_pre_thk_db(Lot_Code, oper_desc, Fab):
         pre_thk_db.drop_index('end_tm')
         pre_thk_db.set_index('end_tm', 31)
     del pre_thk_db
-    return collection
 
 
 def _has_literal_field(collection, field):
@@ -563,18 +574,33 @@ def run(Family, oper_desc,
                       f'({time.time() - start_time:.1f}s)')
 
                 # 4-5. 사전공정 처리 (Pre_Oper 2→3→4 순)
+                # set-up 있는(실제 처리 가능한) pre_oper 만 선별 → 하나도 없으면
+                # PRE_THK 테이블을 아예 만들지 않는다(빈 테이블 방지).
                 if pre_oper_config:
-                    collection = _setup_pre_thk_db(Lot_Code, oper_desc, Fab)
-                    for i, data_source in pre_oper_config.items():
-                        print(f'  [Pre_Oper{i}] 생성 중...')
-                        cnt = _process_pre_oper(
-                            collection, info_df, i, data_source,
-                            Lot_Code, Fab, Data_lv, query_key,
-                        )
-                        if cnt is None:
-                            print(f'  [Pre_Oper{i}] set-up 없음 → skip')
-                        else:
+                    valid_pre = {i: ds for i, ds in pre_oper_config.items()
+                                 if _get_pre_oper_info(info_df, i) is not None}
+                    skipped = [i for i in pre_oper_config if i not in valid_pre]
+                    for i in skipped:
+                        print(f'  [Pre_Oper{i}] set-up 없음 → skip')
+
+                    if not valid_pre:
+                        print('  [Pre_Oper] 처리할 set-up 없음 → PRE_THK 테이블 생성 skip')
+                    else:
+                        # 연결만(테이블 미생성). 실제 insert 가 일어나야 컬렉션 생성됨.
+                        collection = _get_pre_thk_collection(Lot_Code, oper_desc, Fab)
+                        for i, data_source in valid_pre.items():
+                            print(f'  [Pre_Oper{i}] 생성 중...')
+                            cnt = _process_pre_oper(
+                                collection, info_df, i, data_source,
+                                Lot_Code, Fab, Data_lv, query_key,
+                            )
                             print(f'  [Pre_Oper{i}] 생성 완료: {cnt}건')
+
+                        # 문서가 실제로 적재됐을 때만 인덱스 생성 (빈 테이블 방지)
+                        if collection.count_documents({}) > 0:
+                            _ensure_pre_thk_index(Lot_Code, oper_desc, Fab)
+                        else:
+                            print('  [Pre_Oper] 생성된 데이터 없음 → 인덱스/테이블 생성 skip')
 
                 # 6. Report 업데이트
                 print('  report data 조회 함수 실행')
