@@ -462,7 +462,6 @@ def _process_pre_oper(collection, info_df, i, data_source, Lot_Code, Fab, Data_l
 
 def run(Family, oper_desc,
         pre_oper_config=None,
-        eqp_ch_mode=None,
         Days=30):
     """Merge Hub 메인 실행
 
@@ -473,10 +472,9 @@ def run(Family, oper_desc,
                           예) {2: 'SRC_HUB', 3: 'SRC_HUB', 4: 'SRC_HUB'}
                               {2: 'MES_HUB', 3: 'MES_HUB'}
                               {} 또는 None → 사전공정 처리 없음
-        eqp_ch_mode     : None(기본) → web Set-up 의 Maker 값으로 키별 자동 판별
-                          ('EBARA' 포함 시 채널 분리, 그 외 AMAT).
-                          'AMAT' / 'EBARA' 를 직접 넘기면 자동 판별 대신 강제 적용.
         Days            : DataLake 초기 로드 기간 (일)
+
+    (eqp_ch_mode 는 web Set-up 의 Maker 값으로 키별 자동 판별하므로 인자 없음)
     """
     if pre_oper_config is None:
         pre_oper_config = {}
@@ -518,8 +516,8 @@ def run(Family, oper_desc,
             Recipe_info    = Recipe_ID_List[0].split('_')[0] + '_' + Recipe_ID_List[0].split('_')[1]
             Oper_Desc      = info_df['Oper_Desc'].unique()[0]
             query_key      = _get_collection_query_key(info_df, pre_oper_config)
-            # eqp_ch_mode: 인자 지정 없으면(None) Maker 값으로 자동 판별
-            key_eqp_ch_mode = eqp_ch_mode or _maker_to_eqp_ch_mode(Maker)
+            # eqp_ch_mode: web Set-up 의 Maker 값으로 자동 판별
+            key_eqp_ch_mode = _maker_to_eqp_ch_mode(Maker)
 
             print(f'\n[{key}] 처리 시작 (Maker={Maker}, eqp_ch_mode={key_eqp_ch_mode})')
 

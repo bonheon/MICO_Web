@@ -10,4 +10,4 @@ PRE_OPER_CONFIG = {
     2: 'SRC_HUB',  # 13P·ED·Z5 다존 → pivot 모드 자동 적용
 }
 
-run(FAMILY, OPER_DESC, PRE_OPER_CONFIG, eqp_ch_mode='AMAT')
+run(FAMILY, OPER_DESC, PRE_OPER_CONFIG)
