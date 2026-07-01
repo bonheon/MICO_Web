@@ -45,6 +45,15 @@ def _build_mico_info_table(Family, oper_desc):
 
 # ── Merge DF 공통 처리 ─────────────────────────────────────────────────────
 
+def _maker_to_eqp_ch_mode(maker):
+    """web Set-up 의 Maker 값으로 eqp_ch_mode 자동 판별.
+
+    EBARA 계열만 recipe AB·CD 채널 분리(EBARA), 그 외(AMAT/KCT 등)는
+    eqp_id 그대로(AMAT). Maker 는 자유 입력이라 대소문자 무시로 비교.
+    """
+    return 'EBARA' if 'EBARA' in str(maker).upper() else 'AMAT'
+
+
 def _set_eqp_ch(df, eqp_ch_mode):
     """AMAT: eqp_id 그대로 / EBARA: recipe AB·CD 기준 채널 분리"""
     if eqp_ch_mode == 'EBARA':
@@ -399,7 +408,7 @@ def _process_pre_oper(collection, info_df, i, data_source, Lot_Code, Fab, Data_l
 
 def run(Family, oper_desc,
         pre_oper_config=None,
-        eqp_ch_mode='AMAT',
+        eqp_ch_mode=None,
         Days=30):
     """Merge Hub 메인 실행
 
@@ -410,7 +419,9 @@ def run(Family, oper_desc,
                           예) {2: 'SRC_HUB', 3: 'SRC_HUB', 4: 'SRC_HUB'}
                               {2: 'MES_HUB', 3: 'MES_HUB'}
                               {} 또는 None → 사전공정 처리 없음
-        eqp_ch_mode     : 'AMAT' (eqp_id 그대로) / 'EBARA' (AB·CD 채널 분리)
+        eqp_ch_mode     : None(기본) → web Set-up 의 Maker 값으로 키별 자동 판별
+                          ('EBARA' 포함 시 채널 분리, 그 외 AMAT).
+                          'AMAT' / 'EBARA' 를 직접 넘기면 자동 판별 대신 강제 적용.
         Days            : DataLake 초기 로드 기간 (일)
     """
     if pre_oper_config is None:
@@ -453,8 +464,10 @@ def run(Family, oper_desc,
             Recipe_info    = Recipe_ID_List[0].split('_')[0] + '_' + Recipe_ID_List[0].split('_')[1]
             Oper_Desc      = info_df['Oper_Desc'].unique()[0]
             query_key      = _get_collection_query_key(info_df, pre_oper_config)
+            # eqp_ch_mode: 인자 지정 없으면(None) Maker 값으로 자동 판별
+            key_eqp_ch_mode = eqp_ch_mode or _maker_to_eqp_ch_mode(Maker)
 
-            print(f'\n[{key}] 처리 시작')
+            print(f'\n[{key}] 처리 시작 (Maker={Maker}, eqp_ch_mode={key_eqp_ch_mode})')
 
             try:
                 # 1. merge DB 연결
@@ -466,7 +479,7 @@ def run(Family, oper_desc,
                 _load_initial_lake(
                     mongo_db, Fab, Maker, Lot_Code, Oper_Code,
                     Pre_Oper_Code, Recipe_ID_List, Recipe_info, Days,
-                    Product, oper_desc, eqp_ch_mode,
+                    Product, oper_desc, key_eqp_ch_mode,
                 )
 
                 # 3. HUB 최신 데이터 업데이트
@@ -475,7 +488,7 @@ def run(Family, oper_desc,
                     Pre_Oper_Code, Recipe_ID_List, Recipe_info, Oper_Desc,
                 )
                 if not hub_df.empty:
-                    hub_df = _prepare_merge_df(hub_df, Product, oper_desc, Fab, Lot_Code, eqp_ch_mode)
+                    hub_df = _prepare_merge_df(hub_df, Product, oper_desc, Fab, Lot_Code, key_eqp_ch_mode)
                     _push_with_index(mongo_db, merge_collection, hub_df, c, f'{Fab} {Lot_Code} {Oper_Desc}')
 
                 print(f'  merge 완료 ({time.time() - start_time:.1f}s)')
