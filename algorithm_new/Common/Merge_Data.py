@@ -23,15 +23,18 @@ _CUBE_BOT_TOKEN = 'C000036-0D1CHDB40- ... '
 
 
 # ── Merge GetData (회사 서버 Merge_Get_Data.py 내용 붙여넣기) ──────────────
+# 회사 구조와 동일하게 class Merge_Get_data 로 묶음.
+# 회사 코드처럼 self 없이 정의 → Merge_Get_data.getdatalake(...) 형태로 호출.
 
-def getdatalake(Fab, Maker, Lot_Code, Oper_Code,
-                Pre_Oper_Code, Recipe_ID_List, Recipe_info, Days):
-    pass  # TODO: Merge_Get_Data.getdatalake 본문 붙여넣기
+class Merge_Get_data:
 
+    def getdatalake(Fab, Maker, Lot_Code, Oper_Code,
+                    Pre_Oper_Code, Recipe_ID_List, Recipe_info, Days):
+        pass  # TODO: Merge_Get_Data.getdatalake 본문 붙여넣기
 
-def getdatahub(Fab, Maker, Lot_Code, Oper_Code,
-               Pre_Oper_Code, Recipe_ID_List, Recipe_info, Oper_Desc):
-    pass  # TODO: Merge_Get_Data.getdatahub 본문 붙여넣기
+    def getdatahub(Fab, Maker, Lot_Code, Oper_Code,
+                   Pre_Oper_Code, Recipe_ID_List, Recipe_info, Oper_Desc):
+        pass  # TODO: Merge_Get_Data.getdatahub 본문 붙여넣기
 
 
 # ── Set-up 조회 ────────────────────────────────────────────────────────────
@@ -92,7 +95,7 @@ def _load_initial_lake(mongo_db, Fab, Maker, Lot_Code, Oper_Code,
     if mongo_db.count_row() > 0:
         return
     print('MongoDB 없어 DataLake 30일치 조회 시작!!')
-    df = getdatalake(
+    df = Merge_Get_data.getdatalake(
         Fab, Maker, Lot_Code, Oper_Code,
         Pre_Oper_Code, Recipe_ID_List, Recipe_info, Days,
     )
@@ -467,7 +470,7 @@ def run(Family, oper_desc,
                 )
 
                 # 3. HUB 최신 데이터 업데이트
-                hub_df = getdatahub(
+                hub_df = Merge_Get_data.getdatahub(
                     Fab, Maker, Lot_Code, Oper_Code,
                     Pre_Oper_Code, Recipe_ID_List, Recipe_info, Oper_Desc,
                 )
