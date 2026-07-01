@@ -268,7 +268,7 @@ def _load_initial_simple_one(collection, info, data_source, Lot_Code, Fab, query
         df[query_key] = df['alias_lot_id'] + '.' + df['wf_id']
 
     if df.empty:
-        return
+        return 0
 
     df = df.drop_duplicates(subset=query_key, keep='first').fillna('-')
 
@@ -279,6 +279,7 @@ def _load_initial_simple_one(collection, info, data_source, Lot_Code, Fab, query
         records = df.to_dict(orient='records')
 
     collection.insert_many(records)
+    return len(records)
 
 
 def _process_pre_simple_one(collection, info, data_source, Lot_Code, Fab, Data_lv, query_key):
@@ -295,8 +296,11 @@ def _process_pre_simple_one(collection, info, data_source, Lot_Code, Fab, Data_l
     # field(점 포함 literal 키)가 하나도 없으면 전체 초기 로드.
     # count_documents({field: {'$exists': True}})는 '.'을 nested path 로 해석해
     # literal 키를 못 찾으므로(항상 0) 사용 금지 → _has_literal_field 사용.
+    created = 0
     if not _has_literal_field(collection, field):
-        _load_initial_simple_one(collection, info, data_source, Lot_Code, Fab, query_key)
+        n = _load_initial_simple_one(collection, info, data_source, Lot_Code, Fab, query_key)
+        created += n or 0
+        print(f'    - 초기 전체 로드 {created}건')
 
     # HUB 최신 데이터 upsert
     if data_source == 'MES_HUB':
@@ -314,7 +318,7 @@ def _process_pre_simple_one(collection, info, data_source, Lot_Code, Fab, Data_l
     df.rename(columns=rename_map, inplace=True)
 
     if df.empty:
-        return
+        return created
 
     if query_key == 'substrate_id':
         df = df[[query_key, field]].copy()
@@ -327,6 +331,7 @@ def _process_pre_simple_one(collection, info, data_source, Lot_Code, Fab, Data_l
             update_fields={field: row[field]},
             full_row_dict=row.to_dict(),
         )
+    return created + len(df)
 
 
 # ── Pre_Oper Pivot 처리 ────────────────────────────────────────────────────
@@ -378,9 +383,12 @@ def _process_pre_pivot_one(collection, info, Lot_Code, Data_lv):
     # pre_oper 데이터만 있어) 이 pre_oper 의 컬럼이 아직 없으면 초기 전체 로드.
     # 예전엔 empty 만 봐서, 다른 pre_oper 가 collection 을 이미 채운 경우
     # 자기 초기 로드를 건너뛰고 col_13p 접근에서 KeyError 발생했음.
+    created = 0
     pre_thk_all = pd.DataFrame(collection.find({}, {'_id': 0}))
     if pre_thk_all.empty or col_13p not in pre_thk_all.columns:
         pre_thk_all = _load_initial_pivot_one(collection, info, Lot_Code)
+        created += len(pre_thk_all)
+        print(f'    - 초기 전체 로드 {created}건')
 
     # 전체 데이터에서 최신 기준값 갱신
     pre_thk_all = pre_thk_all.replace('-', np.nan)
@@ -394,7 +402,7 @@ def _process_pre_pivot_one(collection, info, Lot_Code, Data_lv):
     # HUB 최신 데이터 → pivot → upsert
     hub_df = Get_data.PRETHKGetData_SRC_HUB(Lot_Code, code, para_list, Data_lv)
     if hub_df.empty:
-        return
+        return created
 
     hub_df.columns = list(map(str.lower, hub_df.columns))
     hub_df.rename(columns={'lot_id': 'alias_lot_id', 'samp_matl_id': 'substrate_id'}, inplace=True)
@@ -420,6 +428,7 @@ def _process_pre_pivot_one(collection, info, Lot_Code, Data_lv):
             },
             full_row_dict=row.to_dict(),
         )
+    return created + len(pivot)
 
 
 # ── Pre_Oper 디스패처 ──────────────────────────────────────────────────────
@@ -433,14 +442,14 @@ def _process_pre_oper(collection, info_df, i, data_source, Lot_Code, Fab, Data_l
     """
     info = _get_pre_oper_info(info_df, i)
     if info is None:
-        return  # web set-up 없음 → skip
+        return None  # web set-up 없음 → skip
 
     if len(info['para_list']) > 1:
         # para가 여러 개(13P/ED/EX) → pivot 방식
-        _process_pre_pivot_one(collection, info, Lot_Code, Data_lv)
+        return _process_pre_pivot_one(collection, info, Lot_Code, Data_lv)
     else:
         # para가 하나 → 단일값 방식
-        _process_pre_simple_one(collection, info, data_source, Lot_Code, Fab, Data_lv, query_key)
+        return _process_pre_simple_one(collection, info, data_source, Lot_Code, Fab, Data_lv, query_key)
 
 
 # ── 메인 실행 ──────────────────────────────────────────────────────────────
@@ -511,6 +520,7 @@ def run(Family, oper_desc,
                 merge_collection = MongoClient(_MERGE_URL)[_MERGE_DB][merge_coll_name]
 
                 # 2. 초기 DataLake 로드
+                print('  [merge] merge data 생성 중...')
                 _load_initial_lake(
                     mongo_db, Fab, Maker, Lot_Code, Oper_Code,
                     Pre_Oper_Code, Recipe_ID_List, Recipe_info, Days,
@@ -522,20 +532,28 @@ def run(Family, oper_desc,
                     Fab, Maker, Lot_Code, Oper_Code,
                     Pre_Oper_Code, Recipe_ID_List, Recipe_info, Oper_Desc,
                 )
+                hub_cnt = 0
                 if not hub_df.empty:
                     hub_df = _prepare_merge_df(hub_df, Product, oper_desc, Fab, Lot_Code, Maker)
+                    hub_cnt = len(hub_df)
                     _push_with_index(mongo_db, merge_collection, hub_df, c, f'{Fab} {Lot_Code} {Oper_Desc}')
 
-                print(f'  merge 완료 ({time.time() - start_time:.1f}s)')
+                print(f'  [merge] merge data 생성 완료: 이번 {hub_cnt}건 / 누적 {mongo_db.count_row()}건 '
+                      f'({time.time() - start_time:.1f}s)')
 
                 # 4-5. 사전공정 처리 (Pre_Oper 2→3→4 순)
                 if pre_oper_config:
                     collection = _setup_pre_thk_db(Lot_Code, oper_desc, Fab)
                     for i, data_source in pre_oper_config.items():
-                        _process_pre_oper(
+                        print(f'  [Pre_Oper{i}] 생성 중...')
+                        cnt = _process_pre_oper(
                             collection, info_df, i, data_source,
                             Lot_Code, Fab, Data_lv, query_key,
                         )
+                        if cnt is None:
+                            print(f'  [Pre_Oper{i}] set-up 없음 → skip')
+                        else:
+                            print(f'  [Pre_Oper{i}] 생성 완료: {cnt}건')
 
                 # 6. Report 업데이트
                 print('  report data 조회 함수 실행')
