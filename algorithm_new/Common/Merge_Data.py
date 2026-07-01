@@ -48,16 +48,31 @@ def _build_mico_info_table(Family, oper_desc):
 def _maker_to_eqp_ch_mode(maker):
     """web Set-up 의 Maker 값으로 eqp_ch_mode 자동 판별.
 
-    EBARA 계열만 recipe AB·CD 채널 분리(EBARA), 그 외(AMAT/KCT 등)는
-    eqp_id 그대로(AMAT). Maker 는 자유 입력이라 대소문자 무시로 비교.
+    - EBARA : recipe AB·CD 기준 채널 분리
+    - KCT   : recipe _L_·_R_ 기준 채널 분리
+    - 그 외(AMAT 등) : eqp_id 그대로
+    Maker 는 자유 입력이라 대소문자 무시로 비교.
     """
-    return 'EBARA' if 'EBARA' in str(maker).upper() else 'AMAT'
+    m = str(maker).upper()
+    if 'EBARA' in m:
+        return 'EBARA'
+    if 'KCT' in m:
+        return 'KCT'
+    return 'AMAT'
 
 
 def _set_eqp_ch(df, eqp_ch_mode):
-    """AMAT: eqp_id 그대로 / EBARA: recipe AB·CD 기준 채널 분리"""
+    """장비 채널(eqp_ch) 설정.
+
+    - AMAT : eqp_id 그대로
+    - EBARA: recipe_id 의 AB/CD 로 채널 분리   → {eqp_id}_AB / {eqp_id}_CD
+    - KCT  : recipe_id 의 _L_/_R_ 로 채널 분리 → {eqp_id}_L / {eqp_id}_R
+    """
     if eqp_ch_mode == 'EBARA':
         df['CH']     = df['recipe_id'].apply(lambda x: 'AB' if 'AB' in x else 'CD')
+        df['eqp_ch'] = df['eqp_id'] + '_' + df['CH']
+    elif eqp_ch_mode == 'KCT':
+        df['CH']     = df['recipe_id'].apply(lambda x: 'L' if '_L_' in x else 'R')
         df['eqp_ch'] = df['eqp_id'] + '_' + df['CH']
     else:
         df['eqp_ch'] = df['eqp_id']
