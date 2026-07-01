@@ -239,6 +239,28 @@ def _filter_by_date(data, date_from, date_to):
     return result
 
 
+def _mongo_date_filter(date_from, date_to, field='Date'):
+    """MongoDB find() 용 날짜 범위 필터 dict 생성.
+
+    실서버 collection의 Date 필드는 BSON datetime(=request_dtts) 으로 저장되므로
+    datetime 객체로 범위를 지정한다. (문자열 저장 컬렉션은 _filter_by_date 로 보완)
+
+    선택한 기간만 서버에서 조회·정렬하도록 하여 collection 전체를 메모리에서
+    정렬하다가 발생하는 'Sort operation used more than the maximum 33554432 bytes'
+    (32MB in-memory sort 한도) 오류를 방지한다.
+    """
+    from datetime import datetime, timedelta
+    if not date_from and not date_to:
+        return {}
+    cond = {}
+    if date_from:
+        cond['$gte'] = datetime.fromisoformat(date_from)
+    if date_to:
+        # date_to 당일 23:59:59 까지 포함 (다음날 00:00 미만)
+        cond['$lt'] = datetime.fromisoformat(date_to) + timedelta(days=1)
+    return {field: cond}
+
+
 @login_required
 def learning_pre_thk_data(request):
     """
@@ -287,7 +309,13 @@ def learning_pre_thk_data(request):
     #     client = MongoClient(MONGO_URI, serverSelectionTimeoutMS=5000)
     #     db  = client[MONGO_DB]
     #     col = db[collection_name]
-    #     docs = list(col.find({}, {'_id': 0}).sort('Date', 1))
+    #     # 선택 기간만 서버에서 조회(find 필터) + allow_disk_use 로 32MB in-memory
+    #     # sort 한도 회피. Date 인덱스가 있으면 정렬도 인덱스로 처리되어 더 빠름.
+    #     docs = list(
+    #         col.find(_mongo_date_filter(date_from, date_to), {'_id': 0})
+    #            .sort('Date', 1)
+    #            .allow_disk_use(True)
+    #     )
     #     client.close()
     # except Exception as e:
     #     return JsonResponse({'error': f'DB 연결 오류: {str(e)}'}, status=500)
@@ -345,7 +373,12 @@ def learning_rr_data(request):
     #     client = MongoClient(MONGO_URI, serverSelectionTimeoutMS=5000)
     #     db     = client[MONGO_DB]
     #     col    = db[collection_name]
-    #     docs   = list(col.find({}, {'_id': 0}).sort('Date', 1))
+    #     # 선택 기간만 서버에서 조회 + allow_disk_use 로 32MB in-memory sort 한도 회피
+    #     docs   = list(
+    #         col.find(_mongo_date_filter(date_from, date_to), {'_id': 0})
+    #            .sort('Date', 1)
+    #            .allow_disk_use(True)
+    #     )
     #     client.close()
     # except Exception as e:
     #     return JsonResponse({'error': f'DB 연결 오류: {str(e)}'}, status=500)
@@ -404,7 +437,12 @@ def learning_offset_data(request):
     #     client = MongoClient(MONGO_URI, serverSelectionTimeoutMS=5000)
     #     db     = client[MONGO_DB]
     #     col    = db[collection_name]
-    #     docs   = list(col.find({}, {'_id': 0}).sort('Date', 1))
+    #     # 선택 기간만 서버에서 조회 + allow_disk_use 로 32MB in-memory sort 한도 회피
+    #     docs   = list(
+    #         col.find(_mongo_date_filter(date_from, date_to), {'_id': 0})
+    #            .sort('Date', 1)
+    #            .allow_disk_use(True)
+    #     )
     #     client.close()
     # except Exception as e:
     #     return JsonResponse({'error': f'DB 연결 오류: {str(e)}'}, status=500)
@@ -504,7 +542,12 @@ def learning_trend_data(request):
     # try:
     #     client = MongoClient(MONGO_URI, serverSelectionTimeoutMS=5000)
     #     col = client[MONGO_DB][collection_name]
-    #     docs = list(col.find({}, _proj).sort('Date', 1))
+    #     # 선택 기간만 서버에서 조회 + allow_disk_use 로 32MB in-memory sort 한도 회피
+    #     docs = list(
+    #         col.find(_mongo_date_filter(date_from, date_to), _proj)
+    #            .sort('Date', 1)
+    #            .allow_disk_use(True)
+    #     )
     #     client.close()
     # except Exception as e:
     #     return JsonResponse({'error': f'DB 연결 오류: {str(e)}'}, status=500)
@@ -662,7 +705,8 @@ def learning_history(request):
         # query = {}
         # if lot_id:  query['LOT_ID']  = {'$regex': lot_id,  '$options': 'i'}
         # if slot_id: query['SLOT_ID'] = {'$regex': slot_id, '$options': 'i'}
-        # docs = list(col.find(query, {'_id': 0}).sort('Date', -1).limit(500))
+        # # allow_disk_use 로 32MB in-memory sort 한도 회피 (Date 인덱스 있으면 불필요)
+        # docs = list(col.find(query, {'_id': 0}).sort('Date', -1).limit(500).allow_disk_use(True))
         # rows = docs
         # if rows:
         #     all_keys = set()
