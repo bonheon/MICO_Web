@@ -68,15 +68,24 @@ def _set_eqp_ch(df, eqp_ch_mode):
     - EBARA: recipe_id 의 AB/CD 로 채널 분리         → {eqp_id}_AB / {eqp_id}_CD
     - KCT  : recipe_id 의 _L_/_R_ (중간) 또는
              _L/_R (끝) 로 채널 분리                  → {eqp_id}_L / {eqp_id}_R
+             (L/R 표기 없으면 채널 분리 없이 eqp_id 그대로)
     """
     if eqp_ch_mode == 'EBARA':
         df['CH']     = df['recipe_id'].apply(lambda x: 'AB' if 'AB' in x else 'CD')
         df['eqp_ch'] = df['eqp_id'] + '_' + df['CH']
     elif eqp_ch_mode == 'KCT':
-        # _L_ (중간) 또는 _L (끝) → L, 그 외 → R
-        df['CH']     = df['recipe_id'].apply(
-            lambda x: 'L' if ('_L_' in str(x) or str(x).endswith('_L')) else 'R')
-        df['eqp_ch'] = df['eqp_id'] + '_' + df['CH']
+        # _L_/_R_ (중간) 또는 _L/_R (끝) 로 좌/우 판별. 둘 다 없으면 '' (채널 없음)
+        def _kct_ch(x):
+            x = str(x)
+            if '_L_' in x or x.endswith('_L'):
+                return 'L'
+            if '_R_' in x or x.endswith('_R'):
+                return 'R'
+            return ''
+        df['CH']     = df['recipe_id'].apply(_kct_ch)
+        has_ch       = df['CH'] != ''
+        df['eqp_ch'] = df['eqp_id']
+        df.loc[has_ch, 'eqp_ch'] = df.loc[has_ch, 'eqp_id'] + '_' + df.loc[has_ch, 'CH']
     else:
         df['eqp_ch'] = df['eqp_id']
     return df
