@@ -158,6 +158,26 @@ def _setup_pre_thk_db(Lot_Code, oper_desc, Fab):
     return collection
 
 
+def _has_literal_field(collection, field):
+    """literal 점(.) 포함 키(예: 'PRE_OPER2.PARA')를 top-level 키로 가진
+    문서가 하나라도 있는지 확인.
+
+    주의: INFO 테이블은 필드명을 f'{desc}.{para}' 형태의 '점 포함 literal 키'로
+    저장한다(회사 코드 그대로: row.to_dict() / update_doc['desc.para']=...).
+    반면 MongoDB 는 쿼리에서 필드명의 '.'을 nested path 로 해석하므로
+    {field: {'$exists': True}} 는 'desc 라는 하위문서의 para' 를 찾게 되어
+    literal 점 포함 키를 절대 못 찾는다(문서가 6800개여도 count=0).
+    → $objectToArray 로 실제 키 목록을 만들어 literal 매칭한다.
+    """
+    hit = collection.aggregate([
+        {'$project': {'_keys': {'$map': {
+            'input': {'$objectToArray': '$$ROOT'}, 'as': 'kv', 'in': '$$kv.k'}}}},
+        {'$match': {'_keys': field}},
+        {'$limit': 1},
+    ])
+    return next(iter(hit), None) is not None
+
+
 def _upsert_pre_doc(collection, query_key, query_val, update_fields, full_row_dict=None):
     """사전공정 단건 upsert
     - 문서 없음 → insert (full_row_dict 우선)
@@ -287,8 +307,10 @@ def _process_pre_simple_one(collection, info, data_source, Lot_Code, Fab, Data_l
     para  = info['para_list'][0]
     field = f'{desc}.{para}'
 
-    # field가 하나도 없으면 전체 초기 로드
-    if collection.count_documents({field: {'$exists': True}}) == 0:
+    # field(점 포함 literal 키)가 하나도 없으면 전체 초기 로드.
+    # count_documents({field: {'$exists': True}})는 '.'을 nested path 로 해석해
+    # literal 키를 못 찾으므로(항상 0) 사용 금지 → _has_literal_field 사용.
+    if not _has_literal_field(collection, field):
         _load_initial_simple_one(collection, info, data_source, Lot_Code, Fab, query_key)
 
     # HUB 최신 데이터 upsert
