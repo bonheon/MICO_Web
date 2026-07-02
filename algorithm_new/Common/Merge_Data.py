@@ -218,12 +218,12 @@ def _get_pre_oper_info(info_df, i):
 
 
 def _get_collection_query_key(info_df, pre_oper_config):
-    """pivot Pre_Oper(para 여러 개)가 하나라도 있으면 substrate_id, 아니면 samp_matl_id"""
-    for i in pre_oper_config:
-        info = _get_pre_oper_info(info_df, i)
-        if info and len(info['para_list']) > 1:
-            return 'substrate_id'
-    return 'samp_matl_id'
+    """PRE_THK_INFO 저장 키. pre_oper 종류와 무관하게 항상 substrate_id 로 통일.
+
+    (simple 경로도 substrate_id 지원: MES 는 samp_matl_id→substrate_id rename,
+     SRC 는 alias_lot_id + '.' + wf_id 로 substrate_id 구성. pivot 은 원래 substrate_id.)
+    """
+    return 'substrate_id'
 
 
 # ── Pivot 관련 헬퍼 ────────────────────────────────────────────────────────
