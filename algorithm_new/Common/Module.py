@@ -1,7 +1,7 @@
 import sys
 from pathlib import Path
 sys.path.append(str(Path(__file__).parents[1]))
-from Common.Get_Data import Get_data
+from Common.Get_Data import Get_data, _coalesce_substrate_id
 from Common.MongoDB_Control import mongodb_controller, multi_uploader
 from Common.PRE_THK_VM import PRE_THK_VM_Get
 from Common.REMOVAL_RATE import Removal_Rate_Get
@@ -22,36 +22,6 @@ c = Cube_Connector(cube_bot_id, cube_bot_token)
 
 _MONGO_URL = 'mongodb://cncmico : ....'
 _MONGO_DB  = 'mico-platform-mongodb'
-
-
-def _coalesce_substrate_id(df):
-    """구컬럼(samp_matl_id/samp_matl_if)과 substrate_id 를 하나의 substrate_id 로 병합.
-
-    기존 DB 는 samp_matl_id 로 저장, 신규는 substrate_id 로 저장하므로 한 INFO
-    컬렉션에 두 컬럼이 공존할 수 있다. 이때 단순 rename 을 하면 substrate_id 가
-    '중복 컬럼'이 되어 merge(on='substrate_id') 에서 오류가 발생한다.
-    → 두 컬럼이 함께 있으면 coalesce(우선순위: substrate_id 값, 없으면 구컬럼 값)해
-       substrate_id 단일 컬럼으로 만들고 구컬럼은 제거한다.
-
-    (pre_thk 관련 여러 모듈에서 공통 사용 → Module.py 에 정의)
-    """
-    legacy_cols = [c for c in ('samp_matl_id', 'samp_matl_if') if c in df.columns]
-    if not legacy_cols:
-        return df
-
-    if 'substrate_id' not in df.columns:
-        # substrate_id 없이 구컬럼만 존재 → 첫 구컬럼을 substrate_id 로 rename
-        df = df.rename(columns={legacy_cols[0]: 'substrate_id'})
-        legacy_cols = legacy_cols[1:]
-    else:
-        # substrate_id + 구컬럼 공존 → substrate_id 결측을 구컬럼 값으로 채움
-        for lc in legacy_cols:
-            df['substrate_id'] = df['substrate_id'].where(df['substrate_id'].notna(), df[lc])
-
-    drop_cols = [c for c in legacy_cols if c in df.columns]
-    if drop_cols:
-        df = df.drop(columns=drop_cols)
-    return df
 
 
 def _make_pre_thk_mongo(Lot_Code, Oper_Desc, Fab):
