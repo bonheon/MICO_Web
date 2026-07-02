@@ -217,15 +217,6 @@ def _get_pre_oper_info(info_df, i):
     return {'code': code, 'desc': desc, 'para_list': para_list}
 
 
-def _get_collection_query_key(info_df, pre_oper_config):
-    """PRE_THK_INFO 저장 키. pre_oper 종류와 무관하게 항상 substrate_id 로 통일.
-
-    (simple 경로도 substrate_id 지원: MES 는 samp_matl_id→substrate_id rename,
-     SRC 는 alias_lot_id + '.' + wf_id 로 substrate_id 구성. pivot 은 원래 substrate_id.)
-    """
-    return 'substrate_id'
-
-
 # ── Pivot 관련 헬퍼 ────────────────────────────────────────────────────────
 
 def _classify_para_zones(para_list):
@@ -277,8 +268,8 @@ def _apply_pivot_offsets(pivot_df, desc, para_13p, tgt_13p, tgt_ed, tgt_ex, tgt_
 
 # ── Pre_Oper 단일값 처리 ───────────────────────────────────────────────────
 
-def _load_initial_simple_one(collection, info, data_source, Lot_Code, Fab, query_key):
-    """단일값 사전공정 전체 초기 로드 (SRC / MES, HUB 없이)"""
+def _load_initial_simple_one(collection, info, data_source, Lot_Code, Fab):
+    """단일값 사전공정 전체 초기 로드 (SRC / MES, HUB 없이). 저장 키는 substrate_id."""
     code  = info['code']
     desc  = info['desc']
     para  = info['para_list'][0]
@@ -287,33 +278,27 @@ def _load_initial_simple_one(collection, info, data_source, Lot_Code, Fab, query
     if data_source == 'MES_HUB':
         df = Get_data.PRETHKGetData_MES(Fab, Lot_Code, code, para)
         df.columns = list(map(str.lower, df.columns))
-        df.rename(columns={'lot_id': 'alias_lot_id', 'module_id': field}, inplace=True)
-        # MES는 samp_matl_id가 query key → substrate_id 필요 시 rename
-        if query_key == 'substrate_id':
-            df.rename(columns={'samp_matl_id': 'substrate_id'}, inplace=True)
+        # MES는 samp_matl_id → substrate_id
+        df.rename(columns={'lot_id': 'alias_lot_id', 'module_id': field,
+                           'samp_matl_id': 'substrate_id'}, inplace=True)
     else:  # SRC
         df = Get_data.PRETHKGetData_SRC(Lot_Code, code, para)
         df.rename(columns={'thk_value': field}, inplace=True)
-        # SRC는 alias_lot_id + wf_id로 wafer key 구성
-        df[query_key] = df['alias_lot_id'] + '.' + df['wf_id']
+        # SRC는 alias_lot_id + wf_id로 substrate_id 구성
+        df['substrate_id'] = df['alias_lot_id'] + '.' + df['wf_id']
 
     if df.empty:
         return 0
 
-    df = df.drop_duplicates(subset=query_key, keep='first').fillna('-')
-
-    # substrate_id key 사용 시 query_key + field 컬럼만 적재
-    if query_key == 'substrate_id':
-        records = df[[query_key, field]].to_dict(orient='records')
-    else:
-        records = df.to_dict(orient='records')
+    df = df.drop_duplicates(subset='substrate_id', keep='first').fillna('-')
+    records = df[['substrate_id', field]].to_dict(orient='records')
 
     collection.insert_many(records)
     return len(records)
 
 
-def _process_pre_simple_one(collection, info, data_source, Lot_Code, Fab, Data_lv, query_key):
-    """단일값 사전공정 처리
+def _process_pre_simple_one(collection, info, data_source, Lot_Code, Fab, Data_lv):
+    """단일값 사전공정 처리 (저장 키 substrate_id)
 
     collection에 해당 field가 없으면 전체 초기 로드(SRC/MES) 후,
     항상 HUB 최신 데이터 upsert 실행.
@@ -328,36 +313,32 @@ def _process_pre_simple_one(collection, info, data_source, Lot_Code, Fab, Data_l
     # literal 키를 못 찾으므로(항상 0) 사용 금지 → _has_literal_field 사용.
     created = 0
     if not _has_literal_field(collection, field):
-        n = _load_initial_simple_one(collection, info, data_source, Lot_Code, Fab, query_key)
+        n = _load_initial_simple_one(collection, info, data_source, Lot_Code, Fab)
         created += n or 0
         print(f'    - 초기 전체 로드 {created}건')
 
-    # HUB 최신 데이터 upsert
+    # HUB 최신 데이터 upsert (samp_matl_id → substrate_id)
     if data_source == 'MES_HUB':
         df = Get_data.PRETHKGetData_MES_HUB(Fab, Lot_Code, code, para, Data_lv)
         df.columns = list(map(str.lower, df.columns))
-        rename_map = {'lot_id': 'alias_lot_id', 'module_id': field}
+        rename_map = {'lot_id': 'alias_lot_id', 'module_id': field, 'samp_matl_id': 'substrate_id'}
     else:  # SRC_HUB
         df = Get_data.PRETHKGetData_SRC_HUB(Lot_Code, code, para, Data_lv)
         df.columns = list(map(str.lower, df.columns))
-        rename_map = {'lot_id': 'alias_lot_id', 'rslt_val': field}
-
-    if query_key == 'substrate_id':
-        rename_map['samp_matl_id'] = 'substrate_id'
+        rename_map = {'lot_id': 'alias_lot_id', 'rslt_val': field, 'samp_matl_id': 'substrate_id'}
 
     df.rename(columns=rename_map, inplace=True)
 
     if df.empty:
         return created
 
-    if query_key == 'substrate_id':
-        df = df[[query_key, field]].copy()
+    df = df[['substrate_id', field]].copy()
 
     for _, row in df.iterrows():
         _upsert_pre_doc(
             collection,
-            query_key=query_key,
-            query_val=row[query_key],
+            query_key='substrate_id',
+            query_val=row['substrate_id'],
             update_fields={field: row[field]},
             full_row_dict=row.to_dict(),
         )
@@ -465,7 +446,7 @@ def _process_pre_pivot_one(collection, info, Lot_Code, Data_lv):
 
 # ── Pre_Oper 디스패처 ──────────────────────────────────────────────────────
 
-def _process_pre_oper(collection, info_df, i, data_source, Lot_Code, Fab, Data_lv, query_key):
+def _process_pre_oper(collection, info_df, i, data_source, Lot_Code, Fab, Data_lv):
     """Pre_Oper{i} 처리 메인 디스패처
 
     1. set-up 확인 (mico_info_key에 Pre_Oper_Code{i} 존재 여부)
@@ -481,7 +462,7 @@ def _process_pre_oper(collection, info_df, i, data_source, Lot_Code, Fab, Data_l
         return _process_pre_pivot_one(collection, info, Lot_Code, Data_lv)
     else:
         # para가 하나 → 단일값 방식
-        return _process_pre_simple_one(collection, info, data_source, Lot_Code, Fab, Data_lv, query_key)
+        return _process_pre_simple_one(collection, info, data_source, Lot_Code, Fab, Data_lv)
 
 
 # ── 메인 실행 ──────────────────────────────────────────────────────────────
@@ -541,7 +522,6 @@ def run(Family, oper_desc,
             Recipe_ID_List = tuple(info_df['Recipe_ID'].unique())
             Recipe_info    = Recipe_ID_List[0].split('_')[0] + '_' + Recipe_ID_List[0].split('_')[1]
             Oper_Desc      = info_df['Oper_Desc'].unique()[0]
-            query_key      = _get_collection_query_key(info_df, pre_oper_config)
 
             print(f'\n[{key}] 처리 시작 (Maker={Maker})')
 
@@ -592,7 +572,7 @@ def run(Family, oper_desc,
                             print(f'  [Pre_Oper{i}] 생성 중...')
                             cnt = _process_pre_oper(
                                 collection, info_df, i, data_source,
-                                Lot_Code, Fab, Data_lv, query_key,
+                                Lot_Code, Fab, Data_lv,
                             )
                             print(f'  [Pre_Oper{i}] 생성 완료: {cnt}건')
 
