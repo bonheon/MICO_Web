@@ -10,34 +10,6 @@ import numpy as np
 from pymongo import MongoClient
 
 
-def _coalesce_substrate_id(df):
-    """구컬럼(samp_matl_id/samp_matl_if)과 substrate_id 를 하나의 substrate_id 로 병합.
-
-    기존 DB 는 samp_matl_id 로 저장, 신규는 substrate_id 로 저장하므로 한 INFO
-    컬렉션에 두 컬럼이 공존할 수 있다. 이때 단순 rename 을 하면 substrate_id 가
-    '중복 컬럼'이 되어 merge(on='substrate_id') 에서 오류가 발생한다.
-    → 두 컬럼이 함께 있으면 coalesce(우선순위: substrate_id 값, 없으면 구컬럼 값)해
-       substrate_id 단일 컬럼으로 만들고 구컬럼은 제거한다.
-    """
-    legacy_cols = [c for c in ('samp_matl_id', 'samp_matl_if') if c in df.columns]
-    if not legacy_cols:
-        return df
-
-    if 'substrate_id' not in df.columns:
-        # substrate_id 없이 구컬럼만 존재 → 첫 구컬럼을 substrate_id 로 rename
-        df = df.rename(columns={legacy_cols[0]: 'substrate_id'})
-        legacy_cols = legacy_cols[1:]
-    else:
-        # substrate_id + 구컬럼 공존 → substrate_id 결측을 구컬럼 값으로 채움
-        for lc in legacy_cols:
-            df['substrate_id'] = df['substrate_id'].where(df['substrate_id'].notna(), df[lc])
-
-    drop_cols = [c for c in legacy_cols if c in df.columns]
-    if drop_cols:
-        df = df.drop(columns=drop_cols)
-    return df
-
-
 class Removal_Rate_Get:
 
 
@@ -468,6 +440,7 @@ class Removal_Rate_Get:
 
             info_col = 'MICO_PRE_THK_INFO_' + Lot_Code + '_' + Oper_Desc + '_' + Fab
             if info_col in db.list_collection_names():
+                from Common.Module import _coalesce_substrate_id  # 순환 import 방지 위해 지연 import
                 Pre_Thk_info_Table = pd.DataFrame(list(db[info_col].find({}, {'_id': False})))
                 # 구컬럼(samp_matl_id)과 신규 substrate_id 공존 시 하나로 병합 (중복 컬럼 방지)
                 Pre_Thk_info_Table = _coalesce_substrate_id(Pre_Thk_info_Table)
@@ -591,6 +564,7 @@ class Removal_Rate_Get:
             # INFO 컬렉션에서 pre_oper2~4 파라미터 값 결합
             info_col = 'MICO_PRE_THK_INFO_' + Lot_Code + '_' + Oper_Desc + '_' + Fab
             if info_col in db.list_collection_names():
+                from Common.Module import _coalesce_substrate_id  # 순환 import 방지 위해 지연 import
                 info_df = pd.DataFrame(list(db[info_col].find({}, {'_id': False})))
                 # 구컬럼(samp_matl_id)과 신규 substrate_id 공존 시 하나로 병합 (중복 컬럼 방지)
                 info_df = _coalesce_substrate_id(info_df)
