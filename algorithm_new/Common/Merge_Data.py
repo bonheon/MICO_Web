@@ -220,22 +220,29 @@ def _get_pre_oper_info(info_df, i):
 # ── Pivot 관련 헬퍼 ────────────────────────────────────────────────────────
 
 def _classify_para_zones(para_list):
-    """파라미터 리스트에서 13P / ED / EX / Z5 zone 구분.
+    """파라미터 리스트에서 13P / ED / EX / Z5 / WEAK zone 구분.
 
-    회사 원본과 동일하게 EX(ED2/EXED)와 Z5 를 서로 다른 zone 으로 분리한다.
-    각 zone 은 자기 자신의 Target(mean)으로 offset 을 계산하기 때문.
+    zone 마다 파라미터 이름 규칙이 공정별로 달라 여러 패턴을 함께 인식한다.
+    각 zone 은 자기 자신의 Target(mean)으로 offset 을 계산하므로 서로 분리한다.
+      - ED   : ED1 / EDGE / _A_
+      - EX   : ED2 / EXED / _B_
+      - Z5   : Z5
+      - WEAK : _E_
+      - 그 외: 13P
     """
-    para_13p = para_ed = para_ex = para_z5 = None
+    para_13p = para_ed = para_ex = para_z5 = para_weak = None
     for para in para_list:
-        if 'ED1' in para or 'EDGE' in para:
+        if 'ED1' in para or 'EDGE' in para or '_A_' in para:
             para_ed = para
-        elif 'ED2' in para or 'EXED' in para:
+        elif 'ED2' in para or 'EXED' in para or '_B_' in para:
             para_ex = para
         elif 'Z5' in para:
             para_z5 = para
+        elif '_E_' in para:
+            para_weak = para
         else:
             para_13p = para
-    return para_13p, para_ed, para_ex, para_z5
+    return para_13p, para_ed, para_ex, para_z5, para_weak
 
 
 def _safe_mean(df, col):
@@ -245,20 +252,22 @@ def _safe_mean(df, col):
     return np.nan
 
 
-def _apply_pivot_offsets(pivot_df, desc, para_13p, tgt_13p, tgt_ed, tgt_ex, tgt_z5):
-    """avg_col에 13P 기준 ED·EX·Z5 offset 컬럼 추가, 원본 avg_col은 {desc}_{col}로 rename.
+def _apply_pivot_offsets(pivot_df, desc, para_13p, tgt_13p, tgt_ed, tgt_ex, tgt_z5, tgt_weak):
+    """avg_col에 13P 기준 ED·EX·Z5·WEAK offset(BIAS) 컬럼 추가, 원본 avg_col은 {desc}_{col}로 rename.
 
-    각 zone 은 자기 Target 기준으로 뺀다 (원본 Merge_Hub 246~247줄):
-      ED1/EDGE → tgt_ed / ED2/EXED → tgt_ex / Z5 → tgt_z5 / 그 외 → 13P
+    각 zone 은 자기 Target 기준으로 뺀다:
+      ED1/EDGE/_A_ → tgt_ed / ED2/EXED/_B_ → tgt_ex / Z5 → tgt_z5 / _E_ → tgt_weak / 그 외 → 13P
     """
     avg_cols = [c for c in pivot_df.columns if '_AVG' in c]
     for col in avg_cols:
-        if 'ED1' in col or 'EDGE' in col:
+        if 'ED1' in col or 'EDGE' in col or '_A_' in col:
             pivot_df[f'{desc}.{col}'] = pivot_df[col] - pivot_df[para_13p] - (tgt_ed - tgt_13p)
-        elif 'ED2' in col or 'EXED' in col:
+        elif 'ED2' in col or 'EXED' in col or '_B_' in col:
             pivot_df[f'{desc}.{col}'] = pivot_df[col] - pivot_df[para_13p] - (tgt_ex - tgt_13p)
         elif 'Z5' in col:
             pivot_df[f'{desc}.{col}'] = pivot_df[col] - pivot_df[para_13p] - (tgt_z5 - tgt_13p)
+        elif '_E_' in col:
+            pivot_df[f'{desc}.{col}'] = pivot_df[col] - pivot_df[para_13p] - (tgt_weak - tgt_13p)
         else:
             pivot_df[f'{desc}.{col}'] = pivot_df[para_13p] - tgt_13p
     for col in avg_cols:
@@ -357,7 +366,7 @@ def _load_initial_pivot_one(collection, info, Lot_Code):
     code      = info['code']
     desc      = info['desc']
     para_list = info['para_list']
-    para_13p, para_ed, para_ex, para_z5 = _classify_para_zones(para_list)
+    para_13p, para_ed, para_ex, para_z5, para_weak = _classify_para_zones(para_list)
 
     pre_df = Get_data.PRETHKGetData_SRC(Lot_Code, code, para_list)
 
@@ -369,19 +378,20 @@ def _load_initial_pivot_one(collection, info, Lot_Code):
     )
     pivot.reset_index(inplace=True)
 
-    tgt_13p = _safe_mean(pivot, para_13p)
-    tgt_ed  = _safe_mean(pivot, para_ed)
-    tgt_ex  = _safe_mean(pivot, para_ex)
-    tgt_z5  = _safe_mean(pivot, para_z5)
-    pivot   = _apply_pivot_offsets(pivot, desc, para_13p, tgt_13p, tgt_ed, tgt_ex, tgt_z5)
-    pivot   = pivot.fillna('-')
+    tgt_13p  = _safe_mean(pivot, para_13p)
+    tgt_ed   = _safe_mean(pivot, para_ed)
+    tgt_ex   = _safe_mean(pivot, para_ex)
+    tgt_z5   = _safe_mean(pivot, para_z5)
+    tgt_weak = _safe_mean(pivot, para_weak)
+    pivot    = _apply_pivot_offsets(pivot, desc, para_13p, tgt_13p, tgt_ed, tgt_ex, tgt_z5, tgt_weak)
+    pivot    = pivot.fillna('-')
 
     collection.insert_many(pivot.to_dict(orient='records'))
     return pivot
 
 
 def _process_pre_pivot_one(collection, info, Lot_Code, Data_lv):
-    """Pivot 사전공정 처리 (13P·ED·EX·Z5 offset)
+    """Pivot 사전공정 처리 (13P·ED·EX·Z5·WEAK offset)
 
     collection 비어있으면 SRC 전체 로드 후 insert_many,
     항상 SRC_HUB 최신 데이터 pivot upsert.
@@ -389,13 +399,14 @@ def _process_pre_pivot_one(collection, info, Lot_Code, Data_lv):
     code      = info['code']
     desc      = info['desc']
     para_list = info['para_list']
-    para_13p, para_ed, para_ex, para_z5 = _classify_para_zones(para_list)
+    para_13p, para_ed, para_ex, para_z5, para_weak = _classify_para_zones(para_list)
 
     # 이 pre_oper 의 pivot 기준 컬럼명 (underscore → dot-path 이슈 없음)
-    col_13p = f'{desc}_{para_13p}'
-    col_ed  = f'{desc}_{para_ed}' if para_ed else None
-    col_ex  = f'{desc}_{para_ex}' if para_ex else None
-    col_z5  = f'{desc}_{para_z5}' if para_z5 else None
+    col_13p  = f'{desc}_{para_13p}'
+    col_ed   = f'{desc}_{para_ed}' if para_ed else None
+    col_ex   = f'{desc}_{para_ex}' if para_ex else None
+    col_z5   = f'{desc}_{para_z5}' if para_z5 else None
+    col_weak = f'{desc}_{para_weak}' if para_weak else None
 
     # 기존 데이터 조회 → collection 이 비었거나, (공유 collection 에 다른
     # pre_oper 데이터만 있어) 이 pre_oper 의 컬럼이 아직 없으면 초기 전체 로드.
@@ -410,14 +421,15 @@ def _process_pre_pivot_one(collection, info, Lot_Code, Data_lv):
 
     # 전체 데이터에서 최신 기준값(zone별 Target) 갱신
     pre_thk_all = pre_thk_all.replace('-', np.nan)
-    for col in (col_13p, col_ed, col_ex, col_z5):
+    for col in (col_13p, col_ed, col_ex, col_z5, col_weak):
         if col and col in pre_thk_all.columns:
             pre_thk_all[col] = pd.to_numeric(pre_thk_all[col], errors='coerce')
 
-    tgt_13p = _safe_mean(pre_thk_all, col_13p)
-    tgt_ed  = _safe_mean(pre_thk_all, col_ed)
-    tgt_ex  = _safe_mean(pre_thk_all, col_ex)
-    tgt_z5  = _safe_mean(pre_thk_all, col_z5)
+    tgt_13p  = _safe_mean(pre_thk_all, col_13p)
+    tgt_ed   = _safe_mean(pre_thk_all, col_ed)
+    tgt_ex   = _safe_mean(pre_thk_all, col_ex)
+    tgt_z5   = _safe_mean(pre_thk_all, col_z5)
+    tgt_weak = _safe_mean(pre_thk_all, col_weak)
 
     # HUB 최신 데이터 → pivot → upsert
     hub_df = Get_data.PRETHKGetData_SRC_HUB(Lot_Code, code, para_list, Data_lv)
@@ -434,10 +446,10 @@ def _process_pre_pivot_one(collection, info, Lot_Code, Data_lv):
         values='rslt_val',
     )
     pivot.reset_index(inplace=True)
-    pivot = _apply_pivot_offsets(pivot, desc, para_13p, tgt_13p, tgt_ed, tgt_ex, tgt_z5)
+    pivot = _apply_pivot_offsets(pivot, desc, para_13p, tgt_13p, tgt_ed, tgt_ex, tgt_z5, tgt_weak)
 
-    # 존재하는 zone(13P/ED/EX/Z5)만 update_fields 구성
-    zone_paras = [p for p in (para_13p, para_ed, para_ex, para_z5) if p]
+    # 존재하는 zone(13P/ED/EX/Z5/WEAK)만 update_fields 구성
+    zone_paras = [p for p in (para_13p, para_ed, para_ex, para_z5, para_weak) if p]
     for _, row in pivot.iterrows():
         _upsert_pre_doc(
             collection,
