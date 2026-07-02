@@ -1,7 +1,7 @@
 import sys, os
 from pathlib import Path
 sys.path.append(os.path.dirname(os.path.abspath(os.path.dirname(__file__))))
-from Common.Get_Data import Get_data, _coalesce_substrate_id
+from Common.Get_Data import Get_data
 from Common.MongoDB_Control import mongodb_controller
 from sklearn.linear_model import LinearRegression
 from datetime import datetime, timedelta, date
@@ -442,7 +442,7 @@ class Removal_Rate_Get:
             if info_col in db.list_collection_names():
                 Pre_Thk_info_Table = pd.DataFrame(list(db[info_col].find({}, {'_id': False})))
                 # 구컬럼(samp_matl_id)과 신규 substrate_id 공존 시 하나로 병합 (중복 컬럼 방지)
-                Pre_Thk_info_Table = _coalesce_substrate_id(Pre_Thk_info_Table)
+                Pre_Thk_info_Table = Get_data.coalesce_substrate_id(Pre_Thk_info_Table)
                 # 같은 웨이퍼가 구/신 문서로 중복될 수 있으므로 최신 1건만 유지 (merge 시 행 증식 방지)
                 Pre_Thk_info_Table = Pre_Thk_info_Table.drop_duplicates(subset='substrate_id', keep='last')
                 Pre_Thk_info_Table.replace('-', 0, inplace=True)
@@ -565,7 +565,7 @@ class Removal_Rate_Get:
             if info_col in db.list_collection_names():
                 info_df = pd.DataFrame(list(db[info_col].find({}, {'_id': False})))
                 # 구컬럼(samp_matl_id)과 신규 substrate_id 공존 시 하나로 병합 (중복 컬럼 방지)
-                info_df = _coalesce_substrate_id(info_df)
+                info_df = Get_data.coalesce_substrate_id(info_df)
                 # 같은 웨이퍼가 구/신 문서로 중복될 수 있으므로 최신 1건만 유지 (merge 시 행 증식 방지)
                 info_df = info_df.drop_duplicates(subset='substrate_id', keep='last')
                 info_df.replace('-', 0, inplace=True)
