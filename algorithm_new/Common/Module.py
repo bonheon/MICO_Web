@@ -4,7 +4,7 @@ sys.path.append(str(Path(__file__).parents[1]))
 from Common.Get_Data import Get_data
 from Common.MongoDB_Control import mongodb_controller, multi_uploader
 from Common.PRE_THK_VM import PRE_THK_VM_Get
-from Common.REMOVAL_RATE import Removal_Rate_Get
+from Common.REMOVAL_RATE import Removal_Rate_Get, _coalesce_substrate_id
 from Common.OFFSET import OFFSET_Get
 from datetime import datetime, timedelta, date
 import pandas as pd
@@ -262,8 +262,11 @@ class Module_Get:
                         pre2_df = pd.DataFrame(raw)
                     finally:
                         client.close()
-                    pre2_df.rename(columns={'samp_matl_id': 'substrate_id'}, inplace=True)
-                    pre2_df.drop_duplicates(subset=['substrate_id'], inplace=True)
+                    # 구컬럼(samp_matl_id)과 신규 substrate_id 공존 시 하나로 병합(중복 컬럼 방지)
+                    pre2_df = _coalesce_substrate_id(pre2_df)
+                    # 같은 웨이퍼 중복 문서는 최신 1건만 유지(merge 시 행 증식 방지)
+                    if 'substrate_id' in pre2_df.columns:
+                        pre2_df = pre2_df.drop_duplicates(subset='substrate_id', keep='last')
 
                     oper_pairs = [
                         (Pre_Oper_Desc2, Pre_Oper_Para2, 'PRE_OPER2'),
