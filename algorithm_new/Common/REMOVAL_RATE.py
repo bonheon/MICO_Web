@@ -1,7 +1,7 @@
 import sys, os
 from pathlib import Path
 sys.path.append(os.path.dirname(os.path.abspath(os.path.dirname(__file__))))
-from Common.Get_Data import Get_data
+from Common.Get_Data import Get_data, _coalesce_substrate_id
 from Common.MongoDB_Control import mongodb_controller
 from sklearn.linear_model import LinearRegression
 from datetime import datetime, timedelta, date
@@ -440,7 +440,6 @@ class Removal_Rate_Get:
 
             info_col = 'MICO_PRE_THK_INFO_' + Lot_Code + '_' + Oper_Desc + '_' + Fab
             if info_col in db.list_collection_names():
-                from Common.Module import _coalesce_substrate_id  # 순환 import 방지 위해 지연 import
                 Pre_Thk_info_Table = pd.DataFrame(list(db[info_col].find({}, {'_id': False})))
                 # 구컬럼(samp_matl_id)과 신규 substrate_id 공존 시 하나로 병합 (중복 컬럼 방지)
                 Pre_Thk_info_Table = _coalesce_substrate_id(Pre_Thk_info_Table)
@@ -564,7 +563,6 @@ class Removal_Rate_Get:
             # INFO 컬렉션에서 pre_oper2~4 파라미터 값 결합
             info_col = 'MICO_PRE_THK_INFO_' + Lot_Code + '_' + Oper_Desc + '_' + Fab
             if info_col in db.list_collection_names():
-                from Common.Module import _coalesce_substrate_id  # 순환 import 방지 위해 지연 import
                 info_df = pd.DataFrame(list(db[info_col].find({}, {'_id': False})))
                 # 구컬럼(samp_matl_id)과 신규 substrate_id 공존 시 하나로 병합 (중복 컬럼 방지)
                 info_df = _coalesce_substrate_id(info_df)
