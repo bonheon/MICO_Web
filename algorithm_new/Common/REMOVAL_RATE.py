@@ -471,6 +471,8 @@ class Removal_Rate_Get:
                 Pre_Thk_info_Table = pd.DataFrame(list(db[info_col].find({}, {'_id': False})))
                 # 구컬럼(samp_matl_id)과 신규 substrate_id 공존 시 하나로 병합 (중복 컬럼 방지)
                 Pre_Thk_info_Table = _coalesce_substrate_id(Pre_Thk_info_Table)
+                # 같은 웨이퍼가 구/신 문서로 중복될 수 있으므로 최신 1건만 유지 (merge 시 행 증식 방지)
+                Pre_Thk_info_Table = Pre_Thk_info_Table.drop_duplicates(subset='substrate_id', keep='last')
                 Pre_Thk_info_Table.replace('-', 0, inplace=True)
 
                 exclude  = {'alias_lot_id', 'end_tm'}
@@ -592,6 +594,8 @@ class Removal_Rate_Get:
                 info_df = pd.DataFrame(list(db[info_col].find({}, {'_id': False})))
                 # 구컬럼(samp_matl_id)과 신규 substrate_id 공존 시 하나로 병합 (중복 컬럼 방지)
                 info_df = _coalesce_substrate_id(info_df)
+                # 같은 웨이퍼가 구/신 문서로 중복될 수 있으므로 최신 1건만 유지 (merge 시 행 증식 방지)
+                info_df = info_df.drop_duplicates(subset='substrate_id', keep='last')
                 info_df.replace('-', 0, inplace=True)
                 exclude  = {'alias_lot_id', 'end_tm'}
                 col_name = [c for c in info_df.columns if c not in exclude]
