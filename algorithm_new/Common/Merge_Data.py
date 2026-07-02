@@ -611,7 +611,10 @@ def run(Family, oper_desc,
                 if report_df.empty:
                     print(f'  report data 생성 {today_}')
                     merge_df = mongo_db.get_df()
-                    Get_data.Report(merge_df, THK_Para_list)
+                    # Report 는 self 를 받는 인스턴스 메서드 → 인스턴스로 호출해야 함.
+                    # Get_data.Report(...) 로 클래스 호출하면 merge_df 가 self 에 바인딩되어
+                    # 인자가 밀리며 'missing Thk_Para_list' TypeError 발생.
+                    Get_data().Report(merge_df, THK_Para_list)
                     print('  report Upload 완료')
 
             except Exception as e:
