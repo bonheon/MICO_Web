@@ -291,7 +291,9 @@ def _load_initial_simple_one(collection, info, data_source, Lot_Code, Fab):
         return 0
 
     df = df.drop_duplicates(subset='substrate_id', keep='first').fillna('-')
-    records = df[['substrate_id', field]].to_dict(orient='records')
+    # substrate_id/field 외에 end_tm·wf_id 도 함께 적재 (있을 때만)
+    keep = ['substrate_id', field] + [c for c in ('end_tm', 'wf_id') if c in df.columns]
+    records = df[keep].to_dict(orient='records')
 
     collection.insert_many(records)
     return len(records)
@@ -332,7 +334,10 @@ def _process_pre_simple_one(collection, info, data_source, Lot_Code, Fab, Data_l
     if df.empty:
         return created
 
-    df = df[['substrate_id', field]].copy()
+    # substrate_id/field 외에 end_tm·wf_id 도 함께 적재 (있을 때만).
+    # 신규 문서는 full_row_dict 로 삽입되므로 keep 에 포함하면 end_tm/wf_id 가 저장됨.
+    keep = ['substrate_id', field] + [c for c in ('end_tm', 'wf_id') if c in df.columns]
+    df = df[keep].copy()
 
     for _, row in df.iterrows():
         _upsert_pre_doc(
