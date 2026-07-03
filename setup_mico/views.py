@@ -1143,6 +1143,10 @@ def category_update(request, pk):
         if form.is_valid():
             obj = form.save(commit=False)
             obj.pol_type = _parse_pol_type(request)
+            # product + oper_id 중복 방지 (자기 자신 제외 → 다른 항목과 겹치면 차단)
+            if Category.objects.filter(product=obj.product, oper_id=obj.oper_id).exclude(pk=category.pk).exists():
+                messages.error(request, '이미 등록되어 있습니다. (동일 Product / Oper ID)')
+                return redirect('category_list')
             obj.save()
             diff = _diff(old, _cat_fields(obj))
             if diff:
