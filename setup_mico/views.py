@@ -1121,6 +1121,10 @@ def category_create(request):
             obj = form.save(commit=False)
             obj.created_by = request.user
             obj.pol_type = _parse_pol_type(request)
+            # product + oper_id 중복 방지 (동일 조합이 이미 있으면 등록 차단)
+            if Category.objects.filter(product=obj.product, oper_id=obj.oper_id).exists():
+                messages.error(request, '이미 등록되어 있습니다. (동일 Product / Oper ID)')
+                return redirect('category_list')
             obj.save()
             _record(request.user, 'create', 'Category', str(obj), obj.pk, _cat_fields(obj))
             messages.success(request, 'Category가 추가되었습니다.')
