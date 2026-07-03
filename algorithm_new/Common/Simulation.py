@@ -614,9 +614,10 @@ class Simulation_Get:
             print('    PRE_THK_INFO 데이터 없음 → 결합 skip')
             return merge_df
 
-        # simple 모드 컬렉션은 samp_matl_id 키로 저장됨 (pivot 모드는 substrate_id)
-        pre2_df.rename(columns={'samp_matl_id': 'substrate_id'}, inplace=True)
-        pre2_df.drop_duplicates(subset=['substrate_id'], inplace=True)
+        # 구(samp_matl_id) / 신(substrate_id) 키 공존 컬렉션 → 단일 substrate_id 로 병합
+        pre2_df = Get_data.coalesce_substrate_id(pre2_df)
+        # 같은 웨이퍼가 구/신 문서로 중복될 수 있으므로 최신 1건만 유지 (merge 시 행 증식 방지)
+        pre2_df = pre2_df.drop_duplicates(subset='substrate_id', keep='last')
         # Merge_Data 가 결측을 '-' 로 저장 → NaN 복원 (산식의 평균 보정이 처리)
         pre2_df.replace('-', np.nan, inplace=True)
         # merge_df 와 겹치는 컬럼(wf_id/end_tm/alias_lot_id 등)은 제거 — suffix 충돌 방지
