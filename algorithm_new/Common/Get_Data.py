@@ -69,6 +69,9 @@ class Get_data:
                     rows.append({
                         'Family'          : cat.family,
                         'Lot_Code'        : cat.product,
+                        # 회사 스키마는 Product/Lot_Code 별도 컬럼 (Lot_Code 가 하위 단위).
+                        # web Category 에는 product 만 있어 테스트에서는 동일 값 사용.
+                        'Product'         : cat.product,
                         'Oper_Code'       : cat.oper_id,
                         'Oper_Desc'       : cat.oper_desc,
                         'Channel_ID'      : cat.channel_id,
@@ -189,6 +192,22 @@ class Get_data:
                 })
         return pd.DataFrame(events)
     # ── [TEST 삭제 끝] ────────────────────────────────────────────────────
+
+    # ── Simulation 용 Ref lot 조회 (회사 서버 Get_Data.py 내용 붙여넣기) ──
+    # 회사 코드와 동일하게 Get_data 클래스 안에 위치. Simulation.py 에서
+    # Get_data.RefGetData(...) 형태로 호출.
+
+    def RefGetData(Fab, Lot_Code, Oper_Code, Recipe_ID_List, Days):
+        pass  # TODO: 회사 Get_Data.RefGetData 본문 붙여넣기
+
+    def RefGetData_HUB(Fab, Lot_Code, Oper_Code, Recipe_ID_List):
+        pass  # TODO: 회사 Get_Data.RefGetData_HUB 본문 붙여넣기
+
+    def REFParaGet(APC_Para, pol_type, Oper_Desc, Fab):
+        # TODO: 회사 Get_Data.REFParaGet 본문 붙여넣기
+        # None 반환 시 Simulation._attach_ref_lots 에서 APC_Para 로 대체 조회 (source 동작 동일)
+        return None
+
 
     # ── [TEST 삭제] Cube 메시지 Mock ─────────────────────────────────────
     # print 로 대체한 테스트 전용 구현.
