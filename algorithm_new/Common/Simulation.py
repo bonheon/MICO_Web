@@ -695,14 +695,14 @@ class Simulation_Get:
 def _zone_label(thk_para, extra_zones):
     """Thk_Para → zone 라벨 분류 (Merge_Data._classify_para_zones 와 동일 기준).
 
-    - ED1/EDGE → 'EDGE', ED2/EXED → 'EXED'
+    - ED1/EDGE/_ED_ → 'EDGE', ED2/EXED/_EX_ → 'EXED'
     - 그 외    → extra_zones 중 Thk_Para 에 포함된 라벨 반환
                  (예: ['Z5'] → ..._Z5_AVG 는 'Z5', ['CENTER', 'Z1', 'Z2'] 등 확장 가능)
     - 매칭 없으면 None(처리 제외)
     """
-    if 'ED1' in thk_para or 'EDGE' in thk_para:
+    if 'ED1' in thk_para or 'EDGE' in thk_para or '_ED_' in thk_para:
         return 'EDGE'
-    if 'ED2' in thk_para or 'EXED' in thk_para:
+    if 'ED2' in thk_para or 'EXED' in thk_para or '_EX_' in thk_para:
         return 'EXED'
     for zone in extra_zones:
         if zone in thk_para:

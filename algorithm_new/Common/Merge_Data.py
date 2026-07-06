@@ -224,17 +224,17 @@ def _classify_para_zones(para_list):
 
     zone 마다 파라미터 이름 규칙이 공정별로 달라 여러 패턴을 함께 인식한다.
     각 zone 은 자기 자신의 Target(mean)으로 offset 을 계산하므로 서로 분리한다.
-      - ED   : ED1 / EDGE / _A_
-      - EX   : ED2 / EXED / _B_
+      - ED   : ED1 / EDGE / _A_ / _ED_
+      - EX   : ED2 / EXED / _B_ / _EX_
       - Z5   : Z5
       - WEAK : _E_
       - 그 외: 13P
     """
     para_13p = para_ed = para_ex = para_z5 = para_weak = None
     for para in para_list:
-        if 'ED1' in para or 'EDGE' in para or '_A_' in para:
+        if 'ED1' in para or 'EDGE' in para or '_A_' in para or '_ED_' in para:
             para_ed = para
-        elif 'ED2' in para or 'EXED' in para or '_B_' in para:
+        elif 'ED2' in para or 'EXED' in para or '_B_' in para or '_EX_' in para:
             para_ex = para
         elif 'Z5' in para:
             para_z5 = para
@@ -256,13 +256,13 @@ def _apply_pivot_offsets(pivot_df, desc, para_13p, tgt_13p, tgt_ed, tgt_ex, tgt_
     """avg_col에 13P 기준 ED·EX·Z5·WEAK offset(BIAS) 컬럼 추가, 원본 avg_col은 {desc}_{col}로 rename.
 
     각 zone 은 자기 Target 기준으로 뺀다:
-      ED1/EDGE/_A_ → tgt_ed / ED2/EXED/_B_ → tgt_ex / Z5 → tgt_z5 / _E_ → tgt_weak / 그 외 → 13P
+      ED1/EDGE/_A_/_ED_ → tgt_ed / ED2/EXED/_B_/_EX_ → tgt_ex / Z5 → tgt_z5 / _E_ → tgt_weak / 그 외 → 13P
     """
     avg_cols = [c for c in pivot_df.columns if '_AVG' in c]
     for col in avg_cols:
-        if 'ED1' in col or 'EDGE' in col or '_A_' in col:
+        if 'ED1' in col or 'EDGE' in col or '_A_' in col or '_ED_' in col:
             pivot_df[f'{desc}.{col}'] = pivot_df[col] - pivot_df[para_13p] - (tgt_ed - tgt_13p)
-        elif 'ED2' in col or 'EXED' in col or '_B_' in col:
+        elif 'ED2' in col or 'EXED' in col or '_B_' in col or '_EX_' in col:
             pivot_df[f'{desc}.{col}'] = pivot_df[col] - pivot_df[para_13p] - (tgt_ex - tgt_13p)
         elif 'Z5' in col:
             pivot_df[f'{desc}.{col}'] = pivot_df[col] - pivot_df[para_13p] - (tgt_z5 - tgt_13p)
