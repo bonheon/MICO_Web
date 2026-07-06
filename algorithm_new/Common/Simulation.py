@@ -875,19 +875,28 @@ def run(Family, oper_desc,
         for k in key_list:
             print(f'    - {k}')
 
-        # Product 단위로 zone 결과 누적 → CSV 파일명은 기존(source)과 동일하게
+        # Product 단위로 key 를 묶어 순차 처리. CSV 파일명은 기존(source)과 동일하게
         # {Product}_..._Simulation/Simul_*_{Product}.csv 유지
         # (Lot_Code 는 Product 보다 작은 단위 — 같은 Product 의 여러 Lot_Code 가 한 파일에 합산)
-        zones_by_product = defaultdict(lambda: defaultdict(list))
-
+        #
+        # Product 하나의 key 를 모두 처리하면 그 자리에서 바로 export 하고 zones 를
+        # 버림 — 전체 Product 를 다 처리할 때까지 zones_by_product 에 모든 결과를
+        # 들고 있던 이전 방식은 Set-up 된 제품이 많을수록 RAM 사용량이 제품 수에
+        # 비례해 계속 늘어나는 문제가 있었음.
+        keys_by_product = defaultdict(list)
         for key in key_list:
-            mico_info_key = mico_info_table[mico_info_table['for_key'] == key].copy()
-            Product       = mico_info_key['Product'].unique()[0]
-            print(f'\n  [{key}] (Product={Product})')
-            _run_key(mico_info_key, zones_by_product[Product], extra_zones, pre_thk_formula, c)
+            product = mico_info_table.loc[mico_info_table['for_key'] == key, 'Product'].iat[0]
+            keys_by_product[product].append(key)
 
-        for Product, zones in zones_by_product.items():
+        for Product, keys in keys_by_product.items():
+            zones = defaultdict(list)
+            for key in keys:
+                mico_info_key = mico_info_table[mico_info_table['for_key'] == key].copy()
+                print(f'\n  [{key}] (Product={Product})')
+                _run_key(mico_info_key, zones, extra_zones, pre_thk_formula, c)
+
             _export_results(zones, Product, export_oper, file_labels, extra_zones, export_dir)
+            del zones
 
     except Exception as e:
         tb = traceback.format_exc()
