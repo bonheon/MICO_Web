@@ -158,9 +158,11 @@ def _build_base_frame(merge_df, sk, Main_Para, Main_Para_formula, Main_Para_OFFS
 
     if mode == 'PRESSURE':
         col_list.append(Thk_Para_13P)
-        # ED2/EXED 존은 ED1/EDGE 계측값도 함께 사용
-        if ('ED2' in sk['Thk_Para']) or ('EXED' in sk['Thk_Para']):
-            col_list.append(sk['Thk_Para'].replace('ED2', 'ED1').replace('EXED', 'EDGE'))
+        # ED2/EXED/_EX_ 존은 ED1/EDGE/_ED_ 계측값도 함께 사용
+        if ('ED2' in sk['Thk_Para']) or ('EXED' in sk['Thk_Para']) or ('_EX_' in sk['Thk_Para']):
+            col_list.append(
+                sk['Thk_Para'].replace('ED2', 'ED1').replace('EXED', 'EDGE').replace('_EX_', '_ED_')
+            )
 
     # OFFSET 컬럼: merge_df 에 실제 존재하는 것만 추가 (없는 컬럼 선택 시 KeyError 방지)
     for x in Main_Para_OFFSET:
