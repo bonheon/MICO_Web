@@ -1,0 +1,254 @@
+반도체 CMP 공정 APC 시스템 "Simulation 코드 구조" 교육용 PPT를 만들어줘.
+
+[자료의 목적과 청중]
+- 청중: Merge Data / 학습 파이프라인(Pre_Thk_VM·RR·Offset) 코드 구조 편을 이미 들었고,
+  이제 Simulation 코드를 직접 읽고 수정해야 하는 사내 엔지니어
+- 목적: simulation/{공정명}/Simulation_Hub.py에서 시작해 Common/Simulation.py의 run()이
+  어떤 함수를 어떤 순서로 호출하는지 파악하고, "어떤 수정은 어느 함수만 보면 되는지"
+  알 수 있게 하는 코드 워크스루
+- 관통 메시지 2개 (자료 전체에서 반복 강조):
+  ① Simulation은 학습 파이프라인의 "최종 소비자" — 새로 학습하지 않는다.
+    Module이 저장한 학습 3종(Pre VM / RR / OFFSET) + Online 결과 + Ref lot을
+    실측 데이터에 시점 기준으로 붙여서 시뮬레이션 값(RR_DB, Pre_Thk)을 재구성할 뿐
+  ② simulate()는 조립 라인이다 — DataFrame 하나가 _build → _attach_* 5개 →
+    보정 → 산식 → _finalize 를 순서대로 통과하며 컬럼이 붙는다.
+    "한 단계 = 한 데이터 소스"라서 단계 순서만 외우면 전체가 읽힌다
+
+[디자인 공통 지침]
+- 깔끔한 기업 교육자료 스타일, "코드 지도" 느낌 (앞선 코드 구조 편들과 동일 톤)
+- 함수명·파일명·컬렉션명은 전부 고정폭 폰트
+- 호출 트리/시퀀스의 화살표에는 "왜 호출하는지" 짧은 라벨을 달 것
+- 데이터(MongoDB 컬렉션·CSV)는 원통 도형, 함수/처리는 사각형으로 구분
+- 각 파트 첫 장에는 전체 흐름 미니맵을 구석에 두고 현재 위치를 하이라이트
+- 장수는 내용에 맞게 자유롭게 구성하되, 아래 순서와 내용을 따를 것
+
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+PART 0. 표지 + 전체 뼈대
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+
+[표지]
+- 제목: Simulation 코드 구조
+- 부제: Simulation_Hub.py에서 시작하는 함수 호출 지도 — 학습값의 최종 소비자
+
+[코드를 읽는 지도 — 2층 구조와 runner config]
+- 2층 구조 (Merge_Data와 같은 형태 — 한 파일 라이브러리):
+  simulation/{공정명}/Simulation_Hub.py  ← [1층 runner] 공정 등록 + 산식 control:
+                                    from Common.Simulation import run
+                                    FAMILY    = 'DRAM'
+                                    OPER_DESC = 'M1 CU CMP'
+                                    PRE_THK_FORMULA = {'PRE_OPER': True,
+                                                       'PRE_OPER2': 'reg', ...}
+                                    run(FAMILY, OPER_DESC,
+                                        extra_zones=['Z5'],
+                                        file_labels={'EDGE':'ED1','EXED':'ED2'},
+                                        pre_thk_formula=PRE_THK_FORMULA)
+  Common/Simulation.py             ← [2층 라이브러리] run() + Simulation_Get 클래스
+                                      + 파이프라인 단계 함수들. 섹션 구성:
+                                    · 학습 테이블 로드 (_load_learning_tables, _load_ref_lots)
+                                    · search_key 파싱 (_parse_search_key, _get_consumable_para)
+                                    · 파이프라인 단계 함수 (_build_base_frame, _attach_* 5개,
+                                      _fill_learning_values, Pre_Thk 산식 2개, _finalize)
+                                    · Simulation_Get 클래스 (fetch / merge_pre_oper_info /
+                                      simulate / simulate_time / simulate_pressure)
+                                    · Runner helpers (_zone_label, _append_zone, _run_key,
+                                      _export_results) + run()
+- runner config 4개의 의미 (Merge의 PRE_OPER_CONFIG보다 설정이 많은 이유:
+  Simulation은 공정별 zone 구성과 산식 조합이 달라서):
+  | 설정 | 역할 |
+  | FAMILY / OPER_DESC | 웹 Set-up에서 처리 대상을 찾는 키 |
+  | extra_zones | 기본 zone(13P/EDGE/EXED) 외 추가 처리 zone 라벨 (예: ['Z5']) |
+  | file_labels | 출력 CSV 파일명 라벨 치환 (예: EDGE→ED1) |
+  | PRE_THK_FORMULA | Pre_Thk 산식 조합 — moving avg 사용 여부 + 사전공정별
+                      raw/reg/weight (테스트 시 여기만 수정하면 됨) |
+- 3개 공정 runner 비교표 (config만 다르고 코드는 동일):
+  | 공정 | extra_zones | PRE_THK_FORMULA 특이점 |
+  | DRAM M1 CU CMP | ['Z5'] | PRE_OPER2='reg' |
+  | NAND SOURCE OX CMP | 없음 | PRE_OPER2=('reg', 2) — weight 2 |
+  | DRAM SN BPSG CMP | 없음 | 사전공정 미사용 (ITM은 Set-up에서 자동) |
+
+[run() 전체 흐름 모식도 — 핵심 한 장, 가장 크게]
+- 입력(원통 5종) → 처리 → 출력(원통)을 하나의 그림으로:
+  [입력 — Merge Hub와 학습 파이프라인이 만들어 둔 것들]
+    MICO_Merge_df_...            (실측: Merge Hub 산출)
+    MICO_PRE_THK_INFO_...        (사전공정 계측: Merge Hub 산출)
+    MICO_PRE_THK_..._Period      (학습 1: Pre VM)
+    MICO_Removal_Rate_...        (학습 2: RR 계수 4종)
+    MICO_OFFSET_...              (학습 3: Idle/LC OFFSET)
+    MICO_Online_Simulation_...   (Online 결과, 있으면)
+    + Ref lot (SRC/HUB 조회)
+  [처리]
+  run(Family, oper_desc, ...)
+  ├ Get_data.baseinfoGetData()          : 웹 Set-up 조회 → for_key 생성
+  ├ zones_by_product 준비                : Product 단위로 zone 결과 누적
+  │                                       (Lot_Code보다 큰 단위 — 같은 Product의
+  │                                        여러 Lot_Code가 한 CSV에 합산되는 이유)
+  ├ 키별 _run_key()                      : 데이터 로드 + TIME/PRESSURE 시뮬레이션
+  │                                       → zones에 누적 (키 단위 try/except 격리)
+  └ Product별 _export_results()          : zone별 CSV 출력
+  [출력 — Spotfire 연동 CSV (추후 DB 적재/웹 뷰어로 대체 예정)]
+    Simul_13P_{Product}.csv / Simul_ED1·ED2_{Product}.csv / Simul_Other_{Product}.csv
+- 하단: 상류 연결 강조 — "Merge Hub → 학습 파이프라인 → Simulation 순서로
+  실행되어야 하는 이유가 이 입력 원통들이다"
+
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+PART 1. _run_key() — 키 하나의 실행 단위: 로드 1번, 시뮬레이션은 Set-up 행 수만큼
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+
+[데이터 일괄 로드 — 키당 1번만]
+- 시퀀스:
+  ① Set-up에서 pol_type(Pol_Type), Offset_Group(TIME 행 기준) 추출
+  ② Simulation_Get.fetch_simulation_data(mico_info_key)
+     : 시뮬레이션 입력 6종을 한 번에 로드해 tuple로 반환
+     · Get_data.MongoDB_GetData()      → merge_df (실측)
+     · _load_ref_lots()                → Ref lot (SRC+HUB concat, wafer·para dedup)
+     · _load_learning_tables()         → Pre VM / RR / OFFSET / Online 4종
+       (Family=='TEST'면 컬렉션명에 _TEST suffix — 테스트 격리 장치)
+  ③ Simulation_Get.merge_pre_oper_info(merge_df, mico_info_key)
+     : Set-up에 Pre_Oper_Code2 있으면 PRE_THK_INFO를 substrate_id로 left join
+       (없으면 그대로 반환 — 공정별 분기 없이 자동, Merge_Data 패턴)
+- 왜 로드를 밖으로 뺐나: 같은 키 안에서 TIME/PRESSURE × 여러 Thk_Para 시뮬레이션이
+  같은 데이터를 반복 사용 → 행별 루프 안에서 로드하면 조회가 수배로 늘어남
+
+[TIME → PRESSURE 이중 루프와 zone 분류]
+- 실행 순서 (순서가 중요한 이유를 화살표 라벨로):
+  ① TIME(13P) 루프: FB_Type=='TIME' 행마다 simulate_time()
+     → 결과에 Pre_Target_13P/Target_13P 부여 → zones['13P']에 누적
+     → 이 루프에서 Thk_Para_13P 확보               ← PRESSURE가 기준으로 쓸 값
+  ② PRESSURE 루프: FB_Type=='PRESSURE' 행마다
+     · Thk_Para_13P 미확보면 전체 skip              ← 방어: 13P 없이 존 시뮬 불가
+     · _zone_label(Thk_Para, extra_zones)           : EDGE/EXED는 기본 인식,
+       그 외는 extra_zones에 등록된 라벨만 매칭, 매칭 없으면 None → 제외
+     · simulate_pressure() → EDGE/EXED는 Pre_Target_{zone}/Target_{zone} 부여,
+       extra zone은 ZONE 컬럼 부여 → zones[zone]에 누적
+- _append_zone() 참고: zone별 DataFrame을 dict에 누적
+  (source 코드의 eval/exec 동적 변수명 방식을 defaultdict로 대체한 지점)
+
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+PART 2. simulate() 조립 라인 — 이 자료의 핵심 (컨베이어 벨트 모식도로 크게)
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+
+[진입 준비]
+- simulate_time / simulate_pressure는 mode('TIME'/'PRESSURE')만 다른 얇은 래퍼
+  → 실체는 simulate() 하나 (TIME/PRESSURE 공통 코어, mode 인자로 분기 흡수)
+- 도입부:
+  · _parse_search_key()      : Set-up 1행 → dict (형변환·기본값 정리를 한 곳에)
+  · Get_data.APCParaGet/PadParaGet/DiskParaGet/HeadParaGet() : 컬럼명 매핑
+  · _get_consumable_para()   : RR_Para 값(HEAD/PAD/DISK) → RR_DB의 x축 선택
+
+[조립 라인 9단계 — DataFrame이 왼쪽에서 오른쪽으로 흐르는 컨베이어로 그려줘.
+ 각 단계 위에 "무엇이 붙는가", 아래에 "join 방식"을 라벨로]
+  ① _build_base_frame()      : 실측에서 Oper/Recipe/APC 필터 + 필요 컬럼만 추출
+                               (OFFSET 결측→0, substrate_id dedup, Date 정렬)
+  ② _attach_pre_vm()         : + Pre_Thk 학습값        [merge_asof, pre_eq_ch별]
+  ③ _attach_rr()             : + RR 계수 4종(b1/b0)    [merge_asof, eqp+recipe별]
+  ④ _attach_online()         : + Online Simulation 결과 [merge, substrate_id]
+  ⑤ _attach_offset()         : + Simul_OFFSET          [merge_asof, eqp+recipe+IDLE별]
+                               (TIME 모드는 LC/TB/Normal 분리 후 결합 —
+                                OFFSET 학습의 저장 형식과 맞추기 위함)
+  ⑥ _fill_learning_values()  : 결측 학습값 보정 사다리 (PART 3)
+  ⑦ _apply_pre_thk_formula() : PRE_THK_FORMULA대로 Pre_Thk 조합 (PART 3)
+                               (_resolve_pre_thk_formula가 미지정 항목을
+                                Set-up 기준 기본값으로 확정)
+  ⑧ _attach_ref_lots()       : + Ref wafer 1~4의 Post/Pre_VM/APC/OFFSET 값
+                               [item_value의 ';' 목록을 Ref_i 컬럼으로 분해 후 merge]
+  ⑨ _finalize()              : 출력 컬럼 표준화(Pol_Time/THK 등) + RR_DB 산출 (PART 3)
+- 강조: 왜 merge_asof(시점 기준)인가 — "각 웨이퍼는 자기가 처리된 시점의
+  학습값을 매칭받는다" (과거 시점 웨이퍼에 미래 학습값이 붙는 것을 방지)
+- empty 방어 패턴: ②③⑤는 학습 테이블이 비어도 NaN 컬럼을 만들어 반환
+  → 후속 단계가 컬럼 유무 분기 없이 동일 코드로 진행 (조립 라인이 멈추지 않음)
+
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+PART 3. 조립 라인의 핵심 부품 3개 상세
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+
+[부품 1: _fill_learning_values() — 결측 보정 사다리]
+- 학습값이 비어 있는 행을 단계적으로 채우는 우선순위 사다리 (표로):
+  | 대상 | 1차 | 2차 | 3차 |
+  | RR b1/b0 | eq_model_recipe별 ffill | eq_model_recipe별 평균 | — |
+  | Simul_OFFSET | eq_model_recipe+IDLE별 평균 | (이후 0) | — |
+  | Pre_Thk | pre_eq_ch별 ffill | pre_eq_ch별 평균 | 0 |
+- RR_ 접두 컬럼은 to_numeric(coerce) 선행 — '-' sentinel(과거 문서 호환)을 NaN으로
+
+[부품 2: Pre_Thk 산식 — runner의 PRE_THK_FORMULA가 코드까지 내려오는 경로]
+- _resolve_pre_thk_formula(sk, formula): 산식 확정 규칙
+  · runner가 지정한 항목은 그대로, 미지정 항목은 Set-up 기준 기본값
+    (Pre_Oper_Code{n} 있으면 'reg', SOURCE OX CMP의 OPER2만 weight 2 — source 동작 보존)
+  · 'raw'/'reg' 문자열은 (mode, 1) 튜플로 정규화
+- _apply_pre_thk_formula(df, sk, resolved): 확정 산식대로 조합
+  Pre_Thk = (PRE_OPER=True면 moving avg 학습값, False면 0)
+            + Σ weight × (raw: 계측값 | reg: 계측값×b1+b0)
+  · 적용 전 원값은 Pre_Thk2로 보존 (검증용)
+  · 계측 컬럼/회귀계수 없으면 해당 항만 제외하고 진행 (경고 출력)
+- 포인트: 산식 실험은 runner의 PRE_THK_FORMULA만 바꾸면 됨 — 라이브러리 수정 불필요
+
+[부품 3: _finalize()의 RR_DB — 학습된 4개 모델 중 하나를 고르는 우선순위]
+- RR 편에서 배운 4개 모델(if/current/weighted/기본)이 여기서 소비됨:
+  | 순위 | 조건 | 사용 계수 |
+  | 1 | if_b1 있음 + 소모품 ≤ Pad_Seperation | RR_if_b1/b0 (패드 초기 구간) |
+  | 2 | current 있음 | RR_b1/b0_current (현재 사이클) |
+  | 3 | weighted 있음 | RR_b1/b0_weighted (최근 가중) |
+  | 4 | (항상) | RR_b1/b0 (기본) |
+  → 학습 편의 "성립된 모델만 저장" 정책과 짝: 저장 안 된 모델은 NaN이라 자동으로
+    다음 순위로 넘어감 (np.vectorize로 행별 적용)
+
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+PART 4. 안정성 설계 — 코드에 주석으로 남아 있는 함정과 개선 이력
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+
+[각 항목을 문제→증상→해결 3단으로]
+① wafer 단위 join 개선 — merge_pre_oper_info()
+   · 문제: source 코드는 PRE_THK_INFO를 alias_lot_id(lot 단위)로 결합
+   · 증상: wafer별 계측 차이가 lot 첫 행 값으로 뭉개짐
+   · 해결: substrate_id(wafer 단위) join으로 변경 — 학습측
+     apply_pre_oper2_correction과 동일 기준 (학습·시뮬 일관성)
+② 구/신 스키마 공존 대응: coalesce_substrate_id() + drop_duplicates(keep='last')
+   + '-' → NaN 복원 + merge_df와 겹치는 컬럼 제거 (suffix 충돌 방지)
+③ 회귀전용 컬렉션의 reindex — _attach_pre_vm()
+   · 회귀계수만 저장된 컬렉션은 pre_eq_ch/Pre_Thk/Count 키 자체가 없음
+   · reindex(columns=...)로 NaN 컬럼을 강제 생성 → 후속 코드 분기 통일
+④ eval/exec 제거 — _append_zone() + defaultdict
+   · source는 zone별 결과를 eval/exec 동적 변수명으로 누적 → dict 누적으로 대체
+   · zone 추가가 extra_zones 인자 등록만으로 가능해진 이유
+⑤ TIME 선행 방어: PRESSURE는 Thk_Para_13P가 있어야 실행
+   → TIME set-up 없으면 명시적 skip 메시지 후 중단 (조용한 오답 방지)
+⑥ 남겨둔 확인 사항 (수정 아님, 인지용):
+   · Ref_YN == Ref_Count (source 원본 그대로 — Y/N 의도 여부 회사 확인 예정)
+   · CSV 출력은 Spotfire 연동용 현행 유지 — 추후 DB 적재/웹 뷰어로 대체 예정
+
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+PART 5. 마무리 종합
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+
+[함수 명세 총표]
+  | 함수 | 입력 → 출력 | 호출 위치 | 존재 이유 |
+  | run(Family, oper_desc, extra_zones, file_labels, pre_thk_formula, ...) | config → CSV 출력 | runner | 키 루프·Product 누적·에러 격리 본체 |
+  | _run_key(...) | 키 1개 → zones 누적 | run 키 루프 | 로드 1번 + TIME/PRESSURE 이중 루프 |
+  | Simulation_Get.fetch_simulation_data(...) | 키 → 입력 6종 tuple | _run_key | 시뮬 입력 일괄 로드 (반복 조회 방지) |
+  | _load_learning_tables / _load_ref_lots | 키 → 학습 4종 / Ref lot | fetch 안 | 컬렉션명 규칙·TEST suffix·dedup을 한 곳에 |
+  | Simulation_Get.merge_pre_oper_info(...) | merge_df → INFO 결합 df | _run_key | 사전공정 계측 결합 (Set-up 유무 자동) |
+  | Simulation_Get.simulate(...) | Set-up 1행 + data → 결과 df | simulate_time/pressure | TIME/PRESSURE 공통 코어 (조립 라인) |
+  | simulate_time / simulate_pressure | 〃 | _run_key 루프 | mode만 다른 얇은 래퍼 |
+  | _parse_search_key / _get_consumable_para | Set-up 행 → dict / x축 컬럼 | simulate 도입부 | 형변환·기본값·소모품 선택을 격리 |
+  | _build_base_frame(...) | merge_df → 기본 프레임 | 조립 ① | 필터·컬럼 선택·dedup·정렬 |
+  | _attach_pre_vm / _attach_rr / _attach_online / _attach_offset | df → 학습값 붙은 df | 조립 ②~⑤ | 데이터 소스당 함수 1개 (empty여도 NaN 컬럼 생성) |
+  | _fill_learning_values(df) | df → 결측 보정 df | 조립 ⑥ | 보정 사다리를 한 곳에 |
+  | _resolve_pre_thk_formula / _apply_pre_thk_formula | formula → Pre_Thk 조합 | 조립 ⑦ | runner 산식 control의 실행부 |
+  | _attach_ref_lots(...) | df → Ref_1~4 값 붙은 df | 조립 ⑧ | Ref wafer 분해·결합 격리 |
+  | _finalize(...) | df → 출력 표준화 + RR_DB | 조립 ⑨ | 모델 우선순위를 한 함수에 고정 |
+  | _zone_label / _append_zone | Thk_Para → zone / 누적 | _run_key | zone 분류 규칙·누적 방식 격리 |
+  | _export_results(...) | zones → CSV | run 마지막 | 파일명 규칙(기존 유지)을 한 곳에 |
+
+["무엇을 고치려면 어디를 보나" 치트시트]
+  | 하고 싶은 것 | 볼 파일 · 함수 |
+  | 신규 공정 추가 | simulation/{공정}/Simulation_Hub.py 생성 + 웹 Set-up 등록 |
+  | Pre_Thk 산식 실험 | Simulation_Hub.py의 PRE_THK_FORMULA만 (코드 수정 불필요) |
+  | 처리 zone 추가 (Z5, CENTER 등) | runner의 extra_zones (+ 필요시 _zone_label 패턴) |
+  | RR_DB 모델 우선순위 변경 | _finalize의 RR 함수 |
+  | 결측 보정 순서 변경 | _fill_learning_values |
+  | Ref lot 파라미터 매핑 | Get_Data.py의 REFParaGet |
+  | 출력 파일명/경로 변경 | runner의 file_labels·export_dir / _export_results |
+  | CSV → DB 적재 전환 (예정) | _export_results 교체 (zones 구조는 그대로) |
+- 마무리 배너: "Merge Hub가 재료를 만들고, 학습 파이프라인이 계수를 만들고,
+  Simulation이 그 계수로 결과를 조립한다 — 시리즈 전체를 관통하는 연결 고리는
+  끝까지 함수 호출이 아니라 MongoDB 컬렉션이다"
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━

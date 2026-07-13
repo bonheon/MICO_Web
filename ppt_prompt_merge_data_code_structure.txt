@@ -1,0 +1,227 @@
+반도체 CMP 공정 APC 시스템 "Merge Data 생성 코드 구조" 교육용 PPT를 만들어줘.
+
+[자료의 목적과 청중]
+- 청중: Merge Data가 어떤 데이터인지(조건별 형식)는 이미 배웠고, 이제 코드를 직접 읽고
+  수정해야 하는 사내 엔지니어
+- 목적: merge/{공정명}/Merge_Hub.py에서 시작해 Common/Merge_Data.py의 run()이
+  어떤 함수를 어떤 순서로 호출하는지 한눈에 파악하고, "어떤 수정은 어느 함수만 보면
+  되는지" 알 수 있게 하는 코드 워크스루
+- 관통 메시지 2개 (자료 전체에서 반복 강조):
+  ① 분기는 코드에 없다 — runner의 PRE_OPER_CONFIG dict 하나 + 웹 Set-up 값
+    (Maker, Pre_Oper_Code, para 개수)이 모든 처리 경로를 결정한다
+  ② "초기 전체 로드 1번 + 최신분 증분 upsert 반복" 패턴이 merge 본체·simple·pivot
+    세 곳에서 똑같이 반복된다 — 이 패턴 하나만 이해하면 파일 전체가 읽힌다
+
+[디자인 공통 지침]
+- 깔끔한 기업 교육자료 스타일, "코드 지도" 느낌 (학습 파이프라인 코드 구조 편과 동일 톤)
+- 함수명·파일명·컬렉션명은 전부 고정폭 폰트
+- 호출 트리/시퀀스의 화살표에는 "왜 호출하는지" 짧은 라벨을 달 것
+- 데이터(MongoDB 컬렉션)는 원통 도형, 함수/처리는 사각형으로 구분
+- 각 파트 첫 장에는 run() 6단계 미니맵을 구석에 두고 현재 위치를 하이라이트
+- 장수는 내용에 맞게 자유롭게 구성하되, 아래 순서와 내용을 따를 것
+
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+PART 0. 표지 + 전체 뼈대
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+
+[표지]
+- 제목: Merge Data 생성 코드 구조
+- 부제: Merge_Hub.py에서 시작하는 함수 호출 지도 — 학습 파이프라인의 상류
+
+[코드를 읽는 지도 — 2층 구조와 파일 내 섹션 지도]
+- 학습 파이프라인(3층)과 달리 Merge는 2층: 계산이 단순해 별도 계산 클래스 없이
+  Common/Merge_Data.py 한 파일에 섹션 주석으로 구분해 담았다.
+  merge/{공정명}/Merge_Hub.py   ← [1층 runner] 공정 등록. 약 10줄이 전부:
+                                   from Common.Merge_Data import run
+                                   FAMILY    = 'NAND'
+                                   OPER_DESC = 'M1 CU CMP'
+                                   PRE_OPER_CONFIG = {2:'SRC_HUB', 3:'SRC_HUB', 4:'SRC_HUB'}
+                                   run(FAMILY, OPER_DESC, PRE_OPER_CONFIG)
+  Common/Merge_Data.py          ← [2층 라이브러리] run() + 헬퍼 전부. 섹션 구성:
+                                   · Merge_Get_data 클래스 (DataLake/HUB 조회 — 회사 코드 이식 지점)
+                                   · Merge DF 공통 처리 (_prepare_merge_df, _set_eqp_ch, _push_with_index)
+                                   · PRE_THK_INFO 컬렉션 관리 (핸들·인덱스·literal 키 확인)
+                                   · Pre_Oper 파싱/Pivot 헬퍼 (_get_pre_oper_info, _classify_para_zones 등)
+                                   · Pre_Oper simple/pivot 처리 + 디스패처
+                                   · run() 메인
+  Common/Get_Data.py            ← [공통 조회] Set-up·PRETHK 계열 조회 함수
+- runner 설정 3개의 의미:
+  | 설정 | 역할 |
+  | FAMILY / OPER_DESC | 웹 Set-up에서 처리 대상을 찾는 키 |
+  | PRE_OPER_CONFIG | {사전공정 인덱스: 데이터 소스('SRC_HUB'/'MES_HUB')} — 사전공정 처리 지시 |
+- 5개 공정 runner 비교표 (config만 다르고 코드는 동일함을 보여주기):
+  | 공정 | PRE_OPER_CONFIG |
+  | DRAM GT HM NIT CMP | {} (사전공정 없음) |
+  | DRAM M1 CU CMP | {2: 'SRC_HUB'} |
+  | DRAM CBL HM NIT CMP | {2: 'MES_HUB', 3: 'MES_HUB'} |
+  | NAND M0C FILL OX CMP | {2: 'SRC_HUB', 3: 'SRC_HUB'} |
+  | NAND M1 CU CMP | {2: 'SRC_HUB', 3: 'SRC_HUB', 4: 'SRC_HUB'} |
+- 포인트: simple/pivot 구분은 config에 없다 — 웹 Set-up의 para 개수로 자동 판별 (PART 2)
+- 참고: Merge_Get_data.getdatalake/getdatahub는 회사 서버 코드를 붙여넣는 이식 지점
+  (구조상 여기만 회사 환경 의존, 나머지는 전부 공용 로직)
+
+[run() 전체 흐름 모식도 — 이 자료의 핵심 한 장, 가장 크게]
+- run(Family, oper_desc, pre_oper_config, Days=30)의 6단계와 컬렉션을 하나의 그림으로:
+  run()
+  ├ Cube_Connector 생성                        : 실패 알람 발송용 (메신저)
+  ├ _build_mico_info_table()                   : 웹 Set-up 조회 (Get_data.baseinfoGetData)
+  ├ for_key 생성                                : Lot_Code + Oper_Code + Fab 조합
+  └ 키별 루프 (각 키가 독립 try/except — 한 키 실패해도 다음 키 계속):
+    ① 컬렉션 핸들 생성                          → (원통) MICO_Merge_df_{Lot_Code}_{Oper_Desc}_{Fab}
+    ② _load_initial_lake()                     : 컬렉션 비어있을 때만 DataLake 30일 전체 로드
+    ③ getdatahub() → _prepare_merge_df()
+       → _push_with_index()                    : HUB 최신분 upsert + Date 인덱스(31일 TTL)
+    ④⑤ 사전공정 처리 (pre_oper_config 있을 때만)
+       valid_pre 선별 → _process_pre_oper() 루프(2→3→4)
+                                               → (원통) MICO_PRE_THK_INFO_{Lot_Code}_{oper_desc}_{Fab}
+    ⑥ Report 갱신                              : 당일 report 없으면 Get_data().Report() 실행
+                                               → (원통) MICO_Report (웹 DB)
+- 하단에 하류 연결 표시: 이 두 컬렉션(Merge_df, PRE_THK_INFO)을 학습 파이프라인
+  (Module.py의 fetch_merge_data / load_pre_thk_data)이 읽는다
+  → "Merge Hub = 학습의 상류. 여기가 틀리면 학습 전체가 틀린다"
+
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+PART 1. Merge 본체 생성 (②③단계) — "초기 로드 + 증분 upsert" 패턴의 원형
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+
+[②③단계 호출 시퀀스]
+- 관통 패턴의 원형이 여기 있음을 강조 (이후 simple/pivot에서 같은 패턴 반복):
+  ② 초기 로드: _load_initial_lake()
+     · mongo_db.count_row() > 0 이면 즉시 return    ← "이미 있으면 아무것도 안 한다"
+     · 없으면 Merge_Get_data.getdatalake(30일)       : DataLake 전체 조회
+       → _prepare_merge_df() → mongo_db.push_df()
+  ③ 증분 upsert (매 실행마다):
+     · Merge_Get_data.getdatahub()                   : HUB 최신 데이터 조회
+     · → _prepare_merge_df()                         : 동일한 공통 가공 적용
+     · → _push_with_index()                          : substrate_id 기준 UpdateOne
+                                                       bulk upsert (중복 방지)
+                                                       + Date 인덱스 31일 TTL 재설정
+- 왜 upsert인가: HUB 조회 구간이 겹쳐도 substrate_id(웨이퍼)당 문서 1개가 유지됨
+- 왜 TTL 인덱스인가: 31일 지난 데이터 자동 삭제 → 컬렉션 크기 자동 관리
+
+[공통 가공 함수 2개 — 조회 원본을 표준 형태로]
+- _prepare_merge_df(df, Product, oper_desc, Fab, Lot_Code, Maker):
+  ① request_dtts → Date 컬럼명 통일 + 정렬
+  ② Product/OPER_DESC/Fab/Lot_Code 식별 컬럼 추가
+  ③ _set_eqp_ch(df, Maker) 호출               ← Maker 분기는 이 함수에 격리
+  ④ fillna('-')                                : 결측 표준화 (MongoDB 저장용)
+- _set_eqp_ch(df, Maker) — 장비 채널(eqp_ch) 생성 규칙 (대소문자 무시):
+  | Maker | 판별 | 결과 |
+  | EBARA | recipe_id의 AB/CD | {eqp_id}_AB / {eqp_id}_CD |
+  | KCT | recipe_id의 _L_/_R_(중간) 또는 _L/_R(끝) | {eqp_id}_L / {eqp_id}_R (표기 없으면 eqp_id 그대로) |
+  | 그 외(AMAT 등) | 분리 없음 | eqp_id 그대로 |
+- 설계 포인트: 조회(getdatalake/getdatahub)와 가공(_prepare_merge_df)을 분리
+  → 초기 로드와 증분이 같은 가공 함수를 공유 (두 경로의 데이터 형식이 항상 일치)
+
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+PART 2. 사전공정 처리 (④⑤단계) — 디스패처와 simple/pivot 두 갈래
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+
+[run() 쪽 진입 — 처리 전에 두 번 거른다]
+- 시퀀스:
+  ① valid_pre 선별: pre_oper_config의 각 인덱스에 대해 _get_pre_oper_info() 호출
+     · Set-up에 Pre_Oper_Code{i} 유효값 없으면 None → 그 인덱스는 skip 출력
+     · 전부 None이면 PRE_THK 테이블 생성 자체를 skip     ← 빈 테이블 방지 1
+  ② _get_pre_thk_collection(): 컬렉션 핸들 "연결만" 생성
+     · MongoDB는 insert가 있어야 컬렉션이 실제 생성됨    ← 빈 테이블 방지 2
+  ③ valid_pre 인덱스 순서(2→3→4)로 _process_pre_oper() 호출
+  ④ collection.count_documents({}) > 0 일 때만 _ensure_pre_thk_index()
+     · 빈 컬렉션에 인덱스를 걸면 빈 테이블이 생성되어
+       하류(load_pre_thk_data)에서 오류                  ← 빈 테이블 방지 3
+- _process_pre_oper() 디스패처 (분기 트리로):
+  _get_pre_oper_info(info_df, i)      : Set-up에서 code/desc/para_list 추출
+  ↓
+  len(para_list) == 1  → _process_pre_simple_one()   (단일 측정값)
+  len(para_list) >  1  → _process_pre_pivot_one()    (다존 측정 → offset 계산)
+  ← simple/pivot을 config가 아니라 Set-up의 para 개수로 자동 판별하는 지점
+
+[simple vs pivot — 2열 비교 시퀀스 (PART 2의 핵심 모식도)]
+- 두 함수 모두 "초기 로드 + 증분 upsert" 패턴 (PART 1과 동일 구조임을 화살표로 강조):
+  [_process_pre_simple_one]                  [_process_pre_pivot_one]
+  필드명 = '{desc}.{para}' (점 포함 키)       컬럼명 = '{desc}_{para}' (pivot 기준)
+  ① _has_literal_field()로 필드 존재 확인     ① collection 조회 → 비었거나
+     없으면 _load_initial_simple_one()           "자기 컬럼(col_13p)"이 없으면
+     : SRC 또는 MES 전체 조회 → insert_many      _load_initial_pivot_one()
+                                                : SRC 전체 → pivot_table
+                                                → zone Target 계산(_safe_mean)
+                                                → _apply_pivot_offsets → insert_many
+  ② HUB 최신 조회                             ② 누적 전체로 zone Target 재계산
+     (MES_HUB 또는 SRC_HUB —                   ③ SRC_HUB 최신 조회 → pivot
+      PRE_OPER_CONFIG의 값이 여기서 쓰임)        → _apply_pivot_offsets
+  ③ 행별 _upsert_pre_doc()                    ④ 행별 _upsert_pre_doc()
+- pivot 전용 헬퍼 2개:
+  · _classify_para_zones(para_list): 이름 패턴으로 13P/ED/EX/Z5/WEAK zone 분류
+    (ED1/EDGE/_A_ → ED, ED2/EXED/_B_ → EX, Z5 → Z5, _E_ → WEAK, 나머지 → 13P)
+  · _apply_pivot_offsets(): zone별 offset(BIAS) 컬럼 추가 — 산식은 알고리즘 편 참조
+- 공용 upsert 규칙 — _upsert_pre_doc(collection, query_key, query_val, update_fields):
+  | 상황 | 동작 |
+  | 문서 없음 | full_row_dict로 신규 insert |
+  | 첫 필드 없거나 NaN | 문서 갱신 (delete + insert) |
+  | 이미 유효값 존재 | skip — 기존 값 보호 |
+  → simple/pivot이 같은 함수를 공유. "한 번 확정된 측정값은 덮어쓰지 않는다"는
+    정책이 이 함수 한 곳에 고정됨
+
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+PART 3. 안정성 설계 — 코드에 주석으로 박혀 있는 실전 함정들
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+
+[함정과 대응 (각 항목을 문제→증상→해결 3단 구성으로)]
+① literal 점(.) 포함 키 조회 함정 — _has_literal_field()
+   · 문제: INFO 테이블 필드명이 '{desc}.{para}' 형태의 점 포함 키인데,
+     MongoDB 쿼리는 '.'을 nested path로 해석
+   · 증상: {field: {'$exists': True}} 카운트가 문서 6800개여도 항상 0
+     → 매 실행마다 초기 전체 로드가 반복됨
+   · 해결: $objectToArray로 실제 키 목록을 만들어 literal 매칭
+② 빈 테이블 3중 방지 (PART 2에서 본 3장치를 한 장으로 정리)
+   · 연결만으로는 컬렉션 미생성 / valid_pre 없으면 아예 skip /
+     인덱스는 문서 1건 이상일 때만
+   · 이유: 빈 컬렉션에 인덱스만 생기면 하류 load_pre_thk_data가
+     substrate_id 없는 테이블을 읽다 오류
+③ 공유 컬렉션의 초기 로드 판정 — pivot의 "자기 컬럼 존재" 체크
+   · 문제: 여러 사전공정이 한 컬렉션을 공유 → empty 체크만 하면
+     다른 사전공정이 먼저 채운 경우 자기 초기 로드를 건너뜀
+   · 증상: col_13p 접근에서 KeyError
+   · 해결: empty "또는" 자기 컬럼(col_13p) 부재를 초기 로드 조건으로
+④ Report 인스턴스 호출 주의 — Get_data().Report(merge_df, THK_Para_list)
+   · Report는 self를 받는 인스턴스 메서드 → Get_data.Report(...)로 클래스 호출하면
+     merge_df가 self에 바인딩되어 인자가 밀리며 TypeError
+⑤ 에러 격리 2겹: 키 단위 try/except + run() 전체 try/except
+   → 실패 시 Cube 메신저로 traceback 발송, 다음 키는 계속 처리
+
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+PART 4. 마무리 종합
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+
+[함수 명세 총표]
+  | 함수 | 입력 → 출력 | 호출 위치 | 존재 이유 |
+  | run(Family, oper_desc, pre_oper_config, Days) | config → 컬렉션 3종 갱신 | runner | 키 루프·단계 순서·에러 격리의 본체 |
+  | _build_mico_info_table(...) | Family/oper_desc → Set-up df | run 초입 | Set-up 조회 진입점 통일 |
+  | Merge_Get_data.getdatalake/getdatahub | 조회 조건 → 원본 df | ②/③단계 | 회사 서버 조회 코드 이식 지점 (여기만 환경 의존) |
+  | _prepare_merge_df(...) | 원본 df → 표준 df | 초기 로드·증분 양쪽 | 두 경로의 데이터 형식을 강제로 일치 |
+  | _set_eqp_ch(df, Maker) | df → eqp_ch 컬럼 추가 | _prepare_merge_df 안 | Maker 분기를 한 함수에 격리 |
+  | _push_with_index(...) | 표준 df → upsert + 인덱스 | ③단계 | substrate_id upsert와 TTL 인덱스 규칙 고정 |
+  | _load_initial_lake(...) | (비었을 때) → 30일 적재 | ②단계 | "초기 로드 1번" 정책 격리 |
+  | _get_pre_oper_info(info_df, i) | Set-up df → code/desc/para_list 또는 None | valid_pre 선별 + 디스패처 | Set-up 존재 판정을 한 곳에 |
+  | _process_pre_oper(...) | i → simple/pivot 위임 | ④⑤단계 루프 | para 개수 자동 판별 디스패처 |
+  | _process_pre_simple_one(...) | 단일 para → upsert | 디스패처 | 단일값 경로 본체 |
+  | _process_pre_pivot_one(...) | 다중 para → pivot upsert | 디스패처 | 다존 경로 본체 |
+  | _load_initial_simple_one / _load_initial_pivot_one | 전체 조회 → insert_many | 각 경로 ① | 초기 로드 정책 분리 |
+  | _classify_para_zones / _safe_mean / _apply_pivot_offsets | para/df → zone·Target·offset | pivot 경로 | 산식 헬퍼 (알고리즘 편 참조) |
+  | _upsert_pre_doc(...) | 1행 → insert/갱신/skip | simple·pivot 양쪽 | "확정값 보호" upsert 정책을 한 곳에 |
+  | _has_literal_field(...) | 컬렉션·필드 → bool | simple 경로 ① | 점 포함 키 존재 확인 (MongoDB 함정 대응) |
+  | _get_pre_thk_collection / _ensure_pre_thk_index | 키 → 핸들/인덱스 | ④⑤단계 | 빈 테이블 방지 장치 |
+
+["무엇을 고치려면 어디를 보나" 치트시트]
+  | 하고 싶은 것 | 볼 파일 · 함수 |
+  | 신규 공정 추가 | merge/{공정}/Merge_Hub.py 생성 (~10줄) + 웹 Set-up 등록 |
+  | 사전공정 추가/소스 변경 | Merge_Hub.py의 PRE_OPER_CONFIG + 웹 Set-up |
+  | 채널 분리 규칙(Maker) 변경 | _set_eqp_ch |
+  | zone 분류 패턴 추가 | _classify_para_zones (+ _apply_pivot_offsets의 동일 패턴 — 2곳!) |
+  | upsert 정책(덮어쓰기 등) 변경 | _upsert_pre_doc |
+  | 초기 로드 기간 변경 | runner에서 run(..., Days=N) |
+  | 데이터 보존 기간 변경 | _push_with_index의 TTL 값 |
+  | 회사 조회 쿼리 변경 | Merge_Get_data.getdatalake/getdatahub |
+- 마무리 배너: "Merge Hub가 만든 MICO_Merge_df와 MICO_PRE_THK_INFO를
+  학습 파이프라인(Module.py)이 읽는다 — 상류(Merge)와 하류(학습)를 잇는 것도
+  역시 함수 호출이 아니라 컬렉션이다"
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
