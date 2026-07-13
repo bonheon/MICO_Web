@@ -158,9 +158,11 @@ def _build_base_frame(merge_df, sk, Main_Para, Main_Para_formula, Main_Para_OFFS
 
     if mode == 'PRESSURE':
         col_list.append(Thk_Para_13P)
-        # ED2/EXED 존은 ED1/EDGE 계측값도 함께 사용
-        if ('ED2' in sk['Thk_Para']) or ('EXED' in sk['Thk_Para']):
-            col_list.append(sk['Thk_Para'].replace('ED2', 'ED1').replace('EXED', 'EDGE'))
+        # ED2/EXED/_EX_ 존은 ED1/EDGE/_ED_ 계측값도 함께 사용
+        if ('ED2' in sk['Thk_Para']) or ('EXED' in sk['Thk_Para']) or ('_EX_' in sk['Thk_Para']):
+            col_list.append(
+                sk['Thk_Para'].replace('ED2', 'ED1').replace('EXED', 'EDGE').replace('_EX_', '_ED_')
+            )
 
     # OFFSET 컬럼: merge_df 에 실제 존재하는 것만 추가 (없는 컬럼 선택 시 KeyError 방지)
     for x in Main_Para_OFFSET:
@@ -695,14 +697,14 @@ class Simulation_Get:
 def _zone_label(thk_para, extra_zones):
     """Thk_Para → zone 라벨 분류 (Merge_Data._classify_para_zones 와 동일 기준).
 
-    - ED1/EDGE → 'EDGE', ED2/EXED → 'EXED'
+    - ED1/EDGE/_ED_ → 'EDGE', ED2/EXED/_EX_ → 'EXED'
     - 그 외    → extra_zones 중 Thk_Para 에 포함된 라벨 반환
                  (예: ['Z5'] → ..._Z5_AVG 는 'Z5', ['CENTER', 'Z1', 'Z2'] 등 확장 가능)
     - 매칭 없으면 None(처리 제외)
     """
-    if 'ED1' in thk_para or 'EDGE' in thk_para:
+    if 'ED1' in thk_para or 'EDGE' in thk_para or '_ED_' in thk_para:
         return 'EDGE'
-    if 'ED2' in thk_para or 'EXED' in thk_para:
+    if 'ED2' in thk_para or 'EXED' in thk_para or '_EX_' in thk_para:
         return 'EXED'
     for zone in extra_zones:
         if zone in thk_para:
@@ -875,19 +877,28 @@ def run(Family, oper_desc,
         for k in key_list:
             print(f'    - {k}')
 
-        # Product 단위로 zone 결과 누적 → CSV 파일명은 기존(source)과 동일하게
+        # Product 단위로 key 를 묶어 순차 처리. CSV 파일명은 기존(source)과 동일하게
         # {Product}_..._Simulation/Simul_*_{Product}.csv 유지
         # (Lot_Code 는 Product 보다 작은 단위 — 같은 Product 의 여러 Lot_Code 가 한 파일에 합산)
-        zones_by_product = defaultdict(lambda: defaultdict(list))
-
+        #
+        # Product 하나의 key 를 모두 처리하면 그 자리에서 바로 export 하고 zones 를
+        # 버림 — 전체 Product 를 다 처리할 때까지 zones_by_product 에 모든 결과를
+        # 들고 있던 이전 방식은 Set-up 된 제품이 많을수록 RAM 사용량이 제품 수에
+        # 비례해 계속 늘어나는 문제가 있었음.
+        keys_by_product = defaultdict(list)
         for key in key_list:
-            mico_info_key = mico_info_table[mico_info_table['for_key'] == key].copy()
-            Product       = mico_info_key['Product'].unique()[0]
-            print(f'\n  [{key}] (Product={Product})')
-            _run_key(mico_info_key, zones_by_product[Product], extra_zones, pre_thk_formula, c)
+            product = mico_info_table.loc[mico_info_table['for_key'] == key, 'Product'].iat[0]
+            keys_by_product[product].append(key)
 
-        for Product, zones in zones_by_product.items():
+        for Product, keys in keys_by_product.items():
+            zones = defaultdict(list)
+            for key in keys:
+                mico_info_key = mico_info_table[mico_info_table['for_key'] == key].copy()
+                print(f'\n  [{key}] (Product={Product})')
+                _run_key(mico_info_key, zones, extra_zones, pre_thk_formula, c)
+
             _export_results(zones, Product, export_oper, file_labels, extra_zones, export_dir)
+            del zones
 
     except Exception as e:
         tb = traceback.format_exc()
