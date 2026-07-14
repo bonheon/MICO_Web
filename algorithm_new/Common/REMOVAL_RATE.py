@@ -171,6 +171,9 @@ class Removal_Rate_Get:
             col_list = ['Date', 'substrate_id', 'eqp_id', 'recipe_id', 'process_id',
                         Pad_Para, Head_Para, Disk_Para, 'pre_eq_ch',
                         vm_col, Thk_Para, 'cycle', 'BIAS'] + Pol_Para
+            # DRESSER_CUTTING_RATE 등 기본 소모품 3종 외의 파라미터 선택 시 컬럼 유지
+            if consumable_Para not in col_list:
+                col_list.append(consumable_Para)
             if group_mode:
                 col_list.append('Group_Name')
             temp_data4 = temp_data4[col_list].copy()
@@ -263,11 +266,12 @@ class Removal_Rate_Get:
         Recipe_ID = key.Recipe_ID
         RR_Para   = key.RR_Para
 
-        Pol_Para  = Get_data.APCParaGet(APC_Para, pol_type)
-        Head_Para = Get_data.HeadParaGet(APC_Para)
-        Pad_Para  = Get_data.PadParaGet(APC_Para)
-        Disk_Para = Get_data.DiskParaGet(APC_Para)
-        RR_Para   = RR_Para.upper()
+        Pol_Para     = Get_data.APCParaGet(APC_Para, pol_type)
+        Head_Para    = Get_data.HeadParaGet(APC_Para)
+        Pad_Para     = Get_data.PadParaGet(APC_Para)
+        Disk_Para    = Get_data.DiskParaGet(APC_Para)
+        Dresser_Para = Get_data.DresserParaGet(APC_Para)
+        RR_Para      = RR_Para.upper()
 
         if RR_Para == 'HEAD':
             consumable_Para = Head_Para
@@ -275,6 +279,8 @@ class Removal_Rate_Get:
             consumable_Para = Pad_Para
         elif RR_Para == 'DISK':
             consumable_Para = Disk_Para
+        elif RR_Para == 'DRESSER_CUTTING_RATE':
+            consumable_Para = Dresser_Para
 
         temp_data = merge_df[
             (merge_df['operation_id'] == Oper_Code) &
@@ -302,11 +308,12 @@ class Removal_Rate_Get:
         APC_Para = key.APC_Para
         RR_Para  = key.RR_Para
 
-        Pol_Para  = Get_data.APCParaGet(APC_Para, pol_type)
-        Head_Para = Get_data.HeadParaGet(APC_Para)
-        Pad_Para  = Get_data.PadParaGet(APC_Para)
-        Disk_Para = Get_data.DiskParaGet(APC_Para)
-        RR_Para   = RR_Para.upper()
+        Pol_Para     = Get_data.APCParaGet(APC_Para, pol_type)
+        Head_Para    = Get_data.HeadParaGet(APC_Para)
+        Pad_Para     = Get_data.PadParaGet(APC_Para)
+        Disk_Para    = Get_data.DiskParaGet(APC_Para)
+        Dresser_Para = Get_data.DresserParaGet(APC_Para)
+        RR_Para      = RR_Para.upper()
 
         if RR_Para == 'HEAD':
             consumable_Para = Head_Para
@@ -314,6 +321,8 @@ class Removal_Rate_Get:
             consumable_Para = Pad_Para
         elif RR_Para == 'DISK':
             consumable_Para = Disk_Para
+        elif RR_Para == 'DRESSER_CUTTING_RATE':
+            consumable_Para = Dresser_Para
 
         temp_data = merge_df[
             ((merge_df['IDLE'] == '') | (merge_df['IDLE'].isna()))

@@ -79,6 +79,7 @@ class Detail(models.Model):
         ('pad', 'Pad'),
         ('disk', 'Disk'),
         ('head', 'Head'),
+        ('dresser_cutting_rate', 'Dresser Cutting Rate'),
     ]
     OFFSET_GROUP_CHOICES = [
         ('Y', 'Y'),
@@ -100,7 +101,7 @@ class Detail(models.Model):
     target = models.IntegerField(verbose_name='Target')
     pre_target = models.IntegerField(verbose_name='Pre Target')
     pre_thk_period = models.IntegerField(verbose_name='Pre THK Period')
-    rr_para = models.CharField(max_length=10, choices=RR_PARA_CHOICES, verbose_name='RR Para', blank=True, default='')
+    rr_para = models.CharField(max_length=30, choices=RR_PARA_CHOICES, verbose_name='RR Para', blank=True, default='')
     offset_group = models.CharField(max_length=1, choices=OFFSET_GROUP_CHOICES, verbose_name='Offset Group', blank=True, default='')
     rr_max = models.IntegerField(verbose_name='RR Max', null=True, blank=True)
     rr_period = models.IntegerField(verbose_name='RR Period', null=True, blank=True)

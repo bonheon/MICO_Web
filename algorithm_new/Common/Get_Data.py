@@ -167,6 +167,16 @@ class Get_data:
         return mapping.get(APC_Para, 'AMAT_DISK_3')
 
 
+    def DresserParaGet(APC_Para):
+        """APC 파라미터에 대응하는 DRESSER CUTTING RATE 소모품 컬럼명 반환."""
+        mapping = {
+            'P1': 'DRESSER_CUTTING_RATE_1',
+            'P2': 'DRESSER_CUTTING_RATE_2',
+            'P3': 'DRESSER_CUTTING_RATE_3',
+        }
+        return mapping.get(APC_Para, 'DRESSER_CUTTING_RATE_3')
+
+
     # ── [TEST 삭제] EQPMGetData_HUB ─────────────────────────────────────
     # 고정 더미 이벤트 로그를 반환하는 테스트 전용 구현.
     # 회사 실서버에서는 MES HUB API 실제 호출 함수로 교체.
