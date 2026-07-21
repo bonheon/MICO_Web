@@ -39,13 +39,13 @@
       <tr class="search-row">
         <th></th>
         <th></th>
-        <th><input type="text" class="col-search form-control form-control-sm" placeholder="검색..." data-col="2"></th>
-        <th><input type="text" class="col-search form-control form-control-sm" placeholder="검색..." data-col="3"></th>
-        <th><input type="text" class="col-search form-control form-control-sm" placeholder="검색..." data-col="4"></th>
-        <th><input type="text" class="col-search form-control form-control-sm" placeholder="검색..." data-col="5"></th>
-        <th><input type="text" class="col-search form-control form-control-sm" placeholder="검색..." data-col="6"></th>
-        <th><input type="text" class="col-search form-control form-control-sm" placeholder="검색..." data-col="7"></th>
-        <th><input type="text" class="col-search form-control form-control-sm" placeholder="검색..." data-col="8"></th>
+        <th><input type="text" class="col-search form-control form-control-sm" placeholder="검색..." name="f_category" value="{{ request.GET.f_category }}"></th>
+        <th><input type="text" class="col-search form-control form-control-sm" placeholder="검색..." name="f_fab" value="{{ request.GET.f_fab }}"></th>
+        <th><input type="text" class="col-search form-control form-control-sm" placeholder="검색..." name="f_device" value="{{ request.GET.f_device }}"></th>
+        <th><input type="text" class="col-search form-control form-control-sm" placeholder="검색..." name="f_recipe_id" value="{{ request.GET.f_recipe_id }}"></th>
+        <th><input type="text" class="col-search form-control form-control-sm" placeholder="검색..." name="f_maker" value="{{ request.GET.f_maker }}"></th>
+        <th><input type="text" class="col-search form-control form-control-sm" placeholder="검색..." name="f_created_at" value="{{ request.GET.f_created_at }}"></th>
+        <th><input type="text" class="col-search form-control form-control-sm" placeholder="검색..." name="f_created_by" value="{{ request.GET.f_created_by }}"></th>
       </tr>
     </thead>
     <tbody>
@@ -86,7 +86,7 @@
             </button>
           </div>
         </td>
-        <td class="text-muted">{{ forloop.counter }}</td>
+        <td class="text-muted">{{ forloop.counter|add:page.start_index|add:"-1" }}</td>
         <td>
           <span class="badge-pill" style="background:#f0fdf4; color:#22c55e;">
             {{ sub.category.product }} / {{ sub.category.oper_id }}{% if sub.category.oper_desc %} / {{ sub.category.oper_desc }}{% endif %}
@@ -112,6 +112,7 @@
     </tbody>
   </table>
 </div>
+{% include "setup_mico/_pagination.html" %}
 
 
 <!-- ── Add / Edit Modal ── -->
@@ -124,6 +125,7 @@
       </div>
       <form id="subCategoryForm" method="post">
         {% csrf_token %}
+        <input type="hidden" name="next" value="{{ request.get_full_path }}">
         <input type="hidden" id="copyDetailsHidden" name="copy_details" value="">
         <div class="modal-body" style="padding:1.5rem;">
           <div class="mb-3">
@@ -202,6 +204,7 @@
         <button type="button" class="btn btn-sm btn-light px-4" data-bs-dismiss="modal">취소</button>
         <form id="deleteForm" method="post">
           {% csrf_token %}
+          <input type="hidden" name="next" value="{{ request.get_full_path }}">
           <button type="submit" class="btn btn-sm btn-danger px-4">삭제</button>
         </form>
       </div>
@@ -292,46 +295,7 @@ document.querySelectorAll('.delete-btn').forEach(btn => {
   });
 });
 
-// 컬럼별 검색
-const FILTER_KEY = 'filter_subcategory';
-
-function saveFilters() {
-  const state = {};
-  document.querySelectorAll('.col-search').forEach(input => {
-    if (input.value) state[input.dataset.col] = input.value;
-  });
-  sessionStorage.setItem(FILTER_KEY, JSON.stringify(state));
-}
-
-document.querySelectorAll('.col-search').forEach(input => {
-  input.addEventListener('input', () => { saveFilters(); filterRows(); });
-});
-
-function filterRows() {
-  const inputs = document.querySelectorAll('.col-search');
-  const tbody = document.querySelector('tbody');
-  tbody.querySelectorAll('tr').forEach(row => {
-    if (row.querySelector('td[colspan]')) return;
-    let show = true;
-    inputs.forEach(input => {
-      const col = parseInt(input.dataset.col);
-      const val = input.value.trim().toLowerCase();
-      if (!val) return;
-      const cell = row.cells[col];
-      if (!cell || !cell.textContent.toLowerCase().includes(val)) show = false;
-    });
-    row.style.display = show ? '' : 'none';
-  });
-}
-
-(function restoreFilters() {
-  const saved = sessionStorage.getItem(FILTER_KEY);
-  if (!saved) return;
-  const state = JSON.parse(saved);
-  document.querySelectorAll('.col-search').forEach(input => {
-    if (state[input.dataset.col]) input.value = state[input.dataset.col];
-  });
-  filterRows();
-})();
+// 컬럼별 검색 (서버사이드)
+initColSearch();
 </script>
 {% endblock %}

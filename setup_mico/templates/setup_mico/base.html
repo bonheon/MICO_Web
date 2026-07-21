@@ -590,6 +590,33 @@ document.addEventListener('DOMContentLoaded', function() {
 });
 </script>
 {% endif %}
+<script>
+// 컬럼별 검색 입력 → 서버사이드 검색 (Enter 입력 시에만 GET 쿼리스트링으로 재조회)
+// 데이터가 많은 목록(Category/SubCategory/Detail)에서 클라이언트 필터링 대신 사용.
+function initColSearch(inputSelector) {
+  const inputs = document.querySelectorAll(inputSelector || '.col-search');
+
+  function submitFilters() {
+    const params = new URLSearchParams(window.location.search);
+    params.delete('page');
+    inputs.forEach(function(inp) {
+      const val = inp.value.trim();
+      if (val) params.set(inp.name, val);
+      else params.delete(inp.name);
+    });
+    window.location.search = params.toString();
+  }
+
+  inputs.forEach(function(inp) {
+    inp.addEventListener('keydown', function(e) {
+      if (e.key === 'Enter') {
+        e.preventDefault();
+        submitFilters();
+      }
+    });
+  });
+}
+</script>
 {% block scripts %}{% endblock %}
 <script>
 (function() {

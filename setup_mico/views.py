@@ -867,8 +867,24 @@ def setup_status(request):
     ).annotate(
         detail_count=Count('subcategories__details')
     ).order_by('family', 'oper_desc', 'product')
+
+    categories = _filter_qs(
+        categories, request,
+        simple_fields={
+            'f_family':    'family',
+            'f_product':   'product__icontains',
+            'f_oper_id':   'oper_id__icontains',
+            'f_oper_desc': 'oper_desc__icontains',
+        },
+    )
+    page, querystring = _paginate(request, categories, per_page=20)
     form = DetailForm()
-    return render(request, 'setup_mico/setup_status.html', {'categories': categories, 'form': form})
+    return render(request, 'setup_mico/setup_status.html', {
+        'categories': page,
+        'page': page,
+        'querystring': querystring,
+        'form': form,
+    })
 
 
 @login_required
@@ -1093,14 +1109,81 @@ def dashboard(request):
     return render(request, 'setup_mico/dashboard.html', context)
 
 
+# ── Set-up 목록 검색/페이지네이션 헬퍼 ──────────────────────────────────────
+# 행이 많을 때 전체를 한 번에 렌더링 + 클라이언트 JS로 필터링하면 버벅거리므로,
+# 서버에서 페이지 단위로 잘라 보내고 검색도 DB 쿼리로 처리한다.
+
+def _filter_qs(qs, request, simple_fields=None, or_fields=None, date_fields=None):
+    """
+    simple_fields: {GET 파라미터명: orm lookup}
+    or_fields:     {GET 파라미터명: [orm lookup, ...]}  (하나라도 매칭되면 포함)
+    date_fields:   {GET 파라미터명: 날짜/시각 필드명}  (텍스트로 캐스팅 후 icontains)
+    """
+    from django.db.models import Q, CharField
+    from django.db.models.functions import Cast
+
+    for param, lookup in (simple_fields or {}).items():
+        val = request.GET.get(param, '').strip()
+        if val:
+            qs = qs.filter(**{lookup: val})
+
+    for param, lookups in (or_fields or {}).items():
+        val = request.GET.get(param, '').strip()
+        if val:
+            q = Q()
+            for lookup in lookups:
+                q |= Q(**{lookup: val})
+            qs = qs.filter(q)
+
+    for param, field in (date_fields or {}).items():
+        val = request.GET.get(param, '').strip()
+        if val:
+            annotate_key = f'_{field}_str'
+            qs = qs.annotate(**{annotate_key: Cast(field, output_field=CharField())})
+            qs = qs.filter(**{f'{annotate_key}__icontains': val})
+
+    return qs
+
+
+def _paginate(request, qs, per_page=50):
+    from django.core.paginator import Paginator
+    paginator = Paginator(qs, per_page)
+    page = paginator.get_page(request.GET.get('page', 1))
+    params = request.GET.copy()
+    params.pop('page', None)
+    return page, params.urlencode()
+
+
+def _redirect_next(request, fallback):
+    """POST에 담긴 next(검색/페이지 상태 포함 URL)가 있으면 그쪽으로, 없으면 fallback 목록으로 되돌아간다."""
+    next_url = request.POST.get('next')
+    return redirect(next_url) if next_url else redirect(fallback)
+
+
 # ── Category ──
 
 @login_required
 def category_list(request):
     categories = Category.objects.select_related('created_by').order_by('-created_at')
+    categories = _filter_qs(
+        categories, request,
+        simple_fields={
+            'f_family':     'family__icontains',
+            'f_product':    'product__icontains',
+            'f_oper_id':    'oper_id__icontains',
+            'f_oper_desc':  'oper_desc__icontains',
+            'f_pol_type':   'pol_type__icontains',
+            'f_channel_id': 'channel_id__icontains',
+            'f_created_by': 'created_by__username__icontains',
+        },
+        date_fields={'f_created_at': 'created_at'},
+    )
+    page, querystring = _paginate(request, categories)
     form = CategoryForm()
     return render(request, 'setup_mico/category_list.html', {
-        'categories': categories,
+        'categories': page,
+        'page': page,
+        'querystring': querystring,
         'form': form,
     })
 
@@ -1124,14 +1207,14 @@ def category_create(request):
             # product + oper_id 중복 방지 (동일 조합이 이미 있으면 등록 차단)
             if Category.objects.filter(product=obj.product, oper_id=obj.oper_id).exists():
                 messages.error(request, '이미 등록되어 있습니다. (동일 Product / Oper ID)')
-                return redirect('category_list')
+                return _redirect_next(request, 'category_list')
             obj.save()
             _record(request.user, 'create', 'Category', str(obj), obj.pk, _cat_fields(obj))
             messages.success(request, 'Category가 추가되었습니다.')
         else:
             error_fields = ', '.join(form.errors.keys())
             messages.error(request, f'저장 실패: 입력값을 확인해 주세요. (오류 항목: {error_fields})')
-    return redirect('category_list')
+    return _redirect_next(request, 'category_list')
 
 
 @login_required
@@ -1146,7 +1229,7 @@ def category_update(request, pk):
             # product + oper_id 중복 방지 (자기 자신 제외 → 다른 항목과 겹치면 차단)
             if Category.objects.filter(product=obj.product, oper_id=obj.oper_id).exclude(pk=category.pk).exists():
                 messages.error(request, '이미 등록되어 있습니다. (동일 Product / Oper ID)')
-                return redirect('category_list')
+                return _redirect_next(request, 'category_list')
             obj.save()
             diff = _diff(old, _cat_fields(obj))
             if diff:
@@ -1155,7 +1238,7 @@ def category_update(request, pk):
         else:
             error_fields = ', '.join(form.errors.keys())
             messages.error(request, f'저장 실패: 입력값을 확인해 주세요. (오류 항목: {error_fields})')
-    return redirect('category_list')
+    return _redirect_next(request, 'category_list')
 
 
 @login_required
@@ -1165,7 +1248,7 @@ def category_delete(request, pk):
         _record(request.user, 'delete', 'Category', str(obj))
         obj.delete()
         messages.success(request, 'Category가 삭제되었습니다.')
-    return redirect('category_list')
+    return _redirect_next(request, 'category_list')
 
 
 @login_required
@@ -1180,7 +1263,7 @@ def category_copy(request, pk):
         fields['copied_from'] = str(pk)
         _record(request.user, 'create', 'Category', str(original), original.pk, fields)
         messages.success(request, 'Category가 복사되었습니다.')
-    return redirect('category_list')
+    return _redirect_next(request, 'category_list')
 
 
 # ── SubCategory ──
@@ -1188,9 +1271,30 @@ def category_copy(request, pk):
 @login_required
 def subcategory_list(request):
     subcategories = SubCategory.objects.select_related('category', 'created_by').order_by('-created_at')
+    subcategories = _filter_qs(
+        subcategories, request,
+        simple_fields={
+            'f_fab':        'fab__icontains',
+            'f_device':     'device__icontains',
+            'f_recipe_id':  'recipe_id__icontains',
+            'f_maker':      'maker__icontains',
+            'f_created_by': 'created_by__username__icontains',
+        },
+        or_fields={
+            'f_category': [
+                'category__product__icontains',
+                'category__oper_id__icontains',
+                'category__oper_desc__icontains',
+            ],
+        },
+        date_fields={'f_created_at': 'created_at'},
+    )
+    page, querystring = _paginate(request, subcategories)
     form = SubCategoryForm()
     return render(request, 'setup_mico/subcategory_list.html', {
-        'subcategories': subcategories,
+        'subcategories': page,
+        'page': page,
+        'querystring': querystring,
         'form': form,
     })
 
@@ -1208,7 +1312,7 @@ def subcategory_create(request):
         else:
             error_fields = ', '.join(form.errors.keys())
             messages.error(request, f'저장 실패: 입력값을 확인해 주세요. (오류 항목: {error_fields})')
-    return redirect('subcategory_list')
+    return _redirect_next(request, 'subcategory_list')
 
 
 @login_required
@@ -1226,7 +1330,7 @@ def subcategory_update(request, pk):
         else:
             error_fields = ', '.join(form.errors.keys())
             messages.error(request, f'저장 실패: 입력값을 확인해 주세요. (오류 항목: {error_fields})')
-    return redirect('subcategory_list')
+    return _redirect_next(request, 'subcategory_list')
 
 
 @login_required
@@ -1236,7 +1340,7 @@ def subcategory_delete(request, pk):
         _record(request.user, 'delete', 'SubCategory', _sub_repr(obj))
         obj.delete()
         messages.success(request, 'SubCategory가 삭제되었습니다.')
-    return redirect('subcategory_list')
+    return _redirect_next(request, 'subcategory_list')
 
 
 @login_required
@@ -1263,7 +1367,7 @@ def subcategory_copy(request, pk):
         else:
             error_fields = ', '.join(form.errors.keys())
             messages.error(request, f'복사 실패: 입력값을 확인해 주세요. (오류 항목: {error_fields})')
-    return redirect('subcategory_list')
+    return _redirect_next(request, 'subcategory_list')
 
 
 # ── Detail ──
@@ -1271,9 +1375,51 @@ def subcategory_copy(request, pk):
 @login_required
 def detail_list(request):
     details = Detail.objects.select_related('subcategory__category', 'created_by').order_by('-created_at')
+    details = _filter_qs(
+        details, request,
+        simple_fields={
+            'f_apc_para':         'apc_para__icontains',
+            'f_thk_para':         'thk_para__icontains',
+            'f_target':           'target__icontains',
+            'f_pre_target':       'pre_target__icontains',
+            'f_offset_group':     'offset_group__icontains',
+            'f_pre_thk_para_itm': 'pre_thk_para_itm__icontains',
+            'f_pre_oper_code':    'pre_oper_code__icontains',
+            'f_pre_oper_desc':    'pre_oper_desc__icontains',
+            'f_pre_oper_para':    'pre_oper_para__icontains',
+            'f_pre_oper_code2':   'pre_oper_code2__icontains',
+            'f_pre_oper_desc2':   'pre_oper_desc2__icontains',
+            'f_pre_oper_para2':   'pre_oper_para2__icontains',
+            'f_pre_oper_code3':   'pre_oper_code3__icontains',
+            'f_pre_oper_desc3':   'pre_oper_desc3__icontains',
+            'f_pre_oper_para3':   'pre_oper_para3__icontains',
+            'f_pre_oper_code4':   'pre_oper_code4__icontains',
+            'f_pre_oper_desc4':   'pre_oper_desc4__icontains',
+            'f_pre_oper_para4':   'pre_oper_para4__icontains',
+            'f_pre_thk_period':   'pre_thk_period__icontains',
+            'f_rr_para':          'rr_para__icontains',
+            'f_rr_max':           'rr_max__icontains',
+            'f_rr_weight':        'rr_weight__icontains',
+            'f_rr_count':         'rr_count__icontains',
+            'f_rr_period':        'rr_period__icontains',
+            'f_rr_if':            'rr_if__icontains',
+            'f_fb_type':          'fb_type__icontains',
+            'f_rr_alarm_sigma':   'rr_alarm_sigma__icontains',
+        },
+        or_fields={
+            'f_subcategory': [
+                'subcategory__device__icontains',
+                'subcategory__recipe_id__icontains',
+                'subcategory__fab__icontains',
+            ],
+        },
+    )
+    page, querystring = _paginate(request, details, per_page=50)
     form = DetailForm()
     return render(request, 'setup_mico/detail_list.html', {
-        'details': details,
+        'details': page,
+        'page': page,
+        'querystring': querystring,
         'form': form,
     })
 
@@ -1291,7 +1437,7 @@ def detail_create(request):
         else:
             error_fields = ', '.join(form.errors.keys())
             messages.error(request, f'저장 실패: 입력값을 확인해 주세요. (오류 항목: {error_fields})')
-    return redirect('detail_list')
+    return _redirect_next(request, 'detail_list')
 
 
 @login_required
@@ -1309,8 +1455,7 @@ def detail_update(request, pk):
         else:
             error_fields = ', '.join(form.errors.keys())
             messages.error(request, f'저장 실패: 입력값을 확인해 주세요. (오류 항목: {error_fields})')
-    next_url = request.POST.get('next')
-    return redirect(next_url) if next_url else redirect('detail_list')
+    return _redirect_next(request, 'detail_list')
 
 
 @login_required
@@ -1320,7 +1465,7 @@ def detail_delete(request, pk):
         _record(request.user, 'delete', 'Detail', _det_repr(obj))
         obj.delete()
         messages.success(request, 'Detail이 삭제되었습니다.')
-    return redirect('detail_list')
+    return _redirect_next(request, 'detail_list')
 
 
 _BULK_ALLOWED = {
@@ -1342,7 +1487,7 @@ def detail_bulk_update(request):
 
         if not pks or not update_fields:
             messages.error(request, '수정할 항목 또는 필드를 선택해 주세요.')
-            return redirect('detail_list')
+            return _redirect_next(request, 'detail_list')
 
         details = Detail.objects.select_related('subcategory__category').filter(pk__in=pks)
         count = 0
@@ -1368,7 +1513,7 @@ def detail_bulk_update(request):
             count += 1
 
         messages.success(request, f'{count}개 Detail이 수정되었습니다.')
-    return redirect('detail_list')
+    return _redirect_next(request, 'detail_list')
 
 
 @login_required
@@ -1383,7 +1528,7 @@ def detail_copy(request, pk):
         original.save()
         _record(request.user, 'create', 'Detail', _det_repr(original), original.pk, fields)
         messages.success(request, 'Detail이 복사되었습니다.')
-    return redirect('detail_list')
+    return _redirect_next(request, 'detail_list')
 
 
 # ── Recipe Grouping ──

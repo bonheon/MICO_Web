@@ -112,6 +112,8 @@
   .sub-meta  { font-size: 0.72rem; color: #8993a8; }
   .sub-chevron { margin-left: auto; font-size: 0.7rem; color: #8993a8; transition: transform 0.2s; }
   .sub-header[aria-expanded="false"] .sub-chevron { transform: rotate(-90deg); }
+  .cat-chevron { transition: transform 0.2s; }
+  .tree-cat-header[aria-expanded="false"] .cat-chevron { transform: rotate(-90deg); }
 
   /* Detail table inside sub */
   .detail-wrap {
@@ -156,11 +158,11 @@
   </div>
   <div class="d-flex align-items-center gap-2">
     <div class="btn-group btn-group-sm" role="group">
-      <button type="button" class="btn family-filter active" data-family="ALL"
+      <button type="button" class="btn family-filter{% if not request.GET.f_family %} active{% endif %}" data-family="ALL"
         style="font-size:0.78rem; border-radius:6px 0 0 6px;">전체</button>
-      <button type="button" class="btn family-filter" data-family="NAND"
+      <button type="button" class="btn family-filter{% if request.GET.f_family == 'NAND' %} active{% endif %}" data-family="NAND"
         style="font-size:0.78rem;">NAND</button>
-      <button type="button" class="btn family-filter" data-family="DRAM"
+      <button type="button" class="btn family-filter{% if request.GET.f_family == 'DRAM' %} active{% endif %}" data-family="DRAM"
         style="font-size:0.78rem; border-radius:0 6px 6px 0;">DRAM</button>
     </div>
     <div style="width:1px; height:20px; background:#e4e7ed;"></div>
@@ -173,12 +175,12 @@
   </div>
 </div>
 <div class="d-flex gap-2 mb-3">
-  <input type="text" id="search-product" class="form-control form-control-sm" placeholder="Product 검색"
-    style="font-size:0.8rem; max-width:180px;" oninput="applySearch()">
-  <input type="text" id="search-oper-id" class="form-control form-control-sm" placeholder="Oper ID 검색"
-    style="font-size:0.8rem; max-width:160px;" oninput="applySearch()">
-  <input type="text" id="search-oper-desc" class="form-control form-control-sm" placeholder="Oper Desc 검색"
-    style="font-size:0.8rem; max-width:200px;" oninput="applySearch()">
+  <input type="text" id="search-product" class="form-control form-control-sm col-search" placeholder="Product 검색 (Enter)"
+    name="f_product" value="{{ request.GET.f_product }}" style="font-size:0.8rem; max-width:180px;">
+  <input type="text" id="search-oper-id" class="form-control form-control-sm col-search" placeholder="Oper ID 검색 (Enter)"
+    name="f_oper_id" value="{{ request.GET.f_oper_id }}" style="font-size:0.8rem; max-width:160px;">
+  <input type="text" id="search-oper-desc" class="form-control form-control-sm col-search" placeholder="Oper Desc 검색 (Enter)"
+    name="f_oper_desc" value="{{ request.GET.f_oper_desc }}" style="font-size:0.8rem; max-width:200px;">
   <button class="btn btn-sm btn-outline-secondary" id="clearSearch" style="font-size:0.8rem; white-space:nowrap;">
     <i class="bi bi-x"></i> 초기화
   </button>
@@ -193,11 +195,11 @@
 
 {% for cat in categories %}
 {% with subs=cat.subcategories.all %}
-<div class="tree-category" data-family="{{ cat.family }}" data-product="{{ cat.product|lower }}" data-oper-id="{{ cat.oper_id|lower }}" data-oper-desc="{{ cat.oper_desc|lower }}">
+<div class="tree-category">
 
   <!-- Category Header -->
   <div class="tree-cat-header" data-bs-toggle="collapse" data-bs-target="#cat-{{ cat.pk }}"
-       aria-expanded="true">
+       aria-expanded="false">
     <div class="cat-icon"><i class="bi bi-layers-half"></i></div>
     <div>
       <div class="cat-title">
@@ -215,12 +217,12 @@
       <span class="badge-pill" style="background:#f0fdf4; color:#22c55e;">
         <i class="bi bi-list-task me-1"></i>Detail {{ cat.detail_count }}
       </span>
-      <i class="bi bi-chevron-down" style="font-size:0.75rem; color:#8993a8; transition:transform 0.2s;" id="cat-chevron-{{ cat.pk }}"></i>
+      <i class="bi bi-chevron-down cat-chevron" style="font-size:0.75rem; color:#8993a8;" id="cat-chevron-{{ cat.pk }}"></i>
     </div>
   </div>
 
-  <!-- Category Body (collapsible) -->
-  <div class="collapse show" id="cat-{{ cat.pk }}">
+  <!-- Category Body (collapsible, 기본 접힘) -->
+  <div class="collapse" id="cat-{{ cat.pk }}">
     <div class="tree-body">
       {% if subs %}
         {% for sub in subs %}
@@ -236,7 +238,7 @@
           <div class="sub-block">
             <!-- SubCategory Header -->
             <div class="sub-header" data-bs-toggle="collapse" data-bs-target="#sub-{{ sub.pk }}"
-                 aria-expanded="true">
+                 aria-expanded="false">
               <div class="sub-icon"><i class="bi bi-diagram-2"></i></div>
               <div>
                 <div class="sub-title">{{ sub.recipe_id }}</div>
@@ -249,7 +251,7 @@
             </div>
 
             <!-- Detail Table -->
-            <div class="collapse show" id="sub-{{ sub.pk }}">
+            <div class="collapse" id="sub-{{ sub.pk }}">
               {% if details %}
               <div class="detail-wrap">
                 <table class="table detail-table">
@@ -375,6 +377,7 @@
 </div>
 {% endwith %}
 {% endfor %}
+{% include "setup_mico/_pagination.html" %}
 
 <!-- ── Detail 수정 모달 (Set-up 현황) ── -->
 <div class="modal fade" id="statusDetailModal" tabindex="-1">
@@ -630,34 +633,10 @@ document.addEventListener('click', function(e) {
   }
 });
 
-// 통합 필터 (family + 검색어)
-const FILTER_KEY = 'filter_setup_status';
-let activeFamily = 'ALL';
+// 검색 (Product/Oper ID/Oper Desc) — 서버사이드, Enter 입력 시에만 조회
+initColSearch();
 
-function saveFilters() {
-  sessionStorage.setItem(FILTER_KEY, JSON.stringify({
-    product:  document.getElementById('search-product').value,
-    operId:   document.getElementById('search-oper-id').value,
-    operDesc: document.getElementById('search-oper-desc').value,
-    family:   activeFamily,
-  }));
-}
-
-function applySearch() {
-  const product  = document.getElementById('search-product').value.trim().toLowerCase();
-  const operId   = document.getElementById('search-oper-id').value.trim().toLowerCase();
-  const operDesc = document.getElementById('search-oper-desc').value.trim().toLowerCase();
-  document.querySelectorAll('.tree-category').forEach(el => {
-    const familyMatch = activeFamily === 'ALL' || el.dataset.family === activeFamily;
-    const productMatch  = !product  || el.dataset.product.includes(product);
-    const operIdMatch   = !operId   || el.dataset.operId.includes(operId);
-    const operDescMatch = !operDesc || el.dataset.operDesc.includes(operDesc);
-    el.style.display = (familyMatch && productMatch && operIdMatch && operDescMatch) ? '' : 'none';
-  });
-  saveFilters();
-}
-
-// Family 필터
+// Family 필터 — 클릭 시 바로 서버사이드로 재조회 (버튼 3개뿐이라 디바운스 불필요)
 const FAM_STYLE = {
   ALL:  { on: 'background:#4f8ef7;border-color:#4f8ef7;color:#fff;', off: 'background:transparent;border-color:#4f8ef7;color:#4f8ef7;' },
   NAND: { on: 'background:#6366f1;border-color:#6366f1;color:#fff;', off: 'background:transparent;border-color:#6366f1;color:#6366f1;' },
@@ -669,53 +648,28 @@ function applyFamStyle(btn, isActive) {
 document.querySelectorAll('.family-filter').forEach(btn => {
   applyFamStyle(btn, btn.classList.contains('active'));
   btn.addEventListener('click', function() {
-    document.querySelectorAll('.family-filter').forEach(b => { b.classList.remove('active'); applyFamStyle(b, false); });
-    this.classList.add('active');
-    applyFamStyle(this, true);
-    activeFamily = this.dataset.family;
-    applySearch();
+    const params = new URLSearchParams(window.location.search);
+    params.delete('page');
+    if (this.dataset.family === 'ALL') params.delete('f_family');
+    else params.set('f_family', this.dataset.family);
+    window.location.search = params.toString();
   });
 });
 
-// 초기화 버튼
+// 초기화 버튼 — 검색어/필터/페이지 전부 초기화
 document.getElementById('clearSearch').addEventListener('click', () => {
-  document.getElementById('search-product').value = '';
-  document.getElementById('search-oper-id').value = '';
-  document.getElementById('search-oper-desc').value = '';
-  activeFamily = 'ALL';
-  document.querySelectorAll('.family-filter').forEach(b => { b.classList.remove('active'); applyFamStyle(b, false); });
-  const allBtn = document.querySelector('.family-filter[data-family="ALL"]');
-  if (allBtn) { allBtn.classList.add('active'); applyFamStyle(allBtn, true); }
-  sessionStorage.removeItem(FILTER_KEY);
-  applySearch();
+  window.location.href = window.location.pathname;
 });
-
-// 페이지 로드 시 필터 복원
-(function restoreFilters() {
-  const saved = sessionStorage.getItem(FILTER_KEY);
-  if (!saved) return;
-  const state = JSON.parse(saved);
-  if (state.product)  document.getElementById('search-product').value = state.product;
-  if (state.operId)   document.getElementById('search-oper-id').value = state.operId;
-  if (state.operDesc) document.getElementById('search-oper-desc').value = state.operDesc;
-  if (state.family && state.family !== 'ALL') {
-    activeFamily = state.family;
-    document.querySelectorAll('.family-filter').forEach(b => { b.classList.remove('active'); applyFamStyle(b, false); });
-    const targetBtn = document.querySelector(`.family-filter[data-family="${state.family}"]`);
-    if (targetBtn) { targetBtn.classList.add('active'); applyFamStyle(targetBtn, true); }
-  }
-  applySearch();
-})();
 
 // 전체 펼치기
 document.getElementById('expandAll').addEventListener('click', () => {
-  document.querySelectorAll('.tree-category:not([style*="display: none"]) .collapse').forEach(el => {
+  document.querySelectorAll('.tree-category .collapse').forEach(el => {
     bootstrap.Collapse.getOrCreateInstance(el).show();
   });
 });
 // 전체 접기
 document.getElementById('collapseAll').addEventListener('click', () => {
-  document.querySelectorAll('.tree-category:not([style*="display: none"]) .collapse').forEach(el => {
+  document.querySelectorAll('.tree-category .collapse').forEach(el => {
     bootstrap.Collapse.getOrCreateInstance(el).hide();
   });
 });
