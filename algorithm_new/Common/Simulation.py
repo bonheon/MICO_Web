@@ -482,14 +482,18 @@ def _attach_ref_lots(df, ref_lot_df, sk, mode, Thk_Para_13P, ITM_PRE_Para, pol_t
     # NOTE: source 원본 그대로 Ref_YN == Ref_Count (Y/N 의도 여부 회사 확인 예정)
     ref_temp_df['Ref_YN'] = ref_temp_df['item_value'].str.count(';')
 
-    ref_data_cols = ['Date', 'substrate_id', sk['Thk_Para'], 'Pre_Thk', sk['APC_Para'], 'Simul_OFFSET']
+    required_cols = ['Date', 'substrate_id', sk['Thk_Para'], 'Pre_Thk', sk['APC_Para'], 'Simul_OFFSET']
     if mode == 'PRESSURE':
-        ref_data_cols.insert(2, Thk_Para_13P)
+        required_cols.insert(2, Thk_Para_13P)
+
+    ref_data_cols = list(required_cols)
     if ITM_PRE_Para is not None:
         ref_data_cols.append(ITM_PRE_Para)
 
     ref_data = df[ref_data_cols].copy()
-    ref_data.dropna(axis=0, how='any', inplace=True)
+    # ITM 값(Pre_ITM)은 결측이어도 나머지 ref 정보(Post/Pre_VM/APC/OFFSET 등)는
+    # 적재되어야 하므로, 필수 컬럼(required_cols)에 대해서만 dropna 적용
+    ref_data.dropna(subset=required_cols, inplace=True)
 
     if mode == 'TIME':
         base_cols = ['{}_Date', '{}', '{}_Post', '{}_Pre_VM', '{}_APC', '{}_OFFSET']
