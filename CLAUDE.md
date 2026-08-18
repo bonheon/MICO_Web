@@ -57,8 +57,10 @@ CONFIGURATION
 
 LEARNING
   ├ 학습값
-  ├ History 조회
-  └ Simulation
+  ├ Trend
+  ├ Simulation 결과 (web 조회)
+  ├ Simulation (Spotfire)
+  └ History 조회
 
 IMPROVEMENT
   ├ 산포 개선 현황
@@ -90,7 +92,9 @@ ADMIN (superuser만 노출)
 | `/setup/recipe-group/` | recipe_group_list | Recipe Grouping |
 | `/learning/` | learning_values | 학습값 Trend (샘플) |
 | `/learning/history/` | learning_history | History 조회 (DB 미연결) |
-| `/simulation/` | simulation | Simulation |
+| `/simulation/` | simulation | Simulation (Spotfire 링크) |
+| `/simulation/result/` | simulation_result | Simulation 결과 web 조회 (THK/RR/Pre Thk/Offset) |
+| `/simulation/result/data/` | simulation_result_data | 위 화면의 JSON API |
 | `/apc/history/` | apc_history | APC 수정건수 (DB 미연결) |
 | `/improvement/dispersion/` | dispersion | 산포 개선 현황 (DB 미연결) |
 | `/voc/` | voc_list | VOC 게시판 |
@@ -125,6 +129,38 @@ ADMIN (superuser만 노출)
 - Category 선택 시 드롭다운에 `product / oper_id — oper_desc` 표시
 - 선택 후 카드 하단에 oper_desc 설명 표시
 
+### Simulation 결과 → DB 적재 → web 조회
+Spotfire 연동용 CSV 대신 **Set-up 과 같은 DB(Django default)** 에 적재하고 web 에서 바로 조회.
+
+**테이블명 (다른 학습 테이블과 동일 규칙 — 공정명 포함)**
+```
+MICO_PRE_THK_{Lot_Code}_{Oper_Desc}_{Fab}_Period   (Pre Thk 학습, MongoDB)
+MICO_Removal_Rate_{Lot_Code}_{Oper_Desc}_{Fab}     (RR 학습,      MongoDB)
+MICO_OFFSET_{Lot_Code}_{Oper_Desc}_{Fab}           (Offset 학습,  MongoDB)
+MICO_Simulation_{Lot_Code}_{Oper_Desc}_{Fab}       (Simulation 결과, Set-up DB) ← 신규
+```
+- zone(13P / EDGE / EXED / Z5 …) 은 테이블 분리 대신 `ZONE` 컬럼으로 구분
+- Lot_Code = Category.product / Oper_Desc = Category.oper_desc / Fab = SubCategory.fab
+
+**구성 파일**
+| 파일 | 역할 |
+|------|------|
+| `algorithm_new/Common/Result_DB.py` | 결과 적재 (Django connection 사용, vendor 별 타입 분기) |
+| `setup_mico/simulation_db.py` | 테이블 명명 규칙(단일 소스) + web 조회 helper |
+| `algorithm_new/Common/Simulation.py` | `_add_view_columns()` 로 web 표준 컬럼 생성 → `_save_results_db()` |
+| `setup_mico/views.py` | `simulation_result`, `simulation_result_data` |
+| `algorithm_new/test_dram_m1cu_simul.py` | **[TEST 삭제]** 로컬 검증 러너 (학습 테이블 샘플 생성 + 적재) |
+
+**web 표준 컬럼** (공정/zone 무관하게 이름 고정 — 차트 코드 공통화용)
+`ZONE / APC_Para / Thk_Para / Formula / Target / Pre_Target / Pad_Seperation / THK / APC_Value /
+Consumable(_Para) / RR_Actual / RR_DB / RR_Normal / RR_Weighted / RR_Current / RR_IF /
+Pre_Thk_VM / Pre_Thk_MA / Pre_Thk_ITM / Pre_Thk_Actual / Pre_Thk_Implied / OFFSET_Learn / OFFSET_Actual`
+
+**로컬 → 사내 전환**
+- Django `settings.DATABASES` 만 사내 DB 로 교체 (코드 수정 없음)
+- 로컬 검증은 `test_dram_m1cu_simul.py`, 사내는 `simulation/{공정}/Simulation_Hub.py` 를 그대로 실행
+- CSV 출력은 `run(export_csv=...)` — 기본값은 `export_dir` 존재 시에만 출력(로컬 자동 skip)
+
 ### Jupyter 노트북
 - `notebooks/mico_setup_query.ipynb`: SQLite 직접 연결, Set-up 전체 계층 DataFrame 조회
 
@@ -147,7 +183,7 @@ ADMIN (superuser만 노출)
 ## 예정 작업
 - 사내 DB 연동 (학습값, History, APC 수정건수, 산포 개선 전 항목)
 - Skynet API 실제 연동 (`_mock_skynet_api()` 함수 교체)
-- APC 산식(Pre Thickness / Removal Rate / Offset) 기반 Simulation 결과값 표시
+- Simulation 결과 web 조회 확장 (PRESSURE zone 실데이터 검증, Ref lot / Online Simulation 항목 표시)
 - Dashboard 실제 데이터 연결
 - **알람 발생 현황** (신규)
   - 알람 누적 관리 (발생 일시, 장비, 공정, 알람 종류 등 이력 저장)

@@ -8,6 +8,7 @@ from pymongo import MongoClient
 
 sys.path.append(str(Path(__file__).parents[1]))
 from Common.Get_Data import Get_data
+from Common import Result_DB
 from day.commc.cube import Cube_Connector
 
 _MICO_URL = 'mongodb://cncmico:/...'
@@ -69,7 +70,13 @@ def _load_ref_lots(Fab, Lot_Code, Oper_Code, Recipe_ID_List, Days=None):
     ref_lot_df     = Get_data.RefGetData(Fab, Lot_Code, Oper_Code, Recipe_ID_List, Days)
     ref_lot_df_hub = Get_data.RefGetData_HUB(Fab, Lot_Code, Oper_Code, Recipe_ID_List)
 
-    ref_lot_df = pd.concat([ref_lot_df, ref_lot_df_hub])
+    # 조회 함수가 결과 없이 None 을 반환해도 concat 이 깨지지 않도록 보정
+    frames = [f for f in (ref_lot_df, ref_lot_df_hub) if f is not None]
+    if not frames:
+        print('    Ref lot 로드: 0건 (조회 결과 없음)')
+        return pd.DataFrame(columns=['substrate_id', 'input_name', 'operation_id', 'item_value'])
+
+    ref_lot_df = pd.concat(frames)
     ref_lot_df.drop_duplicates(subset=['substrate_id', 'input_name'], inplace=True)
     print(f'    Ref lot 로드: {len(ref_lot_df)}건')
     return ref_lot_df
@@ -134,6 +141,10 @@ def _build_base_frame(merge_df, sk, Main_Para, Main_Para_formula, Main_Para_OFFS
     - OFFSET 컬럼 결측 → 0
     - substrate_id 기준 dedup
     """
+    if sk['Thk_Para'] not in merge_df.columns:
+        print(f"    ! Thk_Para={sk['Thk_Para']} merge_df 에 없음 → skip")
+        return pd.DataFrame()
+
     temp = merge_df[
         (merge_df['operation_id'] == sk['Oper_Code'])
         & (merge_df['recipe_id'] == sk['Recipe_ID'])
@@ -184,7 +195,12 @@ def _build_base_frame(merge_df, sk, Main_Para, Main_Para_formula, Main_Para_OFFS
         if isinstance(code, str) and code != '':
             col_list.append(f"{sk[f'Pre_Oper_Desc{i}']}.{sk[f'Pre_Oper_Para{i}']}")
 
-    col_list = list(set(col_list))
+    # merge_df 에 없는 컬럼(set-up 오타·미수집 파라미터)이 섞여도 해당 키 전체가
+    # KeyError 로 죽지 않도록 존재하는 컬럼만 사용
+    missing = [c for c in set(col_list) if c not in temp.columns]
+    if missing:
+        print(f'    ! merge_df 에 없는 컬럼 제외: {sorted(missing)}')
+    col_list = [c for c in set(col_list) if c in temp.columns]
     temp = temp[col_list].copy()
 
     offset_columns = [col for col in temp.columns if 'OFFSET' in col]
@@ -519,8 +535,9 @@ def _attach_ref_lots(df, ref_lot_df, sk, mode, Thk_Para_13P, ITM_PRE_Para, pol_t
     return pd.merge(df, ref_temp_df, on='substrate_id', how='left')
 
 
-def _finalize(df, sk, Main_Para, Pad_Para, Disk_Para, Head_Para, Consumable_Para, mode):
-    """공통 출력 컬럼 구성 + RR_DB(시뮬레이션 RR) 산출.
+def _finalize(df, sk, Main_Para, Pad_Para, Disk_Para, Head_Para, Consumable_Para, mode,
+              ITM_PRE_Para=None):
+    """공통 출력 컬럼 구성 + RR_DB(시뮬레이션 RR) 산출 + web 조회용 표준 컬럼.
 
     RR_DB 우선순위: IF 모델(Pad_Seperation 이하) → current → weighted → 전체 회귀
     """
@@ -560,6 +577,93 @@ def _finalize(df, sk, Main_Para, Pad_Para, Disk_Para, Head_Para, Consumable_Para
         df['RR_b1_current'], df['RR_b0_current'],
         df['RR_if_b1'], df['RR_if_b0'],
     )
+
+    return _add_view_columns(df, sk, Consumable_Para, mode, ITM_PRE_Para)
+
+
+# ── web 조회용 표준 컬럼 ───────────────────────────────────────────────────
+# 결과 테이블을 web 에서 공정/zone 구분 없이 같은 코드로 그릴 수 있도록,
+# 공정마다 이름이 달라지는 파라미터(APC_Para / Thk_Para / 소모품 등)의 값을
+# 이름이 고정된 컬럼으로 복사해 둔다. (원본 컬럼은 그대로 유지)
+
+def _add_view_columns(df, sk, Consumable_Para, mode, ITM_PRE_Para):
+    df['APC_Para']   = sk['APC_Para']
+    df['Thk_Para']   = sk['Thk_Para']
+    df['FB_Type']    = mode
+    df['Target']         = sk['Target']
+    df['Pre_Target']     = sk['Pre_Target']
+    # IF 모델 적용 경계(소모품 사용량) — web 에서 IF 모델 유효 구간 표시에 사용
+    df['Pad_Seperation'] = sk['Pad_Seperation']
+
+    # Formula: APC_Para 의 산식(chamber) 구분값. {APC_Para}_formula 가 없으면 recipe_id.
+    # (ebara PB_04_Time/PD_04_Time, kct PR1_4_TIME/PR2_4_TIME 등 chamber 별 분리 대응)
+    formula_col   = sk['APC_Para'] + '_formula'
+    df['Formula'] = df[formula_col] if formula_col in df.columns else df['recipe_id']
+
+    # APC 적용값 (TIME: 연마시간 / PRESSURE: 압력)
+    df['APC_Value'] = df[sk['APC_Para']]
+
+    # ── RR: 학습 모델별 예측값 (web 에서 실제 RR 과 overlay) ───────────────
+    df['Consumable_Para'] = Consumable_Para
+    df['Consumable']      = df[Consumable_Para]
+
+    cons = df['Consumable']
+    df['RR_Normal']   = cons * df['RR_b1']          + df['RR_b0']            # 전체 회귀
+    df['RR_Weighted'] = cons * df['RR_b1_weighted'] + df['RR_b0_weighted']   # 가중 회귀
+    df['RR_Current']  = cons * df['RR_b1_current']  + df['RR_b0_current']    # 현재 cycle
+    df['RR_IF']       = cons * df['RR_if_b1']       + df['RR_if_b0']         # IF 모델
+
+    # 실제 RR = (Pre_Target + Pre_Thk_VM − 실측 Post THK) / Pol_Time
+    #   REMOVAL_RATE._process_models 의 RR 정의와 동일.
+    #   PRESSURE zone 은 Pol_Time 이 없어 산출 불가 → NaN
+    if mode == 'TIME' and pd.notna(sk['Pre_Target']):
+        pol_time = df['Pol_Time'].replace(0, np.nan)
+        pre_thk  = sk['Pre_Target'] + df['Pre_Thk']
+        df['RR_Actual'] = (
+            (df['THK'] - pre_thk) if 'REV' in sk['Thk_Para'] else (pre_thk - df['THK'])
+        ) / pol_time
+    else:
+        df['RR_Actual'] = np.nan
+
+    # ── Pre_Thk: 학습값 vs 실측 ───────────────────────────────────────────
+    df['Pre_Thk_VM'] = df['Pre_Thk']                       # 산식 적용 최종 학습값
+    df['Pre_Thk_MA'] = df.get('Pre_Thk2', np.nan)          # moving avg 원값(산식 적용 전)
+
+    # ITM 사전 계측이 set-up 된 공정은 실측 편차(계측값 − Pre_Target)와 직접 비교 가능
+    if ITM_PRE_Para is not None and ITM_PRE_Para in df.columns and pd.notna(sk['Pre_Target']):
+        df['Pre_Thk_ITM']    = df[ITM_PRE_Para]
+        df['Pre_Thk_Actual'] = df[ITM_PRE_Para] - sk['Pre_Target']
+    else:
+        df['Pre_Thk_ITM']    = np.nan
+        df['Pre_Thk_Actual'] = np.nan
+
+    # ITM 계측이 없는 공정용 환산값:
+    #   실측 Post THK 와 모델 RR 로 역산한 사전 두께 편차
+    #   Pre_Thk_Implied = Post_THK + RR_DB × Pol_Time − Pre_Target
+    # → Pre_Thk_VM(학습값)이 실제 편차를 얼마나 따라가는지 web 에서 비교 가능
+    if mode == 'TIME' and pd.notna(sk['Pre_Target']):
+        rr_model = pd.to_numeric(df['RR_DB'], errors='coerce')
+        removal  = rr_model * df['Pol_Time']
+        df['Pre_Thk_Implied'] = (
+            df['THK'] - removal - sk['Pre_Target'] if 'REV' in sk['Thk_Para']
+            else df['THK'] + removal - sk['Pre_Target']
+        )
+    else:
+        df['Pre_Thk_Implied'] = np.nan
+
+    # ── OFFSET: 학습값 vs 실제 필요량 ──────────────────────────────────────
+    # OFFSET.compute_offset 과 동일한 정의:
+    #   OFFSET = delta/실제RR − delta/모델RR   (clip -5 ~ 3)
+    df['OFFSET_Learn'] = df['Simul_OFFSET']
+    if pd.notna(sk['Pre_Target']):
+        delta = (sk['Target'] - sk['Pre_Target']) if 'REV' in sk['Thk_Para'] \
+                else (sk['Pre_Target'] - sk['Target'])
+        rr_actual = df['RR_Actual'].replace(0, np.nan)
+        rr_model  = pd.to_numeric(df['RR_DB'], errors='coerce').replace(0, np.nan)
+        df['OFFSET_Actual'] = (delta / rr_actual - delta / rr_model).clip(-5, 3)
+    else:
+        df['OFFSET_Actual'] = np.nan
+
     return df
 
 
@@ -670,7 +774,8 @@ class Simulation_Get:
         df.drop_duplicates(subset=['Date', 'substrate_id'], inplace=True)
 
         df = _attach_ref_lots(df, ref_lot_df, sk, mode, Thk_Para_13P, ITM_PRE_Para, pol_type)
-        df = _finalize(df, sk, Main_Para, Pad_Para, Disk_Para, Head_Para, Consumable_Para, mode)
+        df = _finalize(df, sk, Main_Para, Pad_Para, Disk_Para, Head_Para, Consumable_Para, mode,
+                       ITM_PRE_Para=ITM_PRE_Para)
         return df
 
     def simulate_time(search_key, data, pol_type, Offset_Group, pre_thk_formula=None):
@@ -712,10 +817,18 @@ def _zone_label(thk_para, extra_zones):
     return None
 
 
-def _append_zone(zones, zone, Simul_df):
-    """zone 별 DataFrame 누적 (source 의 eval/exec 동적 변수 대체)."""
+def _append_zone(zones, zone, Simul_df, ident=None):
+    """zone 별 DataFrame 누적 (source 의 eval/exec 동적 변수 대체).
+
+    ident 가 주어지면 DB 저장/web 조회 키(ZONE, Lot_Code, Oper_Code, Oper_Desc, Product)를
+    함께 기록한다. (zone 별 CSV 분리를 ZONE 컬럼 1개로 대체)
+    """
     if Simul_df.empty:
         return
+    Simul_df['ZONE'] = zone
+    if ident:
+        for k, v in ident.items():
+            Simul_df[k] = v
     zones[zone].append(Simul_df)
 
 
@@ -723,7 +836,17 @@ def _run_key(mico_info_key, zones, extra_zones, pre_thk_formula, c):
     """for_key(Lot_Code+Oper_Code+Fab) 하나에 대한 시뮬레이션 실행 → zones 에 누적."""
     Fab       = mico_info_key['Fab'].unique()[0]
     Lot_Code  = mico_info_key['Lot_Code'].unique()[0]
+    Oper_Code = mico_info_key['Oper_Code'].unique()[0]
     Oper_Desc = mico_info_key['Oper_Desc'].unique()[0]
+    Product   = mico_info_key['Product'].unique()[0]
+
+    ident = {
+        'Lot_Code' : Lot_Code,
+        'Product'  : Product,
+        'Oper_Code': Oper_Code,
+        'Oper_Desc': Oper_Desc,
+        'Fab'      : Fab,
+    }
 
     pol_type_vals = mico_info_key['Pol_Type'].dropna().unique()
     pol_type      = int(pol_type_vals[0]) if len(pol_type_vals) > 0 else None
@@ -755,7 +878,7 @@ def _run_key(mico_info_key, zones, extra_zones, pre_thk_formula, c):
             if not Simul_df.empty:
                 Simul_df['Pre_Target_13P'] = Pre_Target_13P
                 Simul_df['Target_13P']     = Target_13P
-            _append_zone(zones, '13P', Simul_df)
+            _append_zone(zones, '13P', Simul_df, ident)
 
         # ── PRESSURE (EDGE / EXED / extra zones) ─────────────────────
         info_pressure = mico_info_key[mico_info_key['FB_Type'] == 'PRESSURE']
@@ -783,14 +906,17 @@ def _run_key(mico_info_key, zones, extra_zones, pre_thk_formula, c):
             if zone in ('EDGE', 'EXED'):
                 Simul_df[f'Pre_Target_{zone}'] = float(key['Pre_Target'])
                 Simul_df[f'Target_{zone}']     = float(key['Target'])
-            else:
-                Simul_df['ZONE'] = zone
 
-            _append_zone(zones, zone, Simul_df)
+            _append_zone(zones, zone, Simul_df, ident)
 
     except Exception as e:
         tb = traceback.format_exc()
         c.sendMsg('', '506204179', f'{Fab} {Lot_Code} {Oper_Desc}, Simul Failed : {e}, {tb}')
+
+
+def _concat_zones(zones, zone_list):
+    frames = [f for z in zone_list for f in zones.get(z, [])]
+    return pd.concat(frames) if frames else pd.DataFrame()
 
 
 def _export_results(zones, Product, export_oper, file_labels, extra_zones, export_dir):
@@ -801,22 +927,39 @@ def _export_results(zones, Product, export_oper, file_labels, extra_zones, expor
     """
     out_dir = f'{export_dir}/{Product}_{export_oper}_Simulation'
 
-    def _concat(zone_list):
-        frames = [f for z in zone_list for f in zones.get(z, [])]
-        return pd.concat(frames) if frames else pd.DataFrame()
-
     for zone in ('13P', 'EDGE', 'EXED'):
-        df    = _concat([zone])
+        df    = _concat_zones(zones, [zone])
         label = file_labels.get(zone, zone)
         path  = f'{out_dir}/Simul_{label}_{Product}.csv'
         df.to_csv(path)
         print(f'  [출력] {path} ({len(df)}행)')
 
     if extra_zones:
-        df   = _concat(extra_zones)
+        df   = _concat_zones(zones, extra_zones)
         path = f'{out_dir}/Simul_Other_{Product}.csv'
         df.to_csv(path)
         print(f'  [출력] {path} ({len(df)}행, zones={list(extra_zones)})')
+
+
+def _save_results_db(zones, extra_zones):
+    """zone 별 누적 결과를 MICO Web 과 동일한 DB 에 저장.
+
+    CSV(Spotfire) 는 zone 별 파일로 나뉘어 있었으나 DB 는 학습 테이블과 같은 규칙의
+    테이블 1개(MICO_Simulation_{Lot_Code}_{Oper_Desc}_{Fab})에 ZONE 컬럼으로 담는다.
+    한 Product 안에 여러 Lot_Code / Fab 가 섞여 있어도 키별로 테이블이 분리된다.
+    """
+    df = _concat_zones(zones, ['13P', 'EDGE', 'EXED'] + list(extra_zones))
+    if df.empty:
+        print('  [DB] 저장할 Simulation 결과 없음')
+        return
+
+    key_cols = ['Lot_Code', 'Oper_Desc', 'Fab']
+    if any(c not in df.columns for c in key_cols):
+        print(f'  ! [DB] 키 컬럼 누락({key_cols}) → DB 저장 skip')
+        return
+
+    for (lot_code, oper_desc, fab), part in df.groupby(key_cols, dropna=False):
+        Result_DB.save_simulation(part, lot_code, oper_desc, fab, mode='replace')
 
 
 # ── 메인 실행 ──────────────────────────────────────────────────────────────
@@ -826,7 +969,9 @@ def run(Family, oper_desc,
         file_labels=None,
         pre_thk_formula=None,
         export_dir=_EXPORT_BASE,
-        export_oper=None):
+        export_oper=None,
+        save_db=True,
+        export_csv=None):
     """Simulation 메인 실행
 
     기본 처리 zone 은 13P / EDGE(ED1) / EXED(ED2) 3종.
@@ -846,6 +991,10 @@ def run(Family, oper_desc,
                           미지정(None) 시 set-up 기준 기본값 (기존 source 동작)
         export_dir      : CSV 출력 기본 경로
         export_oper     : CSV 폴더명 공정 토큰 (기본 oper_desc 의 공백 → '_')
+        save_db         : 결과를 MICO Web 과 같은 DB 에 저장할지 여부 (기본 True)
+                          테이블: MICO_Simulation_{Lot_Code}_{Oper_Desc}_{Fab}
+        export_csv      : Spotfire 연동 CSV 출력 여부.
+                          None(기본) → export_dir 이 존재할 때만 출력 (로컬에선 자동 skip)
 
     (PRE_THK_INFO 결합은 web Set-up 의 Pre_Oper_Code2 유무로 키별 자동 처리,
      pol_type 은 web Set-up 의 Pol_Type, ITM para 는 Pre_Thk_Para_ITM 에서 자동으로 읽어옴)
@@ -856,6 +1005,9 @@ def run(Family, oper_desc,
         file_labels = {}
     if export_oper is None:
         export_oper = oper_desc.replace(' ', '_')
+    if export_csv is None:
+        # 사내 공유 폴더가 있으면 기존대로 CSV 출력, 로컬(경로 없음)에서는 자동 skip
+        export_csv = Path(export_dir).is_dir()
 
     c          = Cube_Connector(_CUBE_BOT_ID, _CUBE_BOT_TOKEN)
     start_time = time.time()
@@ -897,7 +1049,10 @@ def run(Family, oper_desc,
                 print(f'\n  [{key}] (Product={Product})')
                 _run_key(mico_info_key, zones, extra_zones, pre_thk_formula, c)
 
-            _export_results(zones, Product, export_oper, file_labels, extra_zones, export_dir)
+            if save_db:
+                _save_results_db(zones, extra_zones)
+            if export_csv:
+                _export_results(zones, Product, export_oper, file_labels, extra_zones, export_dir)
             del zones
 
     except Exception as e:

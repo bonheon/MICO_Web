@@ -785,6 +785,98 @@ def simulation(request):
     })
 
 
+# ── Simulation 결과 (web 조회) ─────────────────────────────────────────────
+# Spotfire 로 보던 Simulation 결과 중 기본 항목을 web 에서 바로 조회.
+# 데이터 출처: Set-up 과 같은 DB 의 MICO_Simulation_{Lot_Code}_{Oper_Desc}_{Fab}
+#              (algorithm_new/Common/Simulation.py 가 실행 후 적재)
+
+@login_required
+def simulation_result(request):
+    import json
+    from . import simulation_db
+
+    # Cascade: {product: {oper_desc: [{fab, has_data}, ...]}} — Set-up 기준
+    rows = (
+        SubCategory.objects
+        .select_related('category')
+        .exclude(fab='')
+        .exclude(category__oper_desc='')
+        .values('category__product', 'category__oper_desc', 'fab')
+        .distinct()
+        .order_by('category__product', 'category__oper_desc', 'fab')
+    )
+
+    try:
+        existing = simulation_db.existing_tables()
+        db_error = ''
+    except Exception as e:          # DB 미연결 등
+        existing, db_error = set(), str(e)
+
+    cascade = {}
+    for r in rows:
+        product, oper_desc, fab = r['category__product'], r['category__oper_desc'], r['fab']
+        fabs = cascade.setdefault(product, {}).setdefault(oper_desc, [])
+        if any(f['fab'] == fab for f in fabs):
+            continue
+        fabs.append({
+            'fab'     : fab,
+            'has_data': simulation_db.table_name(product, oper_desc, fab) in existing,
+        })
+
+    return render(request, 'setup_mico/simulation_result.html', {
+        'cascade_json': json.dumps(cascade, ensure_ascii=False),
+        'db_error'    : db_error,
+    })
+
+
+@login_required
+def simulation_result_data(request):
+    from . import simulation_db
+
+    product   = request.GET.get('product', '').strip()
+    oper_desc = request.GET.get('oper_desc', '').strip()
+    fab       = request.GET.get('fab', '').strip()
+    zone      = request.GET.get('zone', '').strip()
+    apc_para  = request.GET.get('apc_para', '').strip()
+    date_from = request.GET.get('date_from', '').strip()
+    date_to   = request.GET.get('date_to', '').strip()
+
+    if not all([product, oper_desc, fab]):
+        return JsonResponse({'error': 'product / oper_desc / fab 파라미터가 필요합니다'}, status=400)
+
+    table = simulation_db.table_name(product, oper_desc, fab)
+
+    try:
+        if table not in simulation_db.existing_tables():
+            return JsonResponse({
+                'error': f'Simulation 결과 테이블이 없습니다: {table}\n'
+                         f'해당 공정의 Simulation 을 실행하면 결과가 적재됩니다.',
+                'table': table,
+            }, status=404)
+
+        zones     = simulation_db.distinct_values(table, 'ZONE', date_from, date_to)
+        apc_paras = simulation_db.distinct_values(table, 'APC_Para', date_from, date_to)
+
+        # 미지정 시 기본값 — 13P(TIME) 우선
+        if not zone:
+            zone = '13P' if '13P' in zones else (zones[0] if zones else '')
+        if not apc_para:
+            apc_para = apc_paras[0] if apc_paras else ''
+
+        data = simulation_db.fetch(table, date_from, date_to, zone, apc_para)
+    except Exception as e:
+        return JsonResponse({'error': f'DB 조회 오류: {e}'}, status=500)
+
+    data.update({
+        'table'    : table,
+        'zones'    : zones,
+        'apc_paras': apc_paras,
+        'zone'     : zone,
+        'apc_para' : apc_para,
+    })
+    return JsonResponse(data)
+
+
 @login_required
 def setup_history(request):
     from django.core.paginator import Paginator

@@ -1,0 +1,1275 @@
+{% extends 'setup_mico/base.html' %}
+{% block title %}| Simulation 결과{% endblock %}
+{% block nav_simulation_result %}active{% endblock %}
+
+{% block breadcrumb %}
+<li class="breadcrumb-item">Learning</li>
+<li class="breadcrumb-item active">Simulation 결과</li>
+{% endblock %}
+
+{% block content %}
+<style>
+  .selector-panel {
+    display: grid; grid-template-columns: 1fr 1fr 1fr auto;
+    gap: 1rem; margin-bottom: 1.25rem; align-items: end;
+  }
+  .selector-card {
+    background: #fff; border: 2px solid #e4e7ed; border-radius: 12px;
+    padding: 1rem 1.25rem; position: relative; transition: border-color 0.15s;
+  }
+  .selector-card.selected { border-color: #4f8ef7; }
+  .step-badge {
+    position: absolute; top: -10px; left: 14px;
+    font-size: 0.65rem; font-weight: 700; padding: 2px 8px; border-radius: 999px;
+    letter-spacing: 0.05em; color: #fff;
+  }
+  .selector-card label {
+    font-size: 0.72rem; font-weight: 600; color: #8993a8;
+    text-transform: uppercase; letter-spacing: 0.06em;
+    display: block; margin-bottom: 0.5rem;
+  }
+  .selector-card select {
+    width: 100%; border: 1px solid #e4e7ed; border-radius: 8px;
+    padding: 0.45rem 0.75rem; font-size: 0.83rem; color: #344054;
+    background: #f8f9fc; outline: none; cursor: pointer;
+  }
+  .selector-card select:focus { border-color: #4f8ef7; background: #fff; }
+  .selector-card select:disabled { opacity: 0.4; cursor: not-allowed; }
+
+  .btn-search {
+    padding: 0.7rem 1.5rem; border-radius: 10px;
+    background: #0f1729; color: #fff; font-size: 0.85rem; font-weight: 700;
+    border: none; cursor: pointer; transition: background 0.15s; white-space: nowrap;
+  }
+  .btn-search:hover { background: #1a2744; }
+  .btn-search:disabled { opacity: 0.45; cursor: not-allowed; }
+
+  .algo-tab {
+    padding: 0.35rem 0.9rem; border-radius: 8px;
+    border: 1px solid #e4e7ed; background: #fff;
+    font-size: 0.78rem; font-weight: 500; color: #8993a8;
+    cursor: pointer; transition: all 0.15s;
+  }
+  .algo-tab:hover { border-color: #4f8ef7; color: #4f8ef7; }
+  .algo-tab.active { background: #4f8ef7; border-color: #4f8ef7; color: #fff; font-weight: 600; }
+
+  .content-card { background: #fff; border: 1px solid #e4e7ed; border-radius: 12px; overflow: hidden; }
+  .content-header {
+    padding: 1rem 1.5rem; border-bottom: 1px solid #e4e7ed;
+    display: flex; align-items: center; gap: 0.75rem;
+  }
+  .content-title { font-size: 0.875rem; font-weight: 600; color: #1e2640; }
+  .content-sub   { font-size: 0.75rem; color: #8993a8; margin-top: 1px; }
+
+  .info-bar {
+    display: flex; align-items: center; gap: 0.5rem; flex-wrap: wrap;
+    padding: 0.6rem 1.5rem; background: #f8f9fc;
+    border-bottom: 1px solid #e4e7ed; font-size: 0.78rem;
+  }
+  .chip { border-radius: 999px; padding: 0.2em 0.75em; font-weight: 500; font-size: 0.75rem; }
+
+  .empty-state { padding: 5rem 1.5rem; text-align: center; color: #8993a8; }
+  .empty-state i { font-size: 2.2rem; display: block; margin-bottom: 0.75rem; color: #c8d0e0; }
+  .empty-state .em-title { font-size: 0.9rem; font-weight: 600; color: #344054; margin-bottom: 0.3rem; }
+  .empty-state .em-sub   { font-size: 0.8rem; }
+  .loading-state { padding: 5rem 1.5rem; text-align: center; color: #8993a8; }
+  .error-state   { padding: 3rem 1.5rem; text-align: center; }
+
+  .filter-bar {
+    display: flex; align-items: center; gap: 0.5rem; flex-wrap: wrap;
+    background: #fff; border: 1px solid #e4e7ed; border-radius: 10px;
+    padding: 0.6rem 1rem; margin-bottom: 1rem;
+  }
+  .filter-label {
+    font-size: 0.72rem; font-weight: 600; color: #8993a8;
+    text-transform: uppercase; letter-spacing: 0.06em; white-space: nowrap; margin-right: 0.25rem;
+  }
+  .date-quick-btn {
+    padding: 0.3rem 0.75rem; border-radius: 8px; font-size: 0.78rem;
+    border: 1px solid #e4e7ed; background: #f8f9fc; color: #344054;
+    cursor: pointer; transition: all 0.12s; white-space: nowrap;
+  }
+  .date-quick-btn:hover { border-color: #4f8ef7; color: #4f8ef7; }
+  .date-quick-btn.active { background: #4f8ef7; border-color: #4f8ef7; color: #fff; font-weight: 600; }
+  .date-divider { width: 1px; height: 20px; background: #e4e7ed; margin: 0 0.25rem; flex-shrink: 0; }
+  .date-input {
+    border: 1px solid #e4e7ed; border-radius: 7px; padding: 0.3rem 0.6rem;
+    font-size: 0.8rem; color: #344054; background: #f8f9fc; outline: none; cursor: pointer;
+  }
+  .date-input:focus { border-color: #4f8ef7; background: #fff; }
+  .date-clear-btn {
+    padding: 0.25rem 0.5rem; border-radius: 7px; border: none;
+    background: none; color: #c8d0e0; cursor: pointer; font-size: 0.9rem; line-height: 1;
+  }
+  .date-clear-btn:hover { color: #ef4444; }
+  .mini-select {
+    border: 1px solid #e4e7ed; border-radius: 7px; padding: 0.28rem 0.6rem;
+    font-size: 0.8rem; color: #344054; background: #f8f9fc; outline: none; cursor: pointer;
+  }
+
+  /* Multi-select FilterSelect */
+  .fsel-wrap { position: relative; }
+  .fsel-btn {
+    display: inline-flex; align-items: center; gap: 0.35rem;
+    border: 1px solid #e4e7ed; border-radius: 7px;
+    padding: 0.28rem 0.65rem; font-size: 0.8rem; color: #344054;
+    background: #f8f9fc; cursor: pointer; white-space: nowrap;
+  }
+  .fsel-btn:hover, .fsel-btn.open { border-color: #4f8ef7; background: #fff; }
+  .fsel-lbl { font-size: 0.7rem; font-weight: 700; color: #8993a8; text-transform: uppercase; }
+  .fsel-sep { color: #c8d0e0; font-size: 0.75rem; }
+  .fsel-val { font-size: 0.8rem; color: #344054; min-width: 2.2rem; text-align: center; }
+  .fsel-val.active { color: #4f8ef7; font-weight: 600; }
+  .fsel-chev { font-size: 0.68rem; color: #b0b8cc; transition: transform 0.15s; }
+  .fsel-btn.open .fsel-chev { transform: rotate(180deg); }
+  .fsel-dropdown {
+    position: absolute; top: calc(100% + 5px); left: 0; z-index: 200;
+    background: #fff; border: 1px solid #e4e7ed; border-radius: 9px;
+    box-shadow: 0 6px 20px rgba(0,0,0,0.1); min-width: 200px; max-width: 320px;
+  }
+  .fsel-toolbar { display: flex; gap: 0.4rem; padding: 0.45rem 0.65rem; border-bottom: 1px solid #f0f2f7; }
+  .fsel-toolbar-btn {
+    flex: 1; padding: 0.22rem 0.4rem; border: 1px solid #e4e7ed; border-radius: 5px;
+    font-size: 0.72rem; background: #f8f9fc; color: #344054; cursor: pointer; text-align: center;
+  }
+  .fsel-toolbar-btn:hover { border-color: #4f8ef7; color: #4f8ef7; background: #eff6ff; }
+  .fsel-list { max-height: 220px; overflow-y: auto; padding: 0.3rem 0.4rem 0.4rem; }
+  .fsel-item {
+    display: flex; align-items: center; gap: 0.5rem; padding: 0.28rem 0.45rem;
+    border-radius: 5px; cursor: pointer; font-size: 0.8rem; color: #344054; line-height: 1.3;
+  }
+  .fsel-item:hover { background: #f0f6ff; }
+  .fsel-item input[type=checkbox] { cursor: pointer; flex-shrink: 0; accent-color: #4f8ef7; }
+  .fsel-empty { padding: 0.6rem 0.7rem; font-size: 0.78rem; color: #b0b8cc; text-align: center; }
+
+  .chart-box { background: #f8f9fc; border: 1px solid #e4e7ed; border-radius: 10px; padding: 1rem 1.25rem; }
+  .chart-box-title {
+    font-size: 0.78rem; font-weight: 600; color: #344054;
+    margin-bottom: 0.75rem; display: flex; align-items: center; gap: 0.5rem;
+  }
+  .chart-box-title .dot { width: 8px; height: 8px; border-radius: 50%; flex-shrink: 0; }
+
+  .section-title {
+    font-size: 0.82rem; font-weight: 700; color: #344054;
+    display: flex; align-items: center; gap: 0.5rem;
+    padding: 1.3rem 0 0.7rem; border-top: 1px solid #e4e7ed; margin-top: 0.5rem;
+  }
+  .section-title:first-child { border-top: none; padding-top: 0; margin-top: 0; }
+  .section-desc { font-size: 0.73rem; color: #8993a8; font-weight: 400; margin-left: 0.15rem; }
+
+  .stat-table { width: 100%; border-collapse: collapse; font-size: 0.72rem; }
+  .stat-table th { color: #9ca3af; font-weight: 500; text-align: right; padding: 3px 6px; }
+  .stat-table th:first-child { text-align: left; }
+  .stat-table td { color: #374151; text-align: right; padding: 3px 6px; }
+  .stat-table td:first-child { text-align: left; }
+  .stat-dot { display: inline-block; width: 8px; height: 8px; border-radius: 50%; margin-right: 5px; vertical-align: middle; }
+
+  /* Dark mode */
+  [data-theme="dark"] .content-card { background: #1f2937 !important; border-color: #374151 !important; }
+  [data-theme="dark"] .content-header { border-bottom-color: #374151 !important; }
+  [data-theme="dark"] .content-title { color: #f1f5f9 !important; }
+  [data-theme="dark"] .content-sub   { color: #9ca3af !important; }
+  [data-theme="dark"] .info-bar { background: #263348 !important; border-bottom-color: #374151 !important; }
+  [data-theme="dark"] .filter-bar { background: #1f2937 !important; border-color: #374151 !important; }
+  [data-theme="dark"] .filter-label { color: #9ca3af !important; }
+  [data-theme="dark"] .date-quick-btn { background: #263348 !important; border-color: #374151 !important; color: #d1d5db !important; }
+  [data-theme="dark"] .date-quick-btn:hover { border-color: #4f8ef7 !important; color: #4f8ef7 !important; }
+  [data-theme="dark"] .date-divider { background: #374151 !important; }
+  [data-theme="dark"] .date-input, [data-theme="dark"] .mini-select {
+    background: #1e2a40 !important; border-color: #3d4f6d !important; color: #f1f5f9 !important; }
+  [data-theme="dark"] .chart-box { background: #263348 !important; border-color: #374151 !important; }
+  [data-theme="dark"] .chart-box-title { color: #d1d5db !important; }
+  [data-theme="dark"] .section-title { color: #d1d5db !important; border-top-color: #374151 !important; }
+  [data-theme="dark"] .section-desc { color: #9ca3af !important; }
+  [data-theme="dark"] .empty-state { color: #9ca3af !important; }
+  [data-theme="dark"] .empty-state i { color: #4b5563 !important; }
+  [data-theme="dark"] .empty-state .em-title { color: #d1d5db !important; }
+  [data-theme="dark"] .loading-state { color: #9ca3af !important; }
+  [data-theme="dark"] .error-state   { color: #d1d5db !important; }
+  [data-theme="dark"] .algo-tab { background: #1f2937 !important; border-color: #374151 !important; color: #d1d5db !important; }
+  [data-theme="dark"] .algo-tab.active { background: #4f8ef7 !important; border-color: #4f8ef7 !important; color: #fff !important; }
+  [data-theme="dark"] .selector-card { background: #1f2937 !important; border-color: #374151 !important; }
+  [data-theme="dark"] .selector-card.selected { border-color: #4f8ef7 !important; }
+  [data-theme="dark"] .selector-card select { background: #1e2a40 !important; border-color: #3d4f6d !important; color: #f1f5f9 !important; }
+  [data-theme="dark"] .selector-card label { color: #9ca3af !important; }
+  [data-theme="dark"] .stat-table th { color: #6b7280 !important; }
+  [data-theme="dark"] .stat-table td { color: #cbd5e1 !important; }
+  [data-theme="dark"] .fsel-btn { background: #1e2a40 !important; border-color: #3d4f6d !important; color: #f1f5f9 !important; }
+  [data-theme="dark"] .fsel-btn:hover, [data-theme="dark"] .fsel-btn.open { border-color: #4f8ef7 !important; background: #263348 !important; }
+  [data-theme="dark"] .fsel-lbl { color: #6b7280 !important; }
+  [data-theme="dark"] .fsel-val { color: #d1d5db !important; }
+  [data-theme="dark"] .fsel-dropdown { background: #1f2937 !important; border-color: #374151 !important; }
+  [data-theme="dark"] .fsel-toolbar { border-bottom-color: #374151 !important; }
+  [data-theme="dark"] .fsel-toolbar-btn { background: #263348 !important; border-color: #374151 !important; color: #d1d5db !important; }
+  [data-theme="dark"] .fsel-item { color: #d1d5db !important; }
+  [data-theme="dark"] .fsel-item:hover { background: #1e3a5f !important; }
+</style>
+
+<div class="d-flex align-items-center justify-content-between mb-3">
+  <div>
+    <h5 class="fw-bold mb-0" style="color:#1e2640;">Simulation 결과</h5>
+    <small class="text-muted">Simulation 실행 결과(MICO_Simulation_*)를 web 에서 바로 조회</small>
+  </div>
+</div>
+
+<!-- Selector -->
+<div class="selector-panel">
+  <div class="selector-card" id="card-product">
+    <span class="step-badge" style="background:#4f8ef7;">STEP 1</span>
+    <label>Product (Lot Code)</label>
+    <select id="sel-product"><option value="">— 선택하세요 —</option></select>
+  </div>
+  <div class="selector-card" id="card-oper">
+    <span class="step-badge" style="background:#22c55e;">STEP 2</span>
+    <label>Oper Desc</label>
+    <select id="sel-oper" disabled><option value="">— Product 먼저 선택 —</option></select>
+  </div>
+  <div class="selector-card" id="card-fab">
+    <span class="step-badge" style="background:#a855f7;">STEP 3</span>
+    <label>FAB</label>
+    <select id="sel-fab" disabled><option value="">— Oper Desc 먼저 선택 —</option></select>
+  </div>
+  <button id="btn-search" class="btn-search" disabled>
+    <i class="bi bi-search me-1"></i> 조회
+  </button>
+</div>
+
+<!-- Date filter -->
+<div class="filter-bar">
+  <span class="filter-label"><i class="bi bi-calendar3 me-1"></i>기간</span>
+  <button class="date-quick-btn" data-days="7">최근 7일</button>
+  <button class="date-quick-btn" data-days="14">최근 2주</button>
+  <button class="date-quick-btn" data-days="30">최근 30일</button>
+  <button class="date-quick-btn" data-days="90">최근 90일</button>
+  <div class="date-divider"></div>
+  <input type="date" id="date-from" class="date-input">
+  <span style="color:#8993a8; font-size:0.82rem;">~</span>
+  <input type="date" id="date-to" class="date-input">
+  <button class="date-clear-btn" id="date-clear" title="기간 초기화"><i class="bi bi-x-circle"></i></button>
+</div>
+
+<!-- Zone / APC Para / 세부 필터 -->
+<div class="filter-bar" id="detail-filter-bar" style="display:none;">
+  <span class="filter-label"><i class="bi bi-bounding-box me-1"></i>Zone</span>
+  <div id="zone-tabs" style="display:flex; gap:0.35rem; flex-wrap:wrap;"></div>
+  <div class="date-divider"></div>
+  <span class="filter-label"><i class="bi bi-sliders me-1"></i>APC Para</span>
+  <select id="sel-apc" class="mini-select"></select>
+  <div class="date-divider"></div>
+  <div id="fsel-formula"></div>
+  <div id="fsel-eqp"></div>
+  <div id="fsel-recipe"></div>
+  <div class="date-divider"></div>
+  <span id="sel-hint" style="font-size:0.72rem; color:#8993a8;">
+    <i class="bi bi-arrows-move"></i> 차트에서 드래그하면 해당 웨이퍼가 모든 차트에서 강조됩니다
+  </span>
+  <span id="sel-info" style="display:none; align-items:center; gap:0.45rem;">
+    <span class="chip" style="background:#eff6ff; color:#4f8ef7;">
+      <i class="bi bi-crosshair me-1"></i><b id="sel-count">0</b>개 웨이퍼 선택
+    </span>
+    <button id="sel-clear" class="date-quick-btn" type="button">선택 해제</button>
+  </span>
+</div>
+
+<!-- Content -->
+<div class="content-card">
+  <div class="content-header">
+    <div>
+      <div class="content-title">Simulation 결과</div>
+      <div class="content-sub" id="content-sub">Product → Oper Desc → FAB 선택 후 조회하세요</div>
+    </div>
+    <div class="ms-auto">
+      <span id="data-status" class="chip" style="background:#f0f2f7; color:#8993a8;">
+        <i class="bi bi-circle me-1"></i> 미조회
+      </span>
+    </div>
+  </div>
+
+  <div class="info-bar" id="info-bar" style="display:none;">
+    <i class="bi bi-database" style="color:#8993a8;"></i>
+    <span id="info-product" class="chip" style="background:#eff6ff; color:#4f8ef7;"></span>
+    <i class="bi bi-chevron-right" style="color:#c8d0e0;"></i>
+    <span id="info-oper" class="chip" style="background:#f0fdf4; color:#22c55e;"></span>
+    <i class="bi bi-chevron-right" style="color:#c8d0e0;"></i>
+    <span id="info-fab" class="chip" style="background:#fdf4ff; color:#a855f7;"></span>
+    <code id="info-table" style="font-size:0.7rem; color:#8993a8; margin-left:0.5rem;"></code>
+  </div>
+
+  <div class="empty-state" id="empty-state">
+    <i class="bi bi-graph-up"></i>
+    <div class="em-title">Simulation 결과 조회</div>
+    <div class="em-sub">
+      Product / Oper Desc / FAB 을 선택하고 조회하면<br>
+      THK · Removal Rate · Pre Thk VM · Offset 학습 현황이 표시됩니다
+    </div>
+  </div>
+
+  <div class="loading-state" id="loading-state" style="display:none;">
+    <div class="spinner-border spinner-border-sm text-primary mb-3" role="status"></div>
+    <div style="font-size:0.85rem; color:#344054; font-weight:600;">데이터 조회 중...</div>
+    <div id="loading-table" style="font-size:0.72rem; color:#8993a8; margin-top:0.3rem;"></div>
+  </div>
+
+  <div class="error-state" id="error-state" style="display:none;">
+    <i class="bi bi-exclamation-triangle" style="font-size:1.8rem; color:#ef4444; display:block; margin-bottom:0.75rem;"></i>
+    <div style="font-size:0.9rem; font-weight:600; color:#344054; margin-bottom:0.3rem;">조회 실패</div>
+    <div id="error-msg" style="font-size:0.82rem; color:#8993a8; white-space:pre-line;"></div>
+  </div>
+
+  <div id="results-panel" style="display:none; padding:1.25rem 1.5rem;">
+
+    <!-- 1. THK -->
+    <div class="section-title">
+      <i class="bi bi-layers" style="color:#4f8ef7;"></i> THK Trend
+      <span class="section-desc">— APC Para 의 Formula 값별 실측 두께</span>
+    </div>
+    <div id="thk-row" style="display:grid; grid-template-columns:7fr 3fr; gap:1rem;"></div>
+
+    <!-- 2. APC Para -->
+    <div class="section-title">
+      <i class="bi bi-sliders" style="color:#22c55e;"></i> APC Para Trend
+      <span class="section-desc">— Formula 값별 APC 적용값 (연마시간 / 압력)</span>
+    </div>
+    <div id="apc-row" style="display:grid; grid-template-columns:7fr 3fr; gap:1rem;"></div>
+
+    <!-- 3. Removal Rate -->
+    <div class="section-title">
+      <i class="bi bi-speedometer2" style="color:#ef4444;"></i> Removal Rate 학습 추종성
+      <span class="section-desc">— 실제 RR(회색) 대비 적용 모델 (if &gt; current &gt; weighted &gt; normal)</span>
+      <span style="margin-left:auto; display:flex; gap:0.35rem;">
+        <button class="algo-tab active" id="rr-x-date" style="font-size:0.72rem; padding:0.25rem 0.7rem;">X축: 날짜</button>
+        <button class="algo-tab" id="rr-x-cons" style="font-size:0.72rem; padding:0.25rem 0.7rem;">X축: 소모품</button>
+      </span>
+    </div>
+    <div id="rr-row" style="display:grid; grid-template-columns:7fr 3fr; gap:1rem;"></div>
+
+    <!-- 4. Pre Thk VM -->
+    <div class="section-title">
+      <i class="bi bi-arrow-down-up" style="color:#22c55e;"></i> Pre Thk VM 학습
+      <span class="section-desc">— 날짜별 학습값 추이 (pre 챔버별 분포)</span>
+    </div>
+    <div id="prethk-row" style="display:grid; grid-template-columns:7fr 3fr; gap:1rem;"></div>
+
+    <!-- 5. Offset -->
+    <div class="section-title">
+      <i class="bi bi-clock-history" style="color:#f97316;"></i> Idle Offset 학습
+      <span class="section-desc">— IDLE 구간별 학습 보정량</span>
+    </div>
+    <div id="offset-row" style="display:grid; grid-template-columns:7fr 3fr; gap:1rem;"></div>
+
+  </div>
+</div>
+{% endblock %}
+
+{% block scripts %}
+<script>
+const CASCADE  = {{ cascade_json|safe }};
+const DB_ERROR = "{{ db_error|escapejs }}";
+
+// 학습 모델 색상 — 요청 규격 (normal 빨강 / weight 노랑 / current 파랑 / if 보라 / 실제 회색)
+const C_ACTUAL   = '#9ca3af';
+const C_NORMAL   = '#ef4444';
+const C_WEIGHTED = '#eab308';
+const C_CURRENT  = '#4f8ef7';
+const C_IF       = '#a855f7';
+const C_APPLIED  = '#111827';   // RR_DB (실제 적용된 값)
+const C_LEARN    = '#4f8ef7';   // Pre Thk / Offset 학습값
+const COLORS     = ['#4f8ef7','#22c55e','#f97316','#a855f7','#ef4444','#06b6d4','#eab308','#ec4899'];
+
+// ── State ────────────────────────────────────────────────────────────
+let simData   = null;    // 서버 응답 (records 변환 후)
+let charts    = {};      // canvasId → Chart
+let rrXMode   = 'date';  // 'date' | 'cons'
+let fselFormula = null, fselEqp = null, fselRecipe = null;
+let curKey    = { product:'', oper_desc:'', fab:'', zone:'', apc_para:'' };
+
+// ── Boxplot whisker plugin ───────────────────────────────────────────
+Chart.register({
+  id: 'simBoxplotWhiskers',
+  afterDatasetsDraw(chart) {
+    const groups = chart.data.datasets[0]?._groups;
+    if (!groups) return;
+    const ctx = chart.ctx, yScale = chart.scales.y, meta = chart.getDatasetMeta(0);
+    groups.forEach((g, i) => {
+      if (!g.stats) return;
+      const bar = meta.data[i];
+      if (!bar) return;
+      const x = bar.x, bw = Math.min((bar.width || 40) * 0.8, 60), hw = bw / 2, ww = bw * 0.4;
+      const { whiskerHigh, q3, median, q1, whiskerLow } = g.stats;
+      const yWH = yScale.getPixelForValue(whiskerHigh), yQ3 = yScale.getPixelForValue(q3);
+      const yMed = yScale.getPixelForValue(median);
+      const yQ1 = yScale.getPixelForValue(q1), yWL = yScale.getPixelForValue(whiskerLow);
+      ctx.save();
+      ctx.strokeStyle = g.color; ctx.lineWidth = 1.5; ctx.setLineDash([]);
+      ctx.beginPath(); ctx.moveTo(x - ww, yWH); ctx.lineTo(x + ww, yWH); ctx.stroke();
+      ctx.beginPath(); ctx.moveTo(x, yWH); ctx.lineTo(x, yQ3); ctx.stroke();
+      ctx.beginPath(); ctx.moveTo(x, yQ1); ctx.lineTo(x, yWL); ctx.stroke();
+      ctx.beginPath(); ctx.moveTo(x - ww, yWL); ctx.lineTo(x + ww, yWL); ctx.stroke();
+      ctx.lineWidth = 2.5;
+      ctx.beginPath(); ctx.moveTo(x - hw, yMed); ctx.lineTo(x + hw, yMed); ctx.stroke();
+      ctx.restore();
+    });
+  }
+});
+
+// ── Cascade selectors ────────────────────────────────────────────────
+const selProduct = document.getElementById('sel-product');
+const selOper    = document.getElementById('sel-oper');
+const selFab     = document.getElementById('sel-fab');
+const btnSearch  = document.getElementById('btn-search');
+
+Object.keys(CASCADE).sort().forEach(p => selProduct.add(new Option(p, p)));
+
+selProduct.addEventListener('change', () => {
+  const p = selProduct.value;
+  selOper.innerHTML = '<option value="">— 선택하세요 —</option>';
+  selFab.innerHTML  = '<option value="">— Oper Desc 먼저 선택 —</option>';
+  selOper.disabled  = !p;
+  selFab.disabled   = true;
+  btnSearch.disabled = true;
+  document.getElementById('card-product').classList.toggle('selected', !!p);
+  document.getElementById('card-oper').classList.remove('selected');
+  document.getElementById('card-fab').classList.remove('selected');
+  if (p) Object.keys(CASCADE[p]).sort().forEach(o => selOper.add(new Option(o, o)));
+});
+
+selOper.addEventListener('change', () => {
+  const p = selProduct.value, o = selOper.value;
+  selFab.innerHTML = '<option value="">— 선택하세요 —</option>';
+  selFab.disabled  = !o;
+  btnSearch.disabled = true;
+  document.getElementById('card-oper').classList.toggle('selected', !!o);
+  document.getElementById('card-fab').classList.remove('selected');
+  if (p && o) (CASCADE[p][o] || []).forEach(f => {
+    // 결과 테이블이 없는 FAB 은 표시로 구분 (Simulation 미실행)
+    selFab.add(new Option(f.has_data ? f.fab : `${f.fab} (데이터 없음)`, f.fab));
+  });
+});
+
+selFab.addEventListener('change', () => {
+  document.getElementById('card-fab').classList.toggle('selected', !!selFab.value);
+  btnSearch.disabled = !selFab.value;
+});
+
+// ── Date filter ──────────────────────────────────────────────────────
+const dateFrom = document.getElementById('date-from');
+const dateTo   = document.getElementById('date-to');
+const toLocalDate = d => d.getFullYear() + '-' +
+  String(d.getMonth() + 1).padStart(2, '0') + '-' + String(d.getDate()).padStart(2, '0');
+
+document.querySelectorAll('.date-quick-btn').forEach(btn => {
+  btn.addEventListener('click', function() {
+    document.querySelectorAll('.date-quick-btn').forEach(b => b.classList.remove('active'));
+    this.classList.add('active');
+    const days = +this.dataset.days, now = new Date();
+    dateTo.value   = toLocalDate(now);
+    dateFrom.value = toLocalDate(new Date(now - (days - 1) * 86400000));
+  });
+});
+document.getElementById('date-clear').addEventListener('click', () => {
+  dateFrom.value = dateTo.value = '';
+  document.querySelectorAll('.date-quick-btn').forEach(b => b.classList.remove('active'));
+});
+
+btnSearch.addEventListener('click', () => {
+  curKey = {
+    product: selProduct.value, oper_desc: selOper.value, fab: selFab.value,
+    zone: '', apc_para: '',
+  };
+  fetchData();
+});
+
+// ── UI helpers ───────────────────────────────────────────────────────
+function showState(active) {
+  ['empty-state','loading-state','error-state','results-panel'].forEach(id => {
+    document.getElementById(id).style.display = (id === active) ? '' : 'none';
+  });
+  document.getElementById('info-bar').style.display = (active === 'results-panel') ? '' : 'none';
+  document.getElementById('detail-filter-bar').style.display = (active === 'results-panel') ? '' : 'none';
+}
+function isDark()     { return document.documentElement.getAttribute('data-theme') === 'dark'; }
+function gridColor()  { return isDark() ? '#374151' : '#f0f2f7'; }
+function labelColor() { return isDark() ? '#9ca3af' : '#8993a8'; }
+function num(v)       { return (v === null || v === undefined || v === '' || isNaN(+v)) ? null : +v; }
+function fmt(v, d)    { return v === null || v === undefined || isNaN(v) ? '–' : (+v).toFixed(d === undefined ? 3 : d); }
+
+// ── Fetch ────────────────────────────────────────────────────────────
+async function fetchData() {
+  const { product, oper_desc, fab, zone, apc_para } = curKey;
+  if (!product || !oper_desc || !fab) return;
+
+  showState('loading-state');
+  document.getElementById('loading-table').textContent =
+    `MICO_Simulation_${product}_${oper_desc}_${fab}`;
+
+  const params = new URLSearchParams({ product, oper_desc, fab });
+  if (zone)           params.set('zone', zone);
+  if (apc_para)       params.set('apc_para', apc_para);
+  if (dateFrom.value) params.set('date_from', dateFrom.value);
+  if (dateTo.value)   params.set('date_to', dateTo.value);
+
+  let resp;
+  try { resp = await fetch(`{% url 'simulation_result_data' %}?${params}`); }
+  catch (e) {
+    showState('error-state');
+    document.getElementById('error-msg').textContent = '네트워크 오류: ' + e.message;
+    return;
+  }
+  const json = await resp.json();
+  if (!resp.ok) {
+    showState('error-state');
+    document.getElementById('error-msg').textContent = json.error || '데이터 조회 실패';
+    return;
+  }
+
+  // 컬럼형 → records
+  const cols = json.columns || [];
+  json.data = (json.rows || []).map(r => {
+    const o = {};
+    for (let i = 0; i < cols.length; i++) o[cols[i]] = r[i];
+    return o;
+  });
+  delete json.rows;
+  simData = json;
+  curKey.zone     = json.zone;
+  curKey.apc_para = json.apc_para;
+
+  document.getElementById('info-product').textContent = product;
+  document.getElementById('info-oper').textContent    = oper_desc;
+  document.getElementById('info-fab').textContent     = fab;
+  document.getElementById('info-table').textContent   = json.table;
+  document.getElementById('content-sub').textContent  =
+    `${product} / ${oper_desc} / ${fab} — ZONE ${json.zone} · ${json.apc_para}`;
+
+  const n  = json.data.length;
+  const st = document.getElementById('data-status');
+  const note = json.sampled
+    ? ` <span style="font-size:0.7rem;opacity:0.8;">(전체 ${json.total_rows.toLocaleString()}건 중 균등샘플)</span>` : '';
+  st.innerHTML = `<i class="bi bi-check-circle me-1"></i> ${n.toLocaleString()}건${note}`;
+  st.style.background = n ? '#f0fdf4' : '#fef9c3';
+  st.style.color      = n ? '#22c55e' : '#ca8a04';
+
+  showState('results-panel');
+  renderZoneTabs();
+  renderApcSelect();
+  buildFilters();
+  renderAll();
+}
+
+// ── Zone / APC Para 선택 (서버 재조회) ────────────────────────────────
+function renderZoneTabs() {
+  const box = document.getElementById('zone-tabs');
+  box.innerHTML = '';
+  (simData.zones || []).forEach(z => {
+    const b = document.createElement('button');
+    b.className = 'algo-tab' + (z === simData.zone ? ' active' : '');
+    b.textContent = z;
+    b.onclick = () => { curKey.zone = z; curKey.apc_para = ''; fetchData(); };
+    box.appendChild(b);
+  });
+}
+
+function renderApcSelect() {
+  const sel = document.getElementById('sel-apc');
+  sel.innerHTML = '';
+  (simData.apc_paras || []).forEach(p => sel.add(new Option(p, p)));
+  sel.value = simData.apc_para;
+  sel.onchange = () => { curKey.apc_para = sel.value; fetchData(); };
+}
+
+// ── FilterSelect (다중선택) ───────────────────────────────────────────
+class FilterSelect {
+  constructor(el, label, onChange) {
+    this.el = el; this.label = label; this.onChange = onChange;
+    this.items = []; this.checked = new Set(); this._open = false;
+    this._build();
+  }
+  _build() {
+    this.el.innerHTML = `
+      <div class="fsel-wrap">
+        <button class="fsel-btn" type="button">
+          <span class="fsel-lbl">${this.label}</span>
+          <span class="fsel-sep">|</span>
+          <span class="fsel-val">전체</span>
+          <i class="bi bi-chevron-down fsel-chev"></i>
+        </button>
+        <div class="fsel-dropdown" style="display:none;">
+          <div class="fsel-toolbar">
+            <button class="fsel-toolbar-btn fsel-all" type="button">전체 선택</button>
+            <button class="fsel-toolbar-btn fsel-none" type="button">전체 해제</button>
+          </div>
+          <div class="fsel-list"></div>
+        </div>
+      </div>`;
+    this._btn  = this.el.querySelector('.fsel-btn');
+    this._valEl= this.el.querySelector('.fsel-val');
+    this._drop = this.el.querySelector('.fsel-dropdown');
+    this._list = this.el.querySelector('.fsel-list');
+    this._btn.addEventListener('click', e => { e.stopPropagation(); this._toggle(); });
+    this.el.querySelector('.fsel-all').addEventListener('click', () => {
+      this.items.forEach(v => this.checked.add(v));
+      this._renderList(); this._updateLabel(); this.onChange();
+    });
+    this.el.querySelector('.fsel-none').addEventListener('click', () => {
+      this.checked.clear(); this._renderList(); this._updateLabel(); this.onChange();
+    });
+    this._outside = e => { if (!this.el.contains(e.target)) this._close(); };
+  }
+  setItems(items) { this.items = items; this.checked = new Set(items); this._renderList(); this._updateLabel(); }
+  _renderList() {
+    if (!this.items.length) { this._list.innerHTML = '<div class="fsel-empty">항목 없음</div>'; return; }
+    this._list.innerHTML = this.items.map(v => `
+      <label class="fsel-item">
+        <input type="checkbox" value="${v}" ${this.checked.has(v) ? 'checked' : ''}>
+        <span>${v === '' ? '(없음)' : v}</span>
+      </label>`).join('');
+    this._list.querySelectorAll('input').forEach(cb => {
+      cb.addEventListener('change', () => {
+        if (cb.checked) this.checked.add(cb.value); else this.checked.delete(cb.value);
+        this._updateLabel(); this.onChange();
+      });
+    });
+  }
+  _updateLabel() {
+    const total = this.items.length, n = this.checked.size;
+    if (n === total || total === 0) { this._valEl.textContent = '전체'; this._valEl.classList.remove('active'); }
+    else if (n === 0)               { this._valEl.textContent = '없음'; this._valEl.classList.add('active'); }
+    else                            { this._valEl.textContent = `${n}/${total}`; this._valEl.classList.add('active'); }
+  }
+  getFilterFn(field) {
+    const total = this.items.length, n = this.checked.size;
+    if (n === total || n === 0 || total === 0) return null;
+    const checked = this.checked;
+    return d => checked.has(String(d[field] ?? ''));
+  }
+  _toggle() { this._open ? this._close() : this._openDrop(); }
+  _openDrop() { this._drop.style.display = ''; this._btn.classList.add('open'); this._open = true; document.addEventListener('click', this._outside); }
+  _close()    { this._drop.style.display = 'none'; this._btn.classList.remove('open'); this._open = false; document.removeEventListener('click', this._outside); }
+}
+
+function buildFilters() {
+  const d = simData.data;
+  const uniq = f => [...new Set(d.map(r => String(r[f] ?? '')))].sort();
+  fselFormula = new FilterSelect(document.getElementById('fsel-formula'), 'Formula', renderAll);
+  fselEqp     = new FilterSelect(document.getElementById('fsel-eqp'),     'EQP',     renderAll);
+  fselRecipe  = new FilterSelect(document.getElementById('fsel-recipe'),  'Recipe',  renderAll);
+  fselFormula.setItems(uniq('Formula'));
+  fselEqp.setItems(uniq('eqp_id'));
+  fselRecipe.setItems(uniq('recipe_id'));
+}
+
+function filtered() {
+  if (!simData) return [];
+  const fns = [
+    fselFormula ? fselFormula.getFilterFn('Formula')  : null,
+    fselEqp     ? fselEqp.getFilterFn('eqp_id')       : null,
+    fselRecipe  ? fselRecipe.getFilterFn('recipe_id') : null,
+  ].filter(Boolean);
+  return fns.length ? simData.data.filter(r => fns.every(fn => fn(r))) : simData.data;
+}
+
+// ── Chart helpers ────────────────────────────────────────────────────
+function destroyChart(id) { if (charts[id]) { charts[id].destroy(); delete charts[id]; } }
+
+// 계열 수만큼 구분되는 색 목록 (기본 팔레트를 넘으면 색상환을 균등 분할)
+function palette(n) {
+  if (n <= COLORS.length) return COLORS.slice(0, n);
+  return Array.from({ length: n }, (_, i) => `hsl(${Math.round(360 * i / n)}, 62%, 55%)`);
+}
+
+function chartBox(title, dotColor, canvasId, height, badge) {
+  const div = document.createElement('div');
+  div.className = 'chart-box';
+  div.innerHTML = `
+    <div class="chart-box-title">
+      <span class="dot" style="background:${dotColor};"></span>
+      <span style="font-size:0.75rem; word-break:break-all;">${title}</span>
+      ${badge ? `<span class="ms-auto" style="font-size:0.7rem; color:#8993a8;">${badge}</span>` : ''}
+    </div>
+    <div style="position:relative; height:${height};"><canvas id="${canvasId}"></canvas></div>`;
+  return div;
+}
+
+function statBox(title, dotColor, html) {
+  const div = document.createElement('div');
+  div.className = 'chart-box';
+  div.innerHTML = `
+    <div class="chart-box-title">
+      <span class="dot" style="background:${dotColor};"></span>
+      <span style="font-size:0.75rem;">${title}</span>
+    </div>
+    <div style="overflow-x:auto;">${html}</div>`;
+  return div;
+}
+
+function timeAxis(yLabel) {
+  return {
+    x: {
+      type: 'linear', grid: { display: false },
+      ticks: {
+        font: { size: 9 }, maxTicksLimit: 10, color: labelColor(),
+        callback: v => {
+          const d = new Date(v);
+          return `${String(d.getMonth()+1).padStart(2,'0')}-${String(d.getDate()).padStart(2,'0')}`;
+        }
+      }
+    },
+    y: {
+      title: { display: !!yLabel, text: yLabel, font: { size: 9 }, color: labelColor() },
+      grid: { color: gridColor() }, ticks: { font: { size: 9 }, color: labelColor() }
+    }
+  };
+}
+
+function linearAxis(xLabel, yLabel) {
+  return {
+    x: {
+      type: 'linear',
+      title: { display: !!xLabel, text: xLabel, font: { size: 9 }, color: labelColor() },
+      grid: { display: false }, ticks: { font: { size: 9 }, color: labelColor() }
+    },
+    y: {
+      title: { display: !!yLabel, text: yLabel, font: { size: 9 }, color: labelColor() },
+      grid: { color: gridColor() }, ticks: { font: { size: 9 }, color: labelColor() }
+    }
+  };
+}
+
+function baseOptions(scales, tooltipTitleAsDate) {
+  return {
+    responsive: true, maintainAspectRatio: false, animation: { duration: 200 },
+    parsing: false, normalized: true,
+    interaction: { mode: 'nearest', intersect: false },
+    plugins: {
+      legend: { position: 'bottom', labels: { font: { size: 10 }, boxWidth: 10, padding: 8, color: labelColor(), usePointStyle: true } },
+      tooltip: {
+        callbacks: {
+          title: items => {
+            if (!tooltipTitleAsDate) return `x = ${fmt(items[0].parsed.x)}`;
+            const d = new Date(items[0].parsed.x);
+            return d.toLocaleString('ko-KR', { month:'2-digit', day:'2-digit', hour:'2-digit', minute:'2-digit' });
+          },
+          label: it => `${it.dataset.label}: ${fmt(it.parsed.y)}`,
+        }
+      }
+    },
+    scales,
+  };
+}
+
+// 값 시리즈 → {x, y, id} 포인트 (id = substrate_id — 차트 간 웨이퍼 매칭용)
+function pts(rows, xField, yField) {
+  const out = [];
+  rows.forEach(r => {
+    const y = num(r[yField]);
+    if (y === null) return;
+    const x = xField === 'Date' ? new Date(r.Date).getTime() : num(r[xField]);
+    if (x === null || isNaN(x)) return;
+    out.push({ x, y, id: r.substrate_id });
+  });
+  return out.sort((a, b) => a.x - b.x);
+}
+
+// ── substrate_id 기준 선택 → 모든 차트에서 같은 웨이퍼 강조 ───────────────
+let selectedIds = new Set();
+
+function withAlpha(color, a) {
+  if (typeof color !== 'string') return color;
+  if (color.startsWith('#')) {
+    return color.slice(0, 7) + Math.round(a * 255).toString(16).padStart(2, '0');
+  }
+  if (color.startsWith('hsl(')) {
+    return color.replace('hsl(', 'hsla(').replace(')', `, ${a})`);
+  }
+  return color;
+}
+
+// 선택된 웨이퍼는 진하게(조금 크게), 나머지는 흐리게. 선택이 없으면 원래대로.
+function mark(color, radius) {
+  const on = ctx => !selectedIds.size || !ctx.raw || selectedIds.has(ctx.raw.id);
+  return {
+    backgroundColor : ctx => on(ctx) ? color : withAlpha(color, 0.10),
+    borderColor     : ctx => on(ctx) ? color : withAlpha(color, 0.10),
+    pointRadius     : ctx => !selectedIds.size ? radius
+                                               : (on(ctx) ? radius + 1.2 : radius * 0.8),
+    pointHoverRadius: radius + 3,
+  };
+}
+
+function setSelection(ids) {
+  selectedIds = ids || new Set();
+  const info = document.getElementById('sel-info');
+  const hint = document.getElementById('sel-hint');
+  if (selectedIds.size) {
+    document.getElementById('sel-count').textContent = selectedIds.size.toLocaleString();
+    info.style.display = 'inline-flex';
+    hint.style.display = 'none';
+  } else {
+    info.style.display = 'none';
+    hint.style.display = '';
+  }
+  Object.values(charts).forEach(c => c.update('none'));
+}
+
+document.getElementById('sel-clear').addEventListener('click', () => setSelection(null));
+document.addEventListener('keydown', e => { if (e.key === 'Escape') setSelection(null); });
+
+// 차트에 드래그(영역 선택) / 클릭(단일 웨이퍼 토글) 부착
+function enableSelect(canvasId) {
+  const chart = charts[canvasId];
+  if (!chart) return;
+  const canvas  = chart.canvas;
+  const wrapper = canvas.parentElement;   // position:relative
+
+  const overlay = document.createElement('div');
+  overlay.style.cssText = 'position:absolute; pointer-events:none; border:1.5px dashed #4f8ef7;' +
+                          'background:rgba(79,142,247,0.08); border-radius:2px; display:none;';
+  wrapper.appendChild(overlay);
+
+  let dragging = false, sx = 0, sy = 0;
+  canvas.style.cursor = 'crosshair';
+
+  canvas.addEventListener('mousedown', e => {
+    if (e.button !== 0) return;
+    const r = canvas.getBoundingClientRect();
+    sx = e.clientX - r.left; sy = e.clientY - r.top;
+    dragging = true;
+    Object.assign(overlay.style, { left: sx+'px', top: sy+'px', width: '0', height: '0', display: '' });
+  });
+
+  canvas.addEventListener('mousemove', e => {
+    if (!dragging) return;
+    const r = canvas.getBoundingClientRect();
+    const cx = e.clientX - r.left, cy = e.clientY - r.top;
+    Object.assign(overlay.style, {
+      left: Math.min(sx, cx)+'px', top: Math.min(sy, cy)+'px',
+      width: Math.abs(cx - sx)+'px', height: Math.abs(cy - sy)+'px',
+    });
+  });
+
+  canvas.addEventListener('mouseleave', () => {
+    if (dragging) { dragging = false; overlay.style.display = 'none'; }
+  });
+
+  canvas.addEventListener('mouseup', e => {
+    if (!dragging) return;
+    dragging = false;
+    overlay.style.display = 'none';
+
+    const r  = canvas.getBoundingClientRect();
+    const ex = e.clientX - r.left, ey = e.clientY - r.top;
+
+    // 드래그가 아주 작으면 클릭으로 처리 (해당 웨이퍼 토글 / 빈 곳이면 해제)
+    if (Math.abs(ex - sx) < 8 && Math.abs(ey - sy) < 8) {
+      const els = chart.getElementsAtEventForMode(e, 'nearest', { intersect: true }, true);
+      if (!els.length) { setSelection(null); return; }
+      const p = chart.data.datasets[els[0].datasetIndex].data[els[0].index];
+      if (!p || !p.id) return;
+      const next = new Set(selectedIds);
+      next.has(p.id) ? next.delete(p.id) : next.add(p.id);
+      setSelection(next);
+      return;
+    }
+
+    const xs = chart.scales.x, ys = chart.scales.y;
+    const x1 = xs.getValueForPixel(Math.min(sx, ex));
+    const x2 = xs.getValueForPixel(Math.max(sx, ex));
+    const y1 = ys.getValueForPixel(Math.max(sy, ey));   // y축 반전
+    const y2 = ys.getValueForPixel(Math.min(sy, ey));
+
+    const ids = new Set();
+    chart.data.datasets.forEach((ds, i) => {
+      if (chart.getDatasetMeta(i).hidden) return;       // 범례에서 끈 계열은 제외
+      ds.data.forEach(p => {
+        if (p && p.id && p.x >= x1 && p.x <= x2 && p.y >= y1 && p.y <= y2) ids.add(p.id);
+      });
+    });
+    setSelection(ids);
+  });
+}
+
+function boxStats(values) {
+  const s = values.filter(v => v !== null && !isNaN(+v)).map(Number).sort((a,b) => a-b);
+  if (s.length < 4) return null;
+  const n = s.length;
+  const q1 = s[Math.floor(n*0.25)], q3 = s[Math.floor(n*0.75)];
+  const median = n % 2 === 0 ? (s[n/2-1] + s[n/2]) / 2 : s[Math.floor(n/2)];
+  const iqr = q3 - q1;
+  const whiskerLow  = s.find(v => v >= q1 - 1.5*iqr) ?? s[0];
+  const whiskerHigh = [...s].reverse().find(v => v <= q3 + 1.5*iqr) ?? s[n-1];
+  const avg = s.reduce((a,v)=>a+v,0)/n;
+  const std = Math.sqrt(s.reduce((a,v)=>a+(v-avg)**2,0)/n);
+  return { min:s[0], q1, median, q3, max:s[n-1], whiskerLow, whiskerHigh, n, avg, std };
+}
+
+// 학습값 vs 실측 오차 지표
+function errStats(rows, modelField, actualField) {
+  let n = 0, sum = 0, sumAbs = 0, sumSq = 0;
+  rows.forEach(r => {
+    const m = num(r[modelField]), a = num(r[actualField]);
+    if (m === null || a === null) return;
+    const e = m - a;
+    n++; sum += e; sumAbs += Math.abs(e); sumSq += e * e;
+  });
+  if (!n) return null;
+  return { n, bias: sum/n, mae: sumAbs/n, rmse: Math.sqrt(sumSq/n) };
+}
+
+// ── Render ───────────────────────────────────────────────────────────
+function renderAll() {
+  const rows = filtered();
+  // 필터/조회 조건이 바뀌면 웨이퍼 선택은 초기화 (차트는 아래에서 새로 그려짐)
+  selectedIds = new Set();
+  document.getElementById('sel-info').style.display = 'none';
+  document.getElementById('sel-hint').style.display = '';
+  renderThk(rows);
+  renderApc(rows);
+  renderRR(rows);
+  renderPreThk(rows);
+  renderOffset(rows);
+}
+
+// Formula 값별 색상 (THK / APC 차트가 같은 색을 쓰도록 한 곳에서 생성)
+function formulaColors(rows) {
+  const formulas = [...new Set(rows.map(r => String(r.Formula ?? '')))].sort();
+  const colorMap = {};
+  palette(formulas.length).forEach((c, i) => colorMap[formulas[i]] = c);
+  return { formulas, colorMap };
+}
+
+// 1) THK / 2) APC Para — Formula 값별 공통 렌더러 (scatter + boxplot + 통계)
+function renderFormulaTrend(rows, cfg) {
+  const row = document.getElementById(cfg.rowId);
+  [cfg.canvasId, cfg.boxCanvasId].forEach(destroyChart);
+  row.innerHTML = '';
+
+  const { formulas, colorMap } = formulaColors(rows);
+
+  const datasets = formulas.map(f => ({
+    label: f === '' ? '(없음)' : f,
+    data: pts(rows.filter(r => String(r.Formula ?? '') === f), 'Date', cfg.field),
+    showLine: false, ...mark(colorMap[f], 2),
+  })).filter(ds => ds.data.length);
+
+  // 기준선 (THK 는 Target, APC 는 없음)
+  const ref = cfg.refField ? num((rows.find(r => num(r[cfg.refField]) !== null) || {})[cfg.refField]) : null;
+  if (ref !== null && datasets.length) {
+    const xs = datasets.flatMap(ds => [ds.data[0].x, ds.data[ds.data.length-1].x]);
+    datasets.push({
+      label: `${cfg.refLabel} (${ref})`,
+      data: [{ x: Math.min(...xs), y: ref }, { x: Math.max(...xs), y: ref }],
+      borderColor: '#111827', borderDash: [6,4], borderWidth: 1.5,
+      pointRadius: 0, showLine: true, fill: false,
+    });
+  }
+
+  row.appendChild(chartBox(`${cfg.title} — ${cfg.yLabel}`, cfg.color, cfg.canvasId, '330px',
+    `${rows.filter(r => num(r[cfg.field]) !== null).length.toLocaleString()} pts`));
+
+  const groups = formulas.map(f => ({
+    label: f === '' ? '(없음)' : f,
+    stats: boxStats(rows.filter(r => String(r.Formula ?? '') === f).map(r => num(r[cfg.field]))),
+    color: colorMap[f],
+  })).filter(g => g.stats);
+
+  let statHtml = '<table class="stat-table"><thead><tr>' +
+    `<th>Formula</th><th>N</th><th>Avg</th><th>Std</th>${ref !== null ? `<th>Δ ${cfg.refLabel}</th>` : ''}` +
+    '</tr></thead><tbody>';
+  groups.forEach(g => {
+    statHtml += `<tr>
+      <td><span class="stat-dot" style="background:${g.color};"></span>${g.label}</td>
+      <td>${g.stats.n.toLocaleString()}</td>
+      <td>${fmt(g.stats.avg, 2)}</td>
+      <td>${fmt(g.stats.std, 2)}</td>
+      ${ref !== null ? `<td>${fmt(g.stats.avg - ref, 2)}</td>` : ''}
+    </tr>`;
+  });
+  statHtml += '</tbody></table>';
+
+  const right = document.createElement('div');
+  right.style.cssText = 'display:flex; flex-direction:column; gap:1rem;';
+  right.appendChild(chartBox('Boxplot — Formula 별', cfg.color, cfg.boxCanvasId, '200px'));
+  right.appendChild(statBox('Formula 별 통계', cfg.color, statHtml));
+  row.appendChild(right);
+
+  charts[cfg.canvasId] = new Chart(document.getElementById(cfg.canvasId), {
+    type: 'scatter', data: { datasets }, options: baseOptions(timeAxis(cfg.yLabel), true),
+  });
+  enableSelect(cfg.canvasId);
+
+  if (groups.length) {
+    const yMin = Math.min(...groups.map(g => g.stats.whiskerLow));
+    const yMax = Math.max(...groups.map(g => g.stats.whiskerHigh));
+    const pad  = (yMax - yMin) * 0.15 || 1;
+    charts[cfg.boxCanvasId] = new Chart(document.getElementById(cfg.boxCanvasId), {
+      type: 'bar',
+      data: { labels: groups.map((g,i) => `F${i+1}`), datasets: [{
+        data: groups.map(g => [g.stats.q1, g.stats.q3]),
+        backgroundColor: groups.map(g => withAlpha(g.color, 0.27)),
+        borderColor: groups.map(g => g.color),
+        borderWidth: 1.5, barPercentage: 0.5, _groups: groups,
+      }]},
+      options: {
+        responsive: true, maintainAspectRatio: false, animation: { duration: 200 },
+        plugins: {
+          legend: { display: false },
+          tooltip: { callbacks: { title: c => groups[c[0].dataIndex].label, label: c => {
+            const s = groups[c.dataIndex].stats;
+            return [`n: ${s.n}`, `Max: ${fmt(s.max,2)}`, `Q3: ${fmt(s.q3,2)}`,
+                    `Median: ${fmt(s.median,2)}`, `Q1: ${fmt(s.q1,2)}`, `Min: ${fmt(s.min,2)}`];
+          }}}
+        },
+        scales: {
+          x: { ticks: { font: { size: 9 }, color: labelColor() }, grid: { display: false } },
+          y: { min: yMin - pad, max: yMax + pad, grid: { color: gridColor() },
+               ticks: { font: { size: 9 }, color: labelColor() } }
+        }
+      }
+    });
+  }
+}
+
+function renderThk(rows) {
+  renderFormulaTrend(rows, {
+    rowId: 'thk-row', canvasId: 'chart-thk', boxCanvasId: 'chart-thk-box',
+    field: 'THK', title: 'THK Trend', color: '#4f8ef7',
+    yLabel: (rows[0] || {}).Thk_Para || 'THK',
+    refField: 'Target', refLabel: 'Target',
+  });
+}
+
+function renderApc(rows) {
+  const apcPara = (rows[0] || {}).APC_Para || 'APC';
+  const isTime  = (rows[0] || {}).FB_Type === 'TIME';
+  renderFormulaTrend(rows, {
+    rowId: 'apc-row', canvasId: 'chart-apc', boxCanvasId: 'chart-apc-box',
+    field: 'APC_Value', title: `APC Para Trend${isTime ? ' (연마시간)' : ' (압력)'}`,
+    color: '#22c55e', yLabel: apcPara,
+  });
+}
+
+// 2) Removal Rate — 실제 RR vs 학습 모델
+const RR_MODELS = [
+  { key: 'if',       field: 'RR_IF',       label: 'RR 학습 (if)',       color: C_IF       },
+  { key: 'current',  field: 'RR_Current',  label: 'RR 학습 (current)',  color: C_CURRENT  },
+  { key: 'weighted', field: 'RR_Weighted', label: 'RR 학습 (weighted)', color: C_WEIGHTED },
+  { key: 'normal',   field: 'RR_Normal',   label: 'RR 학습 (normal)',   color: C_NORMAL   },
+];
+
+// 타점별로 실제 적용된 학습 모델 판정.
+// Simulation._finalize 의 RR_DB 선택 규칙과 동일:
+//   IF(소모품 ≤ Pad_Seperation) > current > weighted > normal
+// 4개 모델을 모두 겹쳐 그리면 색이 가려지므로, 각 타점은 적용된 모델 색으로만 표시한다.
+function rrAppliedModel(r) {
+  const sep = num(r.Pad_Seperation), cons = num(r.Consumable);
+  if (num(r.RR_IF) !== null && sep !== null && cons !== null && cons <= sep) return 'if';
+  if (num(r.RR_Current)  !== null) return 'current';
+  if (num(r.RR_Weighted) !== null) return 'weighted';
+  if (num(r.RR_Normal)   !== null) return 'normal';
+  return null;
+}
+
+function renderRR(rows) {
+  const row = document.getElementById('rr-row');
+  destroyChart('chart-rr');
+  row.innerHTML = '';
+
+  const xField   = rrXMode === 'date' ? 'Date' : 'Consumable';
+  const consPara = (rows.find(r => r.Consumable_Para) || {}).Consumable_Para || 'Consumable';
+  const xLabel   = rrXMode === 'date' ? '' : consPara;
+
+  const datasets = [{
+    label: '실제 RR', data: pts(rows, xField, 'RR_Actual'),
+    showLine: false, order: 10, ...mark(C_ACTUAL, 2),
+  }];
+
+  // 적용 모델별로 행을 나눠 담기 (한 타점은 한 모델에만 들어감)
+  const byModel = { if: [], current: [], weighted: [], normal: [] };
+  rows.forEach(r => {
+    const k = rrAppliedModel(r);
+    if (k) byModel[k].push(r);
+  });
+
+  RR_MODELS.forEach(m => {
+    const src = byModel[m.key];
+    if (!src.length) return;
+    const data = pts(src, xField, m.field);
+    if (!data.length) return;
+    datasets.push({
+      label: `${m.label} · ${src.length.toLocaleString()}건`, data,
+      showLine: false, order: 1, ...mark(m.color, 1.8),
+    });
+  });
+
+  row.appendChild(chartBox(
+    `Removal Rate — 실제 vs 적용 모델 (X: ${rrXMode === 'date' ? '날짜' : consPara})`,
+    C_NORMAL, 'chart-rr', '330px',
+    `${rows.filter(r => num(r.RR_Actual) !== null).length.toLocaleString()} pts`));
+
+  // 모델별 추종 오차
+  let html = '<table class="stat-table"><thead><tr>' +
+    '<th>모델</th><th>N</th><th>Bias</th><th>MAE</th><th>RMSE</th></tr></thead><tbody>';
+  const actualStats = boxStats(rows.map(r => num(r.RR_Actual)));
+  html += `<tr><td><span class="stat-dot" style="background:${C_ACTUAL};"></span>실제 RR</td>` +
+          `<td>${actualStats ? actualStats.n.toLocaleString() : '–'}</td>` +
+          `<td colspan="3">avg ${actualStats ? fmt(actualStats.avg,3) : '–'} / std ${actualStats ? fmt(actualStats.std,3) : '–'}</td></tr>`;
+  const dbStats = errStats(rows, 'RR_DB', 'RR_Actual');
+  html += `<tr>
+    <td><span class="stat-dot" style="background:${C_APPLIED};"></span>RR_DB (적용값)</td>
+    <td>${dbStats ? dbStats.n.toLocaleString() : '–'}</td>
+    <td>${dbStats ? fmt(dbStats.bias) : '–'}</td>
+    <td>${dbStats ? fmt(dbStats.mae) : '–'}</td>
+    <td>${dbStats ? fmt(dbStats.rmse) : '–'}</td>
+  </tr>`;
+  RR_MODELS.forEach(m => {
+    // 차트는 적용 구간만, 표는 전 구간 기준으로 모델끼리 비교
+    const s = errStats(rows, m.field, 'RR_Actual');
+    html += `<tr>
+      <td><span class="stat-dot" style="background:${m.color};"></span>${m.label}</td>
+      <td>${s ? s.n.toLocaleString() : '–'}</td>
+      <td>${s ? fmt(s.bias) : '–'}</td>
+      <td>${s ? fmt(s.mae) : '–'}</td>
+      <td>${s ? fmt(s.rmse) : '–'}</td>
+    </tr>`;
+  });
+  html += '</tbody></table>' +
+    '<div style="font-size:0.68rem; color:#8993a8; margin-top:0.5rem; line-height:1.5;">' +
+    '차트는 <b>if &gt; current &gt; weighted &gt; normal</b> 우선순위로<br>' +
+    '타점마다 실제 적용된 모델만 표시 (= RR_DB)<br>' +
+    '표는 전 구간을 각 모델로 계산했을 때의 비교값<br>' +
+    'Bias = 학습−실제 평균, MAE/RMSE 작을수록 잘 따라감</div>';
+
+  row.appendChild(statBox('학습 모델 추종 오차', C_NORMAL, html));
+
+  charts['chart-rr'] = new Chart(document.getElementById('chart-rr'), {
+    type: 'scatter', data: { datasets },
+    options: baseOptions(rrXMode === 'date' ? timeAxis('Removal Rate') : linearAxis(xLabel, 'Removal Rate'),
+                         rrXMode === 'date'),
+  });
+  enableSelect('chart-rr');
+}
+
+document.getElementById('rr-x-date').addEventListener('click', () => {
+  rrXMode = 'date';
+  document.getElementById('rr-x-date').classList.add('active');
+  document.getElementById('rr-x-cons').classList.remove('active');
+  if (simData) renderRR(filtered());
+});
+document.getElementById('rr-x-cons').addEventListener('click', () => {
+  rrXMode = 'cons';
+  document.getElementById('rr-x-cons').classList.add('active');
+  document.getElementById('rr-x-date').classList.remove('active');
+  if (simData) renderRR(filtered());
+});
+
+// 3) Pre Thk VM — 학습값
+function renderPreThk(rows) {
+  const row = document.getElementById('prethk-row');
+  destroyChart('chart-prethk');
+  row.innerHTML = '';
+
+  // Pre_Thk_VM 학습값은 사전공정 챔버(pre_eq_ch)별로 따로 학습되므로 챔버별 색상으로 구분
+  const chambers = [...new Set(rows.map(r => String(r.pre_eq_ch ?? '')))].sort();
+  const chColor  = {};
+  palette(chambers.length).forEach((c, i) => chColor[chambers[i]] = c);
+
+  const datasets = chambers.map(ch => ({
+    label: ch === '' ? '(없음)' : ch,
+    data: pts(rows.filter(r => String(r.pre_eq_ch ?? '') === ch), 'Date', 'Pre_Thk_VM'),
+    showLine: false, order: 1, ...mark(chColor[ch], 2),
+  })).filter(ds => ds.data.length);
+
+  row.appendChild(chartBox('Pre Thk VM — 학습값 (Pre 챔버별)', '#22c55e', 'chart-prethk', '320px',
+    `${rows.filter(r => num(r.Pre_Thk_VM) !== null).length.toLocaleString()} pts`));
+
+  // pre chamber 별 학습값 분포 (색상은 차트와 동일)
+  let html = '<table class="stat-table"><thead><tr>' +
+    '<th>Pre 챔버</th><th>N</th><th>Avg</th><th>Std</th></tr></thead><tbody>';
+  const all = boxStats(rows.map(r => num(r.Pre_Thk_VM)));
+  html += `<tr style="font-weight:600;"><td>전체</td>
+           <td>${all ? all.n.toLocaleString() : '–'}</td><td>${all ? fmt(all.avg,2) : '–'}</td><td>${all ? fmt(all.std,2) : '–'}</td></tr>`;
+  chambers.forEach(ch => {
+    const s = boxStats(rows.filter(r => String(r.pre_eq_ch ?? '') === ch).map(r => num(r.Pre_Thk_VM)));
+    if (!s) return;
+    html += `<tr><td><span class="stat-dot" style="background:${chColor[ch]};"></span>${ch === '' ? '(없음)' : ch}</td>
+             <td>${s.n.toLocaleString()}</td><td>${fmt(s.avg,2)}</td><td>${fmt(s.std,2)}</td></tr>`;
+  });
+  html += '</tbody></table>';
+  row.appendChild(statBox('Pre 챔버별 학습값 분포', '#22c55e', html));
+
+  charts['chart-prethk'] = new Chart(document.getElementById('chart-prethk'), {
+    type: 'scatter', data: { datasets }, options: baseOptions(timeAxis('Pre Thk 편차'), true),
+  });
+  enableSelect('chart-prethk');
+}
+
+// 4) Offset — IDLE 별 학습값
+function renderOffset(rows) {
+  const row = document.getElementById('offset-row');
+  ['chart-offset','chart-offset-idle'].forEach(destroyChart);
+  row.innerHTML = '';
+
+  // IDLE 구간별로 학습값이 다르므로 IDLE 별 색상으로 분리 표시.
+  // IDLE 이 없는(Normal) 웨이퍼는 회색 — 구간별 색과 구분되게.
+  const idles     = [...new Set(rows.map(r => String(r.IDLE ?? '')))].sort();
+  const named     = idles.filter(i => i !== '');
+  const idleColor = { '': C_ACTUAL };
+  palette(named.length).forEach((c, i) => idleColor[named[i]] = c);
+
+  const datasets = idles.map(idle => ({
+    label: idle === '' ? '(없음)' : idle,
+    data: pts(rows.filter(r => String(r.IDLE ?? '') === idle), 'Date', 'OFFSET_Learn'),
+    showLine: false, ...mark(idleColor[idle], 2),
+  })).filter(ds => ds.data.length);
+
+  row.appendChild(chartBox('Idle Offset — 학습값', '#f97316', 'chart-offset', '300px',
+    `${rows.filter(r => num(r.OFFSET_Learn) !== null).length.toLocaleString()} pts`));
+
+  // IDLE 별 평균
+  const learnAvg = [], labels = [], barColors = [];
+  idles.forEach(idle => {
+    const l = boxStats(rows.filter(r => String(r.IDLE ?? '') === idle).map(r => num(r.OFFSET_Learn)));
+    if (!l) return;
+    labels.push(idle === '' ? '(없음)' : idle);
+    learnAvg.push(l.avg);
+    barColors.push(idleColor[idle]);
+  });
+
+  const right = document.createElement('div');
+  right.style.cssText = 'display:flex; flex-direction:column; gap:1rem;';
+  right.appendChild(chartBox('IDLE 별 평균', '#f97316', 'chart-offset-idle', '300px'));
+  row.appendChild(right);
+
+  charts['chart-offset'] = new Chart(document.getElementById('chart-offset'), {
+    type: 'scatter', data: { datasets }, options: baseOptions(timeAxis('Offset (sec)'), true),
+  });
+  enableSelect('chart-offset');
+
+  charts['chart-offset-idle'] = new Chart(document.getElementById('chart-offset-idle'), {
+    type: 'bar',
+    data: { labels, datasets: [
+      { label: '학습값 평균', data: learnAvg,
+        backgroundColor: barColors.map(c => c + 'bb'), borderColor: barColors, borderWidth: 1 },
+    ]},
+    options: {
+      responsive: true, maintainAspectRatio: false, animation: { duration: 200 },
+      plugins: {
+        legend: { display: false },
+        tooltip: { callbacks: { label: it => `${it.dataset.label}: ${fmt(it.parsed.y)}` } },
+      },
+      scales: {
+        x: { ticks: { font: { size: 9 }, color: labelColor(), maxRotation: 45 }, grid: { display: false } },
+        y: { title: { display: true, text: 'Offset (sec)', font: { size: 9 }, color: labelColor() },
+             grid: { color: gridColor() }, ticks: { font: { size: 9 }, color: labelColor() } },
+      }
+    }
+  });
+}
+
+// DB 오류 안내
+if (DB_ERROR) {
+  showState('error-state');
+  document.getElementById('error-msg').textContent = 'DB 연결 오류: ' + DB_ERROR;
+}
+</script>
+{% endblock %}
