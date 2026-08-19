@@ -76,6 +76,9 @@ class OFFSET_Get:
         if temp_data.empty:
             return None
 
+        # IDLE이 전부 NaN이면 float dtype이 되어 .str accessor 사용 불가 → 문자열로 정규화
+        temp_data['IDLE'] = temp_data['IDLE'].fillna('').astype(str)
+
         offset_columns = [col for col in temp_data.columns if 'OFFSET' in col]
         temp_data.fillna(value={col: 0 for col in offset_columns}, inplace=True)
 
@@ -196,6 +199,9 @@ class OFFSET_Get:
         temp_data = merge_df[merge_df['operation_id'] == Oper_Code].copy()
         if temp_data.empty:
             return None
+
+        # IDLE이 전부 NaN이면 float dtype이 되어 .str accessor 사용 불가 → 문자열로 정규화
+        temp_data['IDLE'] = temp_data['IDLE'].fillna('').astype(str)
 
         offset_columns = [col for col in temp_data.columns if 'OFFSET' in col]
         temp_data.fillna(value={col: 0 for col in offset_columns}, inplace=True)
