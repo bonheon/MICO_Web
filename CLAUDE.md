@@ -152,3 +152,34 @@ ADMIN (superuser만 노출)
 - **알람 발생 현황** (신규)
   - 알람 누적 관리 (발생 일시, 장비, 공정, 알람 종류 등 이력 저장)
   - 알람 원인 분석 화면 (발생 패턴, 빈도, 원인 분류 등)
+
+---
+
+## 논의 중 (미구현) — CBL HM NIT CMP Pre_Thk VM 학습 소스 문제
+
+> 2026-08-19 검토 완료, 구현 보류 상태. 별도 브랜치에서 진행 예정.
+
+### 문제
+- `Module.compute_pre_thk_vm`(algorithm_new/Common/Module.py:122~)은 **Pre_Thk_Para_ITM 존재 여부** 하나로 학습 경로를 결정
+  - ITM 있음 → `BIAS = ITM값 − mean` → moving avg + Pre_Oper2~4 회귀 y축 = BIAS
+  - ITM 없음 → post thk 기반 `compute_detrend` → y축 = Detrend_Thk
+- CBL HM NIT CMP는 Pre_Thk를 ITM에서 실측하지만, 사전공정 zone 차이가 **입고 두께가 아닌 removal rate에 영향**을 주는 공정
+- 따라서 ITM BIAS를 y로 회귀하면 pre_oper2/3 zone 파라미터와 상관이 안 나옴 (zone 효과는 post thk에만 나타남)
+- 근본 원인: "어떤 계측값이 존재하는가"와 "VM 회귀 y를 무엇으로 학습할 것인가"가 별개 결정인데 한 필드가 두 역할을 겸함
+- 참고: Pre_Thk_Para_ITM은 VM 학습 외에 Simulation.py(178, 644행) 시뮬레이션 베이스, REMOVAL_RATE.py(140, 360~381행) RR 학습에도 사용됨
+
+### 검토한 방안
+1. ~~ITM Set-up 삭제~~ → 비추천: Simulation 베이스·RR 학습의 ITM 경로까지 잃음, 재입력 시 동작이 소리 없이 바뀌는 운영 리스크
+2. ~~CBL 공정명 하드코딩~~ → 비추천: 공통 코드에 공정 특수 케이스 침투, 동일 유형 공정 재발 시 하드코딩 누적
+3. **[채택 방향] Set-up(Detail 모델)에 학습 소스 플래그 추가** — 예: `pre_thk_vm_source` = `AUTO`(기본, 기존 동작 그대로) / `POST`(ITM 있어도 detrend 경로로 학습)
+   - Pre_Thk_Para_ITM은 유지 → Simulation·RR 학습은 계속 ITM 사용, VM 학습 경로만 웹에서 공정별 선택
+   - 수정 범위: models.py + migration, Detail CRUD 화면, Get_Data.py mico_info_key, Module.py 분기 조건
+
+### 추가 개선 (방안 3에 얹기)
+- `POST` 모드에서 detrend 계산 시 `RR = (Pre_Target − post) / Pol_Time` 대신 **ITM 실측값 사용**: `RR = (ITM 실측 pre − post) / Pol_Time`
+- 이유: Pre_Target 고정이면 입고 두께 산포가 Detrend_Thk에 섞여 zone 회귀계수에 흡수되고, 시뮬레이션에서 ITM으로 입고 두께를 또 보정하므로 **이중 보정** 발생
+- ITM 실측 기반이면 역할 분리 명확: ITM = 입고 두께 담당, zone 회귀 = RR 변동 담당
+
+### 구현 전 확인 사항
+- CBL 데이터로 Detrend_Thk(가능하면 ITM 실측 기반) vs pre_oper2/3 zone 파라미터 상관 확인
+- 상관이 안 나오면 zone 효과가 pad cycle rolling MA(window=10)에 씻겨나갈 가능성(zone 분포가 시간적으로 뭉치는 경우) 등 detrend 파라미터부터 점검
