@@ -19,6 +19,7 @@ urlpatterns = [
     path('simulation/', views.simulation, name='simulation'),
     path('simulation/result/', views.simulation_result, name='simulation_result'),
     path('simulation/result/data/', views.simulation_result_data, name='simulation_result_data'),
+    path('simulation/result/formula/', views.simulation_formula, name='simulation_formula'),
     path('apc/history/', views.apc_history, name='apc_history'),
     path('improvement/dispersion/', views.dispersion, name='dispersion'),
     path('setup/status/', views.setup_status, name='setup_status'),

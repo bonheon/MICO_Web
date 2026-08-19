@@ -11,6 +11,10 @@ from Common.Get_Data import Get_data
 from Common import Result_DB
 from day.commc.cube import Cube_Connector
 
+# APC 산식(Simul_APC / Simul_THK)은 web 과 같은 모듈을 쓴다 — 배치가 낸 값과
+# web 에서 파라미터를 바꿔 본 값이 어긋나지 않도록 산식 정의는 한 곳만 존재.
+from setup_mico import apc_formula
+
 _MICO_URL = 'mongodb://cncmico:/...'
 _MICO_DB  = 'mico-platform-mongodb'
 
@@ -494,9 +498,15 @@ def _attach_ref_lots(df, ref_lot_df, sk, mode, Thk_Para_13P, ITM_PRE_Para, pol_t
     col_num  = len(list(ref_temp_df['item_value'].str.split(';', expand=True).columns))
     ref_cols = [f'Ref_{i}' for i in range(1, col_num + 1)]
     ref_temp_df[ref_cols] = ref_temp_df['item_value'].str.split(';', expand=True)
-    ref_temp_df['Ref_Count'] = ref_temp_df['item_value'].str.count(';')
-    # NOTE: source 원본 그대로 Ref_YN == Ref_Count (Y/N 의도 여부 회사 확인 예정)
-    ref_temp_df['Ref_YN'] = ref_temp_df['item_value'].str.count(';')
+
+    # Ref_Count / Ref_YN 은 APC 산식이 FB 와 Linear 를 가르는 기준이다
+    # (Ref_YN='N' 또는 Ref_Count=ref_skip_count → Linear — setup_mico/apc_formula.py).
+    # 조회 결과(ref_lot_df)가 값을 직접 주면 그대로 쓰고, 없으면 source 원본 동작
+    # (item_value 의 ';' 개수)을 유지한다.
+    if 'Ref_Count' not in ref_temp_df.columns:
+        ref_temp_df['Ref_Count'] = ref_temp_df['item_value'].str.count(';')
+    if 'Ref_YN' not in ref_temp_df.columns:
+        ref_temp_df['Ref_YN'] = ref_temp_df['item_value'].str.count(';')
 
     ref_data_cols = ['Date', 'substrate_id', sk['Thk_Para'], 'Pre_Thk', sk['APC_Para'], 'Simul_OFFSET']
     if mode == 'PRESSURE':
@@ -536,7 +546,7 @@ def _attach_ref_lots(df, ref_lot_df, sk, mode, Thk_Para_13P, ITM_PRE_Para, pol_t
 
 
 def _finalize(df, sk, Main_Para, Pad_Para, Disk_Para, Head_Para, Consumable_Para, mode,
-              ITM_PRE_Para=None):
+              ITM_PRE_Para=None, Thk_Para_13P=None, Target_13P=None):
     """공통 출력 컬럼 구성 + RR_DB(시뮬레이션 RR) 산출 + web 조회용 표준 컬럼.
 
     RR_DB 우선순위: IF 모델(Pad_Seperation 이하) → current → weighted → 전체 회귀
@@ -578,7 +588,8 @@ def _finalize(df, sk, Main_Para, Pad_Para, Disk_Para, Head_Para, Consumable_Para
         df['RR_if_b1'], df['RR_if_b0'],
     )
 
-    return _add_view_columns(df, sk, Consumable_Para, mode, ITM_PRE_Para)
+    return _add_view_columns(df, sk, Consumable_Para, mode, ITM_PRE_Para,
+                             Thk_Para_13P, Target_13P)
 
 
 # ── web 조회용 표준 컬럼 ───────────────────────────────────────────────────
@@ -586,12 +597,20 @@ def _finalize(df, sk, Main_Para, Pad_Para, Disk_Para, Head_Para, Consumable_Para
 # 공정마다 이름이 달라지는 파라미터(APC_Para / Thk_Para / 소모품 등)의 값을
 # 이름이 고정된 컬럼으로 복사해 둔다. (원본 컬럼은 그대로 유지)
 
-def _add_view_columns(df, sk, Consumable_Para, mode, ITM_PRE_Para):
+def _add_view_columns(df, sk, Consumable_Para, mode, ITM_PRE_Para,
+                      Thk_Para_13P=None, Target_13P=None):
     df['APC_Para']   = sk['APC_Para']
     df['Thk_Para']   = sk['Thk_Para']
     df['FB_Type']    = mode
     df['Target']         = sk['Target']
     df['Pre_Target']     = sk['Pre_Target']
+
+    # PRESSURE zone 은 두께를 직접 맞추는 게 아니라 13P(중심) 대비 편차를 맞춘다.
+    #   Bias = (THK - THK_13P) - (Target - Target_13P)   ← 학습측 Module.py 와 같은 정의
+    # 산식이 공정/zone 무관하게 같은 이름을 쓰도록 13P 계측·Target 을 표준 컬럼으로 노출.
+    if mode == 'PRESSURE':
+        df['THK_13P']    = df[Thk_Para_13P] if Thk_Para_13P in df.columns else np.nan
+        df['Target_13P'] = Target_13P if Target_13P is not None else np.nan
     # IF 모델 적용 경계(소모품 사용량) — web 에서 IF 모델 유효 구간 표시에 사용
     df['Pad_Seperation'] = sk['Pad_Seperation']
 
@@ -735,7 +754,8 @@ class Simulation_Get:
 
     def simulate(search_key, merge_df, ref_lot_df, Pre_VM_df, RR_df, OFFSET_df,
                  online_simul_df, pol_type, mode,
-                 Offset_Group=None, Thk_Para_13P=None, pre_thk_formula=None):
+                 Offset_Group=None, Thk_Para_13P=None, Target_13P=None,
+                 pre_thk_formula=None):
         # 시뮬레이션 파이프라인 실행 (TIME / PRESSURE 공통 코어)
         # 실측 → Pre VM → RR → Online → OFFSET → 결측 보정 → Pre_Thk 산식 → Ref lot → 최종 산출
         sk = _parse_search_key(search_key)
@@ -775,7 +795,8 @@ class Simulation_Get:
 
         df = _attach_ref_lots(df, ref_lot_df, sk, mode, Thk_Para_13P, ITM_PRE_Para, pol_type)
         df = _finalize(df, sk, Main_Para, Pad_Para, Disk_Para, Head_Para, Consumable_Para, mode,
-                       ITM_PRE_Para=ITM_PRE_Para)
+                       ITM_PRE_Para=ITM_PRE_Para,
+                       Thk_Para_13P=Thk_Para_13P, Target_13P=Target_13P)
         return df
 
     def simulate_time(search_key, data, pol_type, Offset_Group, pre_thk_formula=None):
@@ -787,13 +808,16 @@ class Simulation_Get:
             Offset_Group=Offset_Group, pre_thk_formula=pre_thk_formula,
         )
 
-    def simulate_pressure(search_key, data, pol_type, Thk_Para_13P, pre_thk_formula=None):
-        # PRESSURE(EDGE/EXED/존별) 시뮬레이션. 13P Thk_Para 를 기준 컬럼으로 함께 사용
+    def simulate_pressure(search_key, data, pol_type, Thk_Para_13P, Target_13P=None,
+                          pre_thk_formula=None):
+        # PRESSURE(EDGE/EXED/존별) 시뮬레이션.
+        # 13P Thk_Para/Target 을 함께 넘겨 편차(BIAS) 기준을 만든다.
         merge_df, ref_lot_df, Pre_VM_df, RR_df, OFFSET_df, online_simul_df = data
         return Simulation_Get.simulate(
             search_key, merge_df, ref_lot_df, Pre_VM_df, RR_df, OFFSET_df,
             online_simul_df, pol_type, mode='PRESSURE',
-            Thk_Para_13P=Thk_Para_13P, pre_thk_formula=pre_thk_formula,
+            Thk_Para_13P=Thk_Para_13P, Target_13P=Target_13P,
+            pre_thk_formula=pre_thk_formula,
         )
 
 
@@ -817,6 +841,56 @@ def _zone_label(thk_para, extra_zones):
     return None
 
 
+def _simul_thk_13p(zones):
+    """TIME(13P) 시뮬레이션 결과에서 substrate_id → Simul_THK 매핑을 만든다.
+
+    PRESSURE zone 은 두께를 직접 산출하지 않고 '13P 시뮬 두께 + 편차' 로 만들기
+    때문에, 같은 웨이퍼의 13P 결과가 재료로 필요하다.
+    """
+    frames = [f for f in zones.get('13P', [])
+              if 'Simul_THK' in f.columns and 'substrate_id' in f.columns]
+    if not frames:
+        return None
+
+    out = pd.concat([f[['substrate_id', 'Simul_THK']] for f in frames])
+    out = out.dropna(subset=['substrate_id'])
+    # 같은 웨이퍼에 TIME set-up 이 여러 건이면 마지막 결과 사용
+    out = out.drop_duplicates(subset=['substrate_id'], keep='last')
+    return out.rename(columns={'Simul_THK': 'Simul_THK_13P'})
+
+
+def _attach_simul_thk_13p(Simul_df, thk13_map):
+    if thk13_map is None or Simul_df.empty:
+        if 'Simul_THK_13P' not in Simul_df.columns:
+            Simul_df['Simul_THK_13P'] = np.nan
+        return Simul_df
+    return pd.merge(Simul_df, thk13_map, on='substrate_id', how='left')
+
+
+def _apply_apc_formula(Simul_df, ident, zone):
+    """학습값 → Simul_APC / Simul_THK 산출 (web 과 동일한 산식 모듈).
+
+    산식 파라미터(weight / limit / 수식)는 web Simulation 화면에서 저장해 둔
+    설정을 읽어 쓴다. 저장된 것이 없으면 apc_formula 의 기본 산식이 적용되고,
+    web 에서는 언제든 값을 바꿔 즉시 다시 계산해 볼 수 있다.
+    """
+    params = {}
+    try:
+        from setup_mico.simulation_db import load_formula_params
+        params, source = load_formula_params(ident.get('Product', ''),
+                                             ident.get('Oper_Desc', ''), zone)
+        if params:
+            print(f'    APC 산식 설정 적용: web 저장값 ({source}, zone={zone})')
+    except Exception as e:
+        print(f'    ! APC 산식 설정 조회 실패 → 기본 산식 사용: {e}')
+
+    try:
+        return apc_formula.apply_formula(Simul_df, params)
+    except apc_formula.FormulaError as e:
+        print(f'    ! APC 산식 오류 → Simul_APC 계산 skip: {e}')
+        return Simul_df
+
+
 def _append_zone(zones, zone, Simul_df, ident=None):
     """zone 별 DataFrame 누적 (source 의 eval/exec 동적 변수 대체).
 
@@ -829,6 +903,7 @@ def _append_zone(zones, zone, Simul_df, ident=None):
     if ident:
         for k, v in ident.items():
             Simul_df[k] = v
+        Simul_df = _apply_apc_formula(Simul_df, ident, zone)
     zones[zone].append(Simul_df)
 
 
@@ -887,6 +962,11 @@ def _run_key(mico_info_key, zones, extra_zones, pre_thk_formula, c):
             print('    ! TIME set-up 없음 (Thk_Para_13P 미확보) → PRESSURE 시뮬레이션 skip')
             return
 
+        # PRESSURE 는 '13P 시뮬 두께 + 편차' 로 두께를 만든다 → TIME 결과를 재료로 넘김
+        thk13_map = _simul_thk_13p(zones)
+        if len(info_pressure) > 0 and thk13_map is None:
+            print('    ! 13P Simul_THK 없음 → PRESSURE 두께는 편차만 산출됨')
+
         for i in range(len(info_pressure)):
             key      = info_pressure.iloc[i, :]
             Thk_Para = key['Thk_Para']
@@ -898,10 +978,13 @@ def _run_key(mico_info_key, zones, extra_zones, pre_thk_formula, c):
 
             print(f"    [PRESSURE] APC_Para={key['APC_Para']} | Thk_Para={Thk_Para} | zone={zone}")
             Simul_df = Simulation_Get.simulate_pressure(
-                key, data, pol_type, Thk_Para_13P, pre_thk_formula=pre_thk_formula,
+                key, data, pol_type, Thk_Para_13P, Target_13P=Target_13P,
+                pre_thk_formula=pre_thk_formula,
             )
             if Simul_df.empty:
                 continue
+
+            Simul_df = _attach_simul_thk_13p(Simul_df, thk13_map)
 
             if zone in ('EDGE', 'EXED'):
                 Simul_df[f'Pre_Target_{zone}'] = float(key['Pre_Target'])

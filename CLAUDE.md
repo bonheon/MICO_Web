@@ -28,6 +28,7 @@ python3 manage.py runserver 0.0.0.0:8000
 | 모델 | 관계 | 주요 필드 |
 |------|------|-----------|
 | Category | - | product, oper_id, oper_desc (CharField max_length=100) |
+| SimulFormulaConfig | → Category (FK) | zone(''=공통), params (JSONField, APC 산식 설정) |
 | SubCategory | → Category (FK) | fab, device, recipe_id, maker |
 | Detail | → SubCategory (FK) | apc_para, thk_para, target, pre_target, pre_thk_period, rr_para, offset_group, rr_max, rr_period, if_rr |
 | RecipeGroup | → Category (FK), SubCategory (M2M) | name, subcategories |
@@ -93,8 +94,9 @@ ADMIN (superuser만 노출)
 | `/learning/` | learning_values | 학습값 Trend (샘플) |
 | `/learning/history/` | learning_history | History 조회 (DB 미연결) |
 | `/simulation/` | simulation | Simulation (Spotfire 링크) |
-| `/simulation/result/` | simulation_result | Simulation 결과 web 조회 (THK/RR/Pre Thk/Offset) |
-| `/simulation/result/data/` | simulation_result_data | 위 화면의 JSON API |
+| `/simulation/result/` | simulation_result | Simulation 결과 web 조회 (Simul APC/THK, THK/RR/Pre Thk/Offset) |
+| `/simulation/result/data/` | simulation_result_data | 위 화면의 JSON API (APC 산식 재계산 포함) |
+| `/simulation/result/formula/` | simulation_formula | APC 산식 설정 저장/삭제 (POST) |
 | `/apc/history/` | apc_history | APC 수정건수 (DB 미연결) |
 | `/improvement/dispersion/` | dispersion | 산포 개선 현황 (DB 미연결) |
 | `/voc/` | voc_list | VOC 게시판 |
@@ -146,7 +148,8 @@ MICO_Simulation_{Lot_Code}_{Oper_Desc}_{Fab}       (Simulation 결과, Set-up DB
 | 파일 | 역할 |
 |------|------|
 | `algorithm_new/Common/Result_DB.py` | 결과 적재 (Django connection 사용, vendor 별 타입 분기) |
-| `setup_mico/simulation_db.py` | 테이블 명명 규칙(단일 소스) + web 조회 helper |
+| `setup_mico/apc_formula.py` | **APC 산식 단일 소스** (Simul_APC / Simul_THK, 안전한 수식 평가) |
+| `setup_mico/simulation_db.py` | 테이블 명명 규칙(단일 소스) + web 조회 helper + 산식 설정 load/save |
 | `algorithm_new/Common/Simulation.py` | `_add_view_columns()` 로 web 표준 컬럼 생성 → `_save_results_db()` |
 | `setup_mico/views.py` | `simulation_result`, `simulation_result_data` |
 | `algorithm_new/test_dram_m1cu_simul.py` | **[TEST 삭제]** 로컬 검증 러너 (학습 테이블 샘플 생성 + 적재) |
@@ -156,10 +159,87 @@ MICO_Simulation_{Lot_Code}_{Oper_Desc}_{Fab}       (Simulation 결과, Set-up DB
 Consumable(_Para) / RR_Actual / RR_DB / RR_Normal / RR_Weighted / RR_Current / RR_IF /
 Pre_Thk_VM / Pre_Thk_MA / Pre_Thk_ITM / Pre_Thk_Actual / Pre_Thk_Implied / OFFSET_Learn / OFFSET_Actual`
 
+APC 산식 재료 + 결과 컬럼 (`simulation_db.FORMULA_INPUT_COLUMNS` / `FORMULA_OUTPUT_COLUMNS`)
+`Pol_Time_1 / Pol_Time_2 / Ref_Count / Ref_YN / Ref_{1..4}_{APC,Post,Pre_VM,OFFSET,Pre_ITM}`
+`FB_1~4 / Simul_APC / Simul_APC_Limit / Simul_APC_Mode / Simul_Ref_Used / Simul_APC_Clipped /
+ Simul_RR / Removal_Amount / Simul_THK`
+
 **로컬 → 사내 전환**
 - Django `settings.DATABASES` 만 사내 DB 로 교체 (코드 수정 없음)
 - 로컬 검증은 `test_dram_m1cu_simul.py`, 사내는 `simulation/{공정}/Simulation_Hub.py` 를 그대로 실행
 - CSV 출력은 `run(export_csv=...)` — 기본값은 `export_dir` 존재 시에만 출력(로컬 자동 skip)
+
+### APC 산식 (Simul_APC / Simul_THK)
+학습값으로 실제 내려갈 APC 값을 산출하고, 그 값으로 연마했을 때의 두께를 시뮬레이션.
+
+**단일 소스: `setup_mico/apc_formula.py`** — 배치(`Simulation.py`)와 web(`views.py`)이 같은 함수를 호출하므로
+화면에서 파라미터를 바꿔 본 값과 배치가 적재하는 값이 어긋날 수 없다.
+zone 의 `FB_Type` 으로 **TIME / PRESSURE 두 모드**를 자동 판별한다 (`detect_mode`).
+
+#### TIME (13P) — 두께를 Target 에 맞춤
+```
+FB_i   = Ref_APC + (Ref_Post - Target + (Pre_Thk - Ref_Pre_VM) * pre_weight) / RR_DB * rr_weight
+                 + Simul_OFFSET - Ref_OFFSET              (Ref_1~4 각각)
+Simul_APC       = Σ weight_n1..nn × FB   (n = 쓸 수 있는 Ref 개수, 중간이 비면 앞으로 당겨 결합)
+Linear          = (Pre_Target + Pre_Thk - Target) / RR_DB + Simul_OFFSET - Pol_Time_1
+Simul_APC_Limit = clip(Simul_APC, lower_limit, upper_limit)
+Simul_RR        = sign × (Pre_Target + Pre_Thk - THK) / Pol_Time
+Removal_Amount  = Simul_RR × (Simul_APC_Limit + Pol_Time_1)
+Simul_THK       = Pre_Target + Pre_Thk - sign × Removal_Amount
+```
+- **`sign`:** Thk_Para 가 REV 계열이면 -1
+- **`Pol_Time_1`:** APC 가 제어하지 않는 앞단 고정 step.
+  `pol_time_1='auto'` 는 `Pol_Time_2` 컬럼이 있을 때(= step 2개 공정)만 항을 살린다
+  (step 1개 공정은 `Pol_Time_1 == Pol_Time` 이라 빼면 안 됨)
+
+#### PRESSURE (EDGE / EXED / Z5 …) — 13P 대비 편차를 0 에 맞춤
+두께를 직접 맞추지 않고 **TIME 이 산출한 13P 시뮬 두께에 편차를 더한다.**
+편차 정의는 학습측(`Module.py`, `REMOVAL_RATE.py`)의 `BIAS` 와 동일.
+**시간 보정값인 Idle OFFSET 은 산식에서 제외** (압력은 시간이 아니므로).
+```
+Bias_Actual  = (THK - THK_13P) - (Target - Target_13P)        ← 0 이 목표
+Bias_Slope   = d(편차)/d(압력)   … eqp_id·recipe_id 별 회귀 (bias_slope 로 고정 가능)
+Ref_Bias     = (Ref_Post - Ref_13P) - (Target - Target_13P)
+FB_i         = Ref_APC - (Ref_Bias + (Pre_Thk - Ref_Pre_VM) * pre_weight) / Bias_Slope * rr_weight
+Linear       = -(Bias_Intercept + Pre_Thk * pre_weight) / Bias_Slope
+Simul_Bias   = Bias_Slope × Simul_APC_Limit + Bias_Intercept
+Simul_THK    = Simul_THK_13P + (Target - Target_13P) + Simul_Bias
+```
+- **13P 결과 연결:** `_run_key` 가 TIME 루프 후 `_simul_thk_13p()` 로 substrate_id → Simul_THK
+  맵을 만들어 PRESSURE 프레임에 `Simul_THK_13P` 로 붙인다 (`_attach_simul_thk_13p`)
+- **FB 부호(-):** TIME 의 RR_DB 는 '제거율'이라 부호가 이미 뒤집혀 있고, Bias_Slope 는
+  d(편차)/d(압력) 그대로 → Newton 보정 `-오차/기울기` 를 그대로 사용
+- **`bias_min_r2`(기본 0.1) 가드:** 압력은 편차에 반응해 움직인 제어 출력이라 회귀가
+  closed-loop 이 된다. 기울기가 0 에 가까우면 나눗셈이 발산하므로, 설명력이 낮은 회귀는
+  버리고 NaN('민감도 없음')을 낸다. 신뢰할 값이 있으면 `bias_slope` 에 넣어 고정할 것.
+
+#### 공통
+- **Linear 분기 조건:** 쓸 수 있는 Ref 없음 / `Ref_YN='N'` / `Ref_Count == ref_skip_count`(기본 11)
+- 모드별로 쓸 수 있는 수식 변수가 다르다 (`EXPR_VARIABLES`) — PRESSURE 에서 `Simul_OFFSET`,
+  TIME 에서 `Bias_Slope` 를 쓰면 검증 단계에서 거부된다
+
+**web 에서 key-in (`/simulation/result/` 상단 "APC 산식" 패널)**
+- pre_weight / rr_weight / upper·lower limit / Ref 제외 Count
+- TIME 전용: Pol_Time_1 처리 / PRESSURE 전용: Bias Slope · 회귀 최소 건수 · 최소 R²
+  (zone 을 바꾸면 입력칸과 수식 항목이 그 모드에 맞게 다시 구성됨)
+- Ref 개수별 weight (weight_11 / 21·22 / 31·32·33 / 41~44) — 행별 합계 표시
+- 수식을 텍스트로 직접 편집 (공정별 산식 수정) — AST 화이트리스트로 검증,
+  허용 함수: abs/sqrt/log/exp/where/clip/minimum/maximum/isnan/fillna/nan_to_num
+  · TIME 5종: fb / linear / rr / removal / thk
+  · PRESSURE 4종: fb / linear / bias / thk
+- [재계산] 은 서버에서 다시 계산해 차트 갱신, [기본값으로 저장] 은 `SimulFormulaConfig` 에 보관
+  (Category 단위, '이 Zone 에만 적용' 체크 시 zone 별 — 조회 시 공통 위에 zone 설정을 덮어씀)
+- 배치 실행도 저장된 설정을 읽어 같은 값으로 적재
+
+**화면 구성 (`/simulation/result/`)**
+1. **THK Trend** (메인, 7:3) — 실측 THK vs Simulation THK + Target 기준선 / 우측 Boxplot·산포 비교(산포 변화 %)
+2. **APC · RR · Pre Thk · Offset** — 2×2 4분할, 각 셀은 `chartCell()` 로 차트 + 요약표를 한 박스에
+   - APC Para: 실제 적용값(회색) vs Simul APC (FB 파랑 / Linear 주황) + limit 밴드, Bias/MAE/RMSE
+   - 2번 셀은 모드에 따라 교체 — TIME: Removal Rate(실제 RR vs if>current>weighted>normal) /
+     PRESSURE: 편차(BIAS) 실측 vs Simulation + 목표선 0 + Bias Slope·R²·민감도 실패 건수
+     (X축 날짜/압력·소모품 토글 공통)
+   - Pre Thk VM: pre 챔버별 학습값 / Idle Offset: IDLE 구간별 학습값
+   - 표가 길어지면 `.cell-stats` 가 스크롤 (셀 높이 고정)
 
 ### Jupyter 노트북
 - `notebooks/mico_setup_query.ipynb`: SQLite 직접 연결, Set-up 전체 계층 DataFrame 조회

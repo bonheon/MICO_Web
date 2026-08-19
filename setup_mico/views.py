@@ -829,9 +829,47 @@ def simulation_result(request):
     })
 
 
+def _result_frame(data):
+    """조회 결과(columns/rows) → DataFrame."""
+    import pandas as pd
+    return pd.DataFrame(data['rows'], columns=data['columns'])
+
+
+def _fill_output_columns(data):
+    """계산을 못 해도 화면 구성이 흔들리지 않도록 결과 컬럼 자리를 채워 둔다."""
+    from . import apc_formula
+    for col in apc_formula.ALL_OUTPUT_COLUMNS:
+        if col not in data['columns']:
+            data['columns'].append(col)
+
+
+def _apply_apc_formula_to_result(data, df, params, mode):
+    """조회 결과에 APC 산식을 적용해 Simul_APC / Simul_THK 컬럼을 채운다.
+
+    배치가 적재해 둔 값이 있어도 화면에서 key-in 한 파라미터로 다시 계산해
+    덮어쓴다 — 화면에 보이는 숫자는 항상 현재 입력값 기준이 된다.
+    """
+    import numpy as np
+    import pandas as pd
+
+    from . import apc_formula
+
+    df = apc_formula.apply_formula(df, params, mode=mode)
+    summary = apc_formula.summarize(df, mode=mode)
+
+    df = df.replace([np.inf, -np.inf], np.nan)
+    obj = df.astype(object).where(pd.notna(df), None)
+
+    data['columns'] = list(obj.columns)
+    data['rows']    = obj.values.tolist()
+    return summary
+
+
 @login_required
 def simulation_result_data(request):
-    from . import simulation_db
+    import json
+
+    from . import apc_formula, simulation_db
 
     product   = request.GET.get('product', '').strip()
     oper_desc = request.GET.get('oper_desc', '').strip()
@@ -854,27 +892,112 @@ def simulation_result_data(request):
                 'table': table,
             }, status=404)
 
-        zones     = simulation_db.distinct_values(table, 'ZONE', date_from, date_to)
-        apc_paras = simulation_db.distinct_values(table, 'APC_Para', date_from, date_to)
+        zones = simulation_db.distinct_values(table, 'ZONE', date_from, date_to)
 
         # 미지정 시 기본값 — 13P(TIME) 우선
         if not zone:
             zone = '13P' if '13P' in zones else (zones[0] if zones else '')
-        if not apc_para:
+
+        # APC_Para 는 zone 마다 다르다 (13P=P3, EDGE=P3_ZONE1 …).
+        # 다른 zone 의 값이 남아 있으면 0건 조회가 되므로 zone 기준으로 다시 고른다.
+        apc_paras = simulation_db.distinct_values(table, 'APC_Para', date_from, date_to, zone)
+        if not apc_para or apc_para not in apc_paras:
             apc_para = apc_paras[0] if apc_paras else ''
 
         data = simulation_db.fetch(table, date_from, date_to, zone, apc_para)
     except Exception as e:
         return JsonResponse({'error': f'DB 조회 오류: {e}'}, status=500)
 
+    # ── APC 산식 파라미터 ───────────────────────────────────────────────
+    # 화면에서 key-in 한 값(formula) 우선, 없으면 저장된 설정, 그것도 없으면 기본 산식
+    saved, saved_source = simulation_db.load_formula_params(product, oper_desc, zone)
+    raw = request.GET.get('formula', '').strip()
+    if raw:
+        try:
+            params = json.loads(raw)
+        except ValueError:
+            return JsonResponse({'error': '산식 파라미터(formula) JSON 형식 오류'}, status=400)
+    else:
+        params = saved
+
+    # 산식은 zone 성격(FB_Type)에 따라 갈린다 — TIME(두께) / PRESSURE(13P 대비 편차)
+    df     = _result_frame(data)
+    mode   = apc_formula.detect_mode(df)
+    config = apc_formula.resolve_config(params, mode)
+    errors = apc_formula.validate_config(config, mode)
+
+    summary = {}
+    if errors or df.empty:
+        # 수식이 잘못돼도 기존 차트는 볼 수 있어야 하므로 계산만 건너뛴다
+        _fill_output_columns(data)
+    else:
+        try:
+            summary = _apply_apc_formula_to_result(data, df, config, mode)
+        except Exception as e:
+            errors = {'__all__': f'산식 계산 오류: {e}'}
+            _fill_output_columns(data)
+
     data.update({
-        'table'    : table,
-        'zones'    : zones,
-        'apc_paras': apc_paras,
-        'zone'     : zone,
-        'apc_para' : apc_para,
+        'table'          : table,
+        'zones'          : zones,
+        'apc_paras'      : apc_paras,
+        'zone'           : zone,
+        'apc_para'       : apc_para,
+        'formula'        : config,
+        'formula_mode'   : mode,
+        'formula_saved'  : bool(saved),
+        'formula_source' : saved_source,
+        'formula_errors' : errors,
+        'formula_summary': summary,
+        'formula_keys'   : list(apc_formula.EXPR_KEYS[mode]),
+        'formula_labels' : apc_formula.EXPR_LABELS,
+        'formula_vars'   : apc_formula.EXPR_VARIABLES[mode],
+        'formula_default': apc_formula.resolve_config({}, mode),
     })
     return JsonResponse(data)
+
+
+@login_required
+def simulation_formula(request):
+    """APC 산식 설정 저장 / 삭제 (화면 key-in 값을 기본값으로 남길 때만 사용)."""
+    import json
+
+    from . import apc_formula, simulation_db
+
+    if request.method != 'POST':
+        return JsonResponse({'error': 'POST 만 허용됩니다'}, status=405)
+
+    try:
+        body = json.loads(request.body or '{}')
+    except ValueError:
+        return JsonResponse({'error': 'JSON 형식 오류'}, status=400)
+
+    product   = str(body.get('product', '')).strip()
+    oper_desc = str(body.get('oper_desc', '')).strip()
+    zone      = str(body.get('zone', '')).strip()
+    action    = body.get('action', 'save')
+    mode      = str(body.get('mode', '')).strip().upper() or apc_formula.MODE_TIME
+
+    if not product or not oper_desc:
+        return JsonResponse({'error': 'product / oper_desc 가 필요합니다'}, status=400)
+
+    try:
+        if action == 'delete':
+            deleted = simulation_db.delete_formula_params(product, oper_desc, zone)
+            return JsonResponse({'ok': True, 'deleted': deleted})
+
+        config = apc_formula.resolve_config(body.get('formula') or {}, mode)
+        errors = apc_formula.validate_config(config, mode)
+        if errors:
+            return JsonResponse({'error': '산식 오류', 'formula_errors': errors}, status=400)
+
+        simulation_db.save_formula_params(product, oper_desc, zone, config, request.user)
+    except ValueError as e:
+        return JsonResponse({'error': str(e)}, status=400)
+    except Exception as e:
+        return JsonResponse({'error': f'저장 실패: {e}'}, status=500)
+
+    return JsonResponse({'ok': True, 'formula': config, 'zone': zone})
 
 
 @login_required

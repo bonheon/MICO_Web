@@ -249,6 +249,95 @@ def _mock_load_learning_tables(Family, Fab, Lot_Code, oper_desc):
 SIM._load_learning_tables = _mock_load_learning_tables
 
 
+# ── 2-2. Ref lot 로더 교체 ─────────────────────────────────────────────────
+# 사내에서는 Get_Data.RefGetData / RefGetData_HUB 가 MES 에서 Ref lot 을 읽어온다.
+# 로컬에는 그 조회가 없으므로, 같은 EQ/Recipe 의 직전 웨이퍼들을 Ref 로 삼아
+# APC 산식(FB)의 Ref_1~4 경로를 검증할 수 있는 샘플을 만든다.
+
+_REF_MAX      = 4    # 웨이퍼당 Ref 최대 개수
+_REF_N_CYCLE  = 17   # 이 주기마다 Ref_YN='N' → Linear 산식 분기 검증
+
+
+def _mock_ref_lots(Fab, Lot_Code, Oper_Code, Recipe_ID_List, Days=None):
+    info = Get_data.baseinfoGetData(Family=FAMILY, oper_desc=OPER_DESC)
+    info = info[(info['Fab'] == Fab)
+                & (info['Lot_Code'] == Lot_Code)
+                & (info['Oper_Code'] == Oper_Code)]
+    if info.empty:
+        return pd.DataFrame(columns=['substrate_id', 'input_name', 'operation_id', 'item_value'])
+
+    merge_df = Get_data.MongoDB_GetData(FAMILY, Fab, Lot_Code, OPER_DESC)
+    merge_df['Date'] = pd.to_datetime(merge_df['Date'])
+    merge_df = merge_df[merge_df['operation_id'] == Oper_Code]
+
+    rows = []
+    for apc_para in sorted(info['APC_Para'].dropna().unique()):
+        if apc_para not in merge_df.columns:
+            continue
+        for recipe_id, g in merge_df.groupby('recipe_id'):
+            if recipe_id not in Recipe_ID_List:
+                continue
+            ids = g.sort_values('Date')['substrate_id'].dropna().tolist()
+            for i, substrate_id in enumerate(ids):
+                if i == 0:
+                    continue
+                n_ref = min(1 + (i % _REF_MAX), i)          # Ref 1~4개를 골고루
+                refs  = ids[i - n_ref:i][::-1]              # 최근 웨이퍼부터
+                rows.append({
+                    'substrate_id': substrate_id,
+                    'input_name'  : apc_para,
+                    'operation_id': Oper_Code,
+                    'item_value'  : ';'.join(refs),
+                    'Ref_Count'   : n_ref - 1,              # source 정의(';' 개수)와 동일
+                    'Ref_YN'      : 'N' if i % _REF_N_CYCLE == 0 else 'Y',
+                })
+
+    df = pd.DataFrame(rows)
+    print(f'    [sample] Ref lot 생성: {len(df)}건')
+    return df
+
+
+SIM._load_ref_lots = _mock_ref_lots
+
+
+# ── 2-3. PRESSURE set-up 을 샘플 CSV 컬럼으로 매핑 ─────────────────────────
+# web Set-up 의 PRESSURE 행은 사내 계측/APC 파라미터(P3_04_Z1, ..._EDGE_AVG)를 쓰는데
+# 로컬 샘플 CSV 에는 그 컬럼이 없어 PRESSURE 시뮬레이션이 통째로 skip 된다.
+# Set-up DB 는 그대로 두고, 이 러너에서만 샘플에 있는 컬럼으로 바꿔 파이프라인을 검증한다.
+
+_SAMPLE_CSV = str(Path(__file__).parent / 'merge_df_sample.csv')
+
+_PRESSURE_COLUMN_MAP = {
+    'APC_Para': 'P3_ZONE1',                 # 압력 (샘플 CSV 존재)
+    'Thk_Para': 'AMAT_POST_OCD_ED1_AVG',    # ED1 → EDGE zone
+}
+
+_orig_baseinfo = Get_data.baseinfoGetData
+
+
+def _baseinfo_with_pressure(Family, oper_desc):
+    info = _orig_baseinfo(Family=Family, oper_desc=oper_desc)
+
+    sample_cols = set(pd.read_csv(_SAMPLE_CSV, nrows=1).columns)
+    mask = info['FB_Type'] == 'PRESSURE'
+    if not mask.any():
+        return info
+
+    for col, replacement in _PRESSURE_COLUMN_MAP.items():
+        missing = mask & ~info[col].isin(sample_cols)
+        if missing.any():
+            print(f'  [sample] PRESSURE set-up {col}: '
+                  f'{sorted(info.loc[missing, col].unique())} → {replacement}')
+            info.loc[missing, col] = replacement
+
+    # EDGE zone 은 13P 보다 얇게 나오는 편 — Target 을 낮춰 편차가 0 이 아니게 둔다
+    info.loc[mask, 'Target'] = 1850
+    return info
+
+
+Get_data.baseinfoGetData = _baseinfo_with_pressure
+
+
 # ── 3. 실행 ────────────────────────────────────────────────────────────────
 
 if __name__ == '__main__':

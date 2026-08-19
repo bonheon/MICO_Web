@@ -38,7 +38,31 @@ VALUE_COLUMNS = [
     'Pre_Thk_VM', 'Pre_Thk_MA', 'Pre_Thk_ITM', 'Pre_Thk_Actual', 'Pre_Thk_Implied',
     'OFFSET_Learn', 'OFFSET_Actual',
 ]
-VIEW_COLUMNS = META_COLUMNS + VALUE_COLUMNS
+
+# APC 산식(Simul_APC / Simul_THK) 재계산 재료.
+# web 에서 weight·limit 을 바꿔가며 다시 계산해야 하므로 결과값이 아니라
+# '재료' 를 그대로 내려보내고 계산은 apc_formula 가 한다.
+FORMULA_INPUT_COLUMNS = (
+    ['Pol_Time_1', 'Pol_Time_2', 'Ref_Count', 'Ref_YN']
+    # PRESSURE zone: 13P(중심) 대비 편차를 맞추므로 13P 계측·Target 과
+    # TIME 이 산출한 13P 시뮬 두께가 재료로 필요하다
+    + ['THK_13P', 'Target_13P', 'Simul_THK_13P']
+    + [f'Ref_{i}_{suffix}'
+       for i in range(1, 5)
+       for suffix in ('APC', 'Post', '13P', 'Pre_VM', 'OFFSET', 'Pre_ITM')]
+)
+
+# 배치 실행이 기본 설정으로 계산해 둔 값 (web 이 파라미터를 바꾸면 덮어써진다)
+FORMULA_OUTPUT_COLUMNS = [
+    'FB_1', 'FB_2', 'FB_3', 'FB_4',
+    'Simul_APC', 'Simul_APC_Limit', 'Simul_APC_Mode', 'Simul_Ref_Used',
+    'Simul_APC_Clipped',
+    'Simul_RR', 'Removal_Amount',                                   # TIME
+    'Bias_Actual', 'Bias_Slope', 'Bias_Intercept', 'Bias_R2', 'Simul_Bias',   # PRESSURE
+    'Simul_THK',
+]
+
+VIEW_COLUMNS = META_COLUMNS + VALUE_COLUMNS + FORMULA_INPUT_COLUMNS + FORMULA_OUTPUT_COLUMNS
 
 
 def table_name(lot_code, oper_desc, fab):
@@ -80,11 +104,15 @@ def _where(date_from, date_to, zone, apc_para):
     return (' WHERE ' + ' AND '.join(clauses) if clauses else ''), params
 
 
-def distinct_values(table, column, date_from=None, date_to=None):
-    """필터 선택지용 distinct 값 목록 (없는 컬럼이면 빈 리스트)."""
+def distinct_values(table, column, date_from=None, date_to=None, zone=None):
+    """필터 선택지용 distinct 값 목록 (없는 컬럼이면 빈 리스트).
+
+    zone 을 주면 그 zone 안에서만 뽑는다 — APC_Para 는 zone 마다 다르므로
+    (13P=P3, EDGE=P3_ZONE1 …) zone 을 무시하면 0건 조회가 된다.
+    """
     if column not in table_columns(table):
         return []
-    where, params = _where(date_from, date_to, None, None)
+    where, params = _where(date_from, date_to, zone, None)
     sql = f'SELECT DISTINCT {_q(column)} FROM {_q(table)}{where}'
     with connection.cursor() as cur:
         cur.execute(sql, params)
@@ -126,6 +154,66 @@ def fetch(table, date_from=None, date_to=None, zone=None, apc_para=None,
         'total_rows': total,
         'sampled'   : len(rows) < total,
     }
+
+
+# ── APC 산식 설정 (SimulFormulaConfig) ─────────────────────────────────────
+# 저장은 선택 사항 — 화면에서 key-in 한 값으로 즉시 재계산되고,
+# '기본값으로 저장' 을 눌렀을 때만 여기에 남아 다음 조회 시 복원된다.
+
+def _category(product, oper_desc):
+    from .models import Category
+    return Category.objects.filter(product=product, oper_desc=oper_desc).first()
+
+
+def load_formula_params(product, oper_desc, zone=''):
+    """저장된 산식 설정을 반환. 공통(zone='') 위에 zone 별 설정을 덮어쓴다.
+
+    저장된 것이 없으면 빈 dict → apc_formula.resolve_config 가 기본값을 채운다.
+    """
+    from .models import SimulFormulaConfig
+
+    category = _category(product, oper_desc)
+    if category is None:
+        return {}, ''
+
+    rows = {c.zone: c for c in SimulFormulaConfig.objects.filter(
+        category=category, zone__in=['', zone or '']
+    )}
+
+    params = dict((rows.get('').params if '' in rows else {}) or {})
+    source = 'common' if '' in rows else ''
+    if zone and zone in rows:
+        params.update(rows[zone].params or {})
+        source = 'zone'
+
+    return params, source
+
+
+def save_formula_params(product, oper_desc, zone, params, user=None):
+    """산식 설정 저장 (zone='' 이면 해당 공정의 공통 기본값)."""
+    from .models import SimulFormulaConfig
+
+    category = _category(product, oper_desc)
+    if category is None:
+        raise ValueError(f'Set-up 에 없는 공정입니다: {product} / {oper_desc}')
+
+    obj, _ = SimulFormulaConfig.objects.update_or_create(
+        category=category, zone=zone or '',
+        defaults={'params': params, 'updated_by': user if user and user.is_authenticated else None},
+    )
+    return obj
+
+
+def delete_formula_params(product, oper_desc, zone):
+    from .models import SimulFormulaConfig
+
+    category = _category(product, oper_desc)
+    if category is None:
+        return 0
+    deleted, _ = SimulFormulaConfig.objects.filter(
+        category=category, zone=zone or ''
+    ).delete()
+    return deleted
 
 
 def _json_safe(v):

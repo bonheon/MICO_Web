@@ -149,6 +149,21 @@
   }
   .chart-box-title .dot { width: 8px; height: 8px; border-radius: 50%; flex-shrink: 0; }
 
+  /* 4분할 (APC / RR / Pre Thk / Offset) — 좁은 화면에서는 1열로 */
+  /* align-items:start — 셀마다 내용 높이대로 (행 높이를 맞추느라 빈 공간이 생기지 않게) */
+  .quad-grid {
+    display: grid; grid-template-columns: repeat(2, minmax(0, 1fr));
+    gap: 1rem; align-items: start;
+  }
+  @media (max-width: 1300px) { .quad-grid { grid-template-columns: 1fr; } }
+  .quad-cell { min-width: 0; }
+  /* 챔버·IDLE 이 많은 공정에서 표가 길어져도 셀 높이가 튀지 않도록 스크롤 */
+  .cell-stats {
+    margin-top: 0.7rem; padding-top: 0.6rem; border-top: 1px solid #e4e7ed;
+    overflow: auto; max-height: 230px;
+  }
+  .cell-note { font-size: 0.67rem; color: #8993a8; margin-top: 0.4rem; line-height: 1.5; }
+
   .section-title {
     font-size: 0.82rem; font-weight: 700; color: #344054;
     display: flex; align-items: center; gap: 0.5rem;
@@ -164,6 +179,63 @@
   .stat-table td:first-child { text-align: left; }
   .stat-dot { display: inline-block; width: 8px; height: 8px; border-radius: 50%; margin-right: 5px; vertical-align: middle; }
 
+  /* APC 산식 패널 (화면에서 바로 key-in) */
+  .formula-panel { background: #fff; border: 1px solid #e4e7ed; border-radius: 10px; margin-bottom: 1rem; overflow: hidden; }
+  .formula-head {
+    display: flex; align-items: center; gap: 0.6rem; flex-wrap: wrap;
+    padding: 0.6rem 1rem; cursor: pointer; user-select: none;
+  }
+  .formula-head:hover { background: #f8f9fc; }
+  .formula-title { font-size: 0.82rem; font-weight: 700; color: #344054; }
+  .formula-check {
+    display: flex; align-items: center; gap: 0.35rem;
+    font-size: 0.75rem; color: #344054; cursor: pointer;
+  }
+  .formula-check input { accent-color: #4f8ef7; }
+  .formula-body { border-top: 1px solid #e4e7ed; padding: 1rem; }
+  .formula-sub {
+    font-size: 0.7rem; font-weight: 700; color: #8993a8;
+    text-transform: uppercase; letter-spacing: 0.05em; margin: 0 0 0.6rem;
+  }
+  .fgrid { display: grid; grid-template-columns: repeat(auto-fill, minmax(150px, 1fr)); gap: 0.7rem 1rem; }
+  .fld { display: flex; flex-direction: column; gap: 0.22rem; }
+  .fld label { font-size: 0.68rem; font-weight: 600; color: #8993a8; text-transform: uppercase; letter-spacing: 0.04em; }
+  .fld input, .fld select {
+    border: 1px solid #e4e7ed; border-radius: 7px; padding: 0.3rem 0.55rem;
+    font-size: 0.8rem; color: #344054; background: #f8f9fc; outline: none;
+  }
+  .fld input:focus, .fld select:focus { border-color: #4f8ef7; background: #fff; }
+  .fld .hint { font-size: 0.65rem; color: #b0b8cc; line-height: 1.35; }
+  .wrow { display: flex; align-items: center; gap: 0.35rem; margin-bottom: 0.3rem; flex-wrap: wrap; }
+  .wrow .wlabel { font-size: 0.72rem; color: #8993a8; width: 5.6rem; flex-shrink: 0; }
+  .wrow input {
+    width: 4.6rem; border: 1px solid #e4e7ed; border-radius: 7px; padding: 0.25rem 0.45rem;
+    font-size: 0.78rem; color: #344054; background: #f8f9fc; outline: none; text-align: right;
+  }
+  .wrow input:focus { border-color: #4f8ef7; background: #fff; }
+  .wsum { font-size: 0.68rem; color: #b0b8cc; margin-left: 0.3rem; }
+  .wsum.bad { color: #f97316; font-weight: 600; }
+  .expr-row { margin-bottom: 0.6rem; }
+  .expr-row > label { font-size: 0.7rem; font-weight: 600; color: #344054; display: block; margin-bottom: 0.22rem; }
+  .expr-area {
+    width: 100%; font-family: ui-monospace, SFMono-Regular, Menlo, monospace;
+    font-size: 0.73rem; line-height: 1.5; border: 1px solid #e4e7ed; border-radius: 7px;
+    padding: 0.4rem 0.6rem; background: #f8f9fc; color: #344054; outline: none;
+    resize: vertical; min-height: 2.3rem;
+  }
+  .expr-area:focus { border-color: #4f8ef7; background: #fff; }
+  .expr-area.invalid { border-color: #ef4444; background: #fef2f2; }
+  .expr-err { font-size: 0.7rem; color: #ef4444; white-space: pre-line; margin-top: 0.15rem; }
+  .expr-vars { font-size: 0.65rem; color: #b0b8cc; margin-top: 0.15rem; word-break: break-word; }
+  .btn-mini {
+    padding: 0.35rem 0.85rem; border-radius: 8px; font-size: 0.76rem; font-weight: 600;
+    border: 1px solid #e4e7ed; background: #f8f9fc; color: #344054; cursor: pointer; white-space: nowrap;
+  }
+  .btn-mini:hover { border-color: #4f8ef7; color: #4f8ef7; }
+  .btn-mini.primary { background: #4f8ef7; border-color: #4f8ef7; color: #fff; }
+  .btn-mini.primary:hover { background: #3b7de0; color: #fff; }
+  .btn-mini:disabled { opacity: 0.45; cursor: not-allowed; }
+
   /* Dark mode */
   [data-theme="dark"] .content-card { background: #1f2937 !important; border-color: #374151 !important; }
   [data-theme="dark"] .content-header { border-bottom-color: #374151 !important; }
@@ -178,6 +250,8 @@
   [data-theme="dark"] .date-input, [data-theme="dark"] .mini-select {
     background: #1e2a40 !important; border-color: #3d4f6d !important; color: #f1f5f9 !important; }
   [data-theme="dark"] .chart-box { background: #263348 !important; border-color: #374151 !important; }
+  [data-theme="dark"] .cell-stats { border-top-color: #374151 !important; }
+  [data-theme="dark"] .cell-note { color: #9ca3af !important; }
   [data-theme="dark"] .chart-box-title { color: #d1d5db !important; }
   [data-theme="dark"] .section-title { color: #d1d5db !important; border-top-color: #374151 !important; }
   [data-theme="dark"] .section-desc { color: #9ca3af !important; }
@@ -203,6 +277,20 @@
   [data-theme="dark"] .fsel-toolbar-btn { background: #263348 !important; border-color: #374151 !important; color: #d1d5db !important; }
   [data-theme="dark"] .fsel-item { color: #d1d5db !important; }
   [data-theme="dark"] .fsel-item:hover { background: #1e3a5f !important; }
+  [data-theme="dark"] .formula-panel { background: #1f2937 !important; border-color: #374151 !important; }
+  [data-theme="dark"] .formula-head:hover { background: #263348 !important; }
+  [data-theme="dark"] .formula-body { border-top-color: #374151 !important; }
+  [data-theme="dark"] .formula-sub { color: #9ca3af !important; }
+  [data-theme="dark"] .formula-title, [data-theme="dark"] .formula-check { color: #f1f5f9 !important; }
+  [data-theme="dark"] .fld label, [data-theme="dark"] .wrow .wlabel { color: #9ca3af !important; }
+  [data-theme="dark"] .fld .hint, [data-theme="dark"] .expr-vars, [data-theme="dark"] .wsum { color: #6b7280 !important; }
+  [data-theme="dark"] .fld input, [data-theme="dark"] .fld select,
+  [data-theme="dark"] .wrow input, [data-theme="dark"] .expr-area {
+    background: #1e2a40 !important; border-color: #3d4f6d !important; color: #f1f5f9 !important; }
+  [data-theme="dark"] .expr-area.invalid { background: #3b1d1d !important; border-color: #ef4444 !important; }
+  [data-theme="dark"] .expr-row > label { color: #d1d5db !important; }
+  [data-theme="dark"] .btn-mini { background: #263348 !important; border-color: #374151 !important; color: #d1d5db !important; }
+  [data-theme="dark"] .btn-mini.primary { background: #4f8ef7 !important; border-color: #4f8ef7 !important; color: #fff !important; }
 </style>
 
 <div class="d-flex align-items-center justify-content-between mb-3">
@@ -271,6 +359,112 @@
   </span>
 </div>
 
+<!-- APC 산식 (화면에서 바로 key-in → 즉시 재계산) -->
+<div class="formula-panel" id="formula-panel" style="display:none;">
+  <div class="formula-head" id="formula-head">
+    <i class="bi bi-calculator" style="color:#4f8ef7;"></i>
+    <span class="formula-title">APC 산식</span>
+    <span style="font-size:0.72rem; color:#8993a8;">
+      학습값으로 Simul_APC 를 계산하고, 그 값으로 연마했을 때의 두께(Simul_THK)를 시뮬레이션합니다
+    </span>
+    <span class="ms-auto" style="display:flex; align-items:center; gap:0.4rem;">
+      <span id="formula-badge" class="chip" style="background:#eff6ff; color:#4f8ef7;"></span>
+      <i class="bi bi-chevron-down" id="formula-chev" style="color:#b0b8cc; font-size:0.8rem;"></i>
+    </span>
+  </div>
+  <div class="formula-body" id="formula-body" style="display:none;">
+
+    <div class="formula-sub">1. 결합 파라미터</div>
+    <div class="fgrid" style="margin-bottom:1rem;">
+      <div class="fld">
+        <label>pre_weight</label>
+        <input type="number" step="any" id="f-pre-weight">
+        <span class="hint">(Pre_Thk − Ref_Pre_VM) 에 곱하는 가중치</span>
+      </div>
+      <div class="fld">
+        <label>rr_weight</label>
+        <input type="number" step="any" id="f-rr-weight">
+        <span class="hint">RR_DB 로 나눈 보정량에 곱하는 가중치</span>
+      </div>
+      <div class="fld">
+        <label>Upper Limit</label>
+        <input type="number" step="any" id="f-upper" placeholder="없음">
+        <span class="hint">Simul_APC 상한 (비우면 미적용)</span>
+      </div>
+      <div class="fld">
+        <label>Lower Limit</label>
+        <input type="number" step="any" id="f-lower" placeholder="없음">
+        <span class="hint">Simul_APC 하한 (비우면 미적용)</span>
+      </div>
+      <div class="fld mode-time">
+        <label>Pol_Time_1 처리</label>
+        <select id="f-pol1">
+          <option value="auto">auto — step 2개 공정만 적용</option>
+          <option value="use">use — 항상 적용</option>
+          <option value="ignore">ignore — 사용 안 함</option>
+        </select>
+        <span class="hint">APC 가 제어하지 않는 앞단 고정 연마 step</span>
+      </div>
+      <div class="fld mode-pressure" style="display:none;">
+        <label>Bias Slope (민감도)</label>
+        <input type="number" step="any" id="f-bias-slope" placeholder="자동 (회귀)">
+        <span class="hint">압력 1단위당 편차 변화량. 비우면 장비·레시피별로 데이터에서 회귀</span>
+      </div>
+      <div class="fld mode-pressure" style="display:none;">
+        <label>회귀 최소 건수</label>
+        <input type="number" step="1" id="f-bias-min">
+        <span class="hint">이보다 적으면 전체 데이터 회귀로 대체</span>
+      </div>
+      <div class="fld mode-pressure" style="display:none;">
+        <label>최소 설명력 (R²)</label>
+        <input type="number" step="any" id="f-bias-r2">
+        <span class="hint">이보다 낮은 회귀는 버림 — 기울기가 0 에 가까우면 Simul_APC 가 발산</span>
+      </div>
+      <div class="fld">
+        <label>Ref 제외 Count</label>
+        <input type="number" step="1" id="f-refskip">
+        <span class="hint">Ref_Count 가 이 값이면 Linear 산식</span>
+      </div>
+    </div>
+
+    <div class="cell-note mode-pressure" id="f-pressure-note" style="display:none; margin:-0.5rem 0 1rem;">
+      <b>PRESSURE zone</b> — 두께를 직접 맞추지 않고 13P(중심) 대비 편차를 0 으로 맞춥니다.
+      두께는 <b>TIME 이 산출한 13P 시뮬 두께 + 편차</b> 로 만들어지고, 시간 보정값인
+      Idle OFFSET 은 산식에서 제외됩니다.<br>
+      ※ 압력은 편차에 반응해 움직인 제어 출력이라 민감도 회귀가 closed-loop 이 됩니다 —
+      기울기가 실제보다 작게(또는 부호가 뒤집혀) 나올 수 있으니, 아는 값이 있으면
+      Bias Slope 에 직접 넣어 고정하세요.
+    </div>
+
+    <div class="formula-sub">2. Ref 개수별 weight</div>
+    <div style="margin-bottom:1rem;">
+      <div id="f-weights"></div>
+      <div style="font-size:0.68rem; color:#b0b8cc; margin-top:0.35rem;">
+        쓸 수 있는 Ref 가 몇 개인지에 따라 해당 행의 weight 로 FB 값을 결합합니다.
+        (Ref 가 하나도 없거나 Ref_YN = N 이면 Linear 산식)
+      </div>
+    </div>
+
+    <div class="formula-sub">
+      3. 수식 <span style="font-weight:400; text-transform:none; letter-spacing:0;">— 공정별로 직접 수정 가능</span>
+    </div>
+    <div id="f-exprs" style="margin-bottom:0.9rem;"></div>
+
+    <div style="display:flex; gap:0.5rem; align-items:center; flex-wrap:wrap; border-top:1px solid #f0f2f7; padding-top:0.8rem;">
+      <button class="btn-mini primary" id="f-apply"><i class="bi bi-arrow-repeat me-1"></i>재계산</button>
+      <button class="btn-mini" id="f-reset"><i class="bi bi-arrow-counterclockwise me-1"></i>기본 산식으로</button>
+      <div class="date-divider"></div>
+      <label class="formula-check">
+        <input type="checkbox" id="f-zone-only">
+        <span>이 Zone 에만 적용</span>
+      </label>
+      <button class="btn-mini" id="f-save"><i class="bi bi-save me-1"></i>기본값으로 저장</button>
+      <button class="btn-mini" id="f-delete"><i class="bi bi-trash me-1"></i>저장값 삭제</button>
+      <span id="f-msg" style="font-size:0.74rem; color:#8993a8;"></span>
+    </div>
+  </div>
+</div>
+
 <!-- Content -->
 <div class="content-card">
   <div class="content-header">
@@ -300,7 +494,7 @@
     <div class="em-title">Simulation 결과 조회</div>
     <div class="em-sub">
       Product / Oper Desc / FAB 을 선택하고 조회하면<br>
-      THK · Removal Rate · Pre Thk VM · Offset 학습 현황이 표시됩니다
+      THK Trend(실측 vs Simulation) 와 APC · RR · Pre Thk · Offset 현황이 표시됩니다
     </div>
   </div>
 
@@ -318,44 +512,29 @@
 
   <div id="results-panel" style="display:none; padding:1.25rem 1.5rem;">
 
-    <!-- 1. THK -->
+    <!-- 1. THK Trend — 실측 vs Simulation (메인) -->
     <div class="section-title">
-      <i class="bi bi-layers" style="color:#4f8ef7;"></i> THK Trend
-      <span class="section-desc">— APC Para 의 Formula 값별 실측 두께</span>
+      <i class="bi bi-bullseye" style="color:#22c55e;"></i> THK Trend
+      <span class="section-desc">— 실측 두께 vs Simul_APC_Limit 로 연마했을 때 예상 두께</span>
     </div>
-    <div id="thk-row" style="display:grid; grid-template-columns:7fr 3fr; gap:1rem;"></div>
+    <div id="simthk-row" style="display:grid; grid-template-columns:7fr 3fr; gap:1rem; align-items:start;"></div>
 
-    <!-- 2. APC Para -->
+    <!-- 2. APC / RR / Pre Thk / Offset — 4분할 -->
     <div class="section-title">
-      <i class="bi bi-sliders" style="color:#22c55e;"></i> APC Para Trend
-      <span class="section-desc">— Formula 값별 APC 적용값 (연마시간 / 압력)</span>
-    </div>
-    <div id="apc-row" style="display:grid; grid-template-columns:7fr 3fr; gap:1rem;"></div>
-
-    <!-- 3. Removal Rate -->
-    <div class="section-title">
-      <i class="bi bi-speedometer2" style="color:#ef4444;"></i> Removal Rate 학습 추종성
-      <span class="section-desc">— 실제 RR(회색) 대비 적용 모델 (if &gt; current &gt; weighted &gt; normal)</span>
-      <span style="margin-left:auto; display:flex; gap:0.35rem;">
-        <button class="algo-tab active" id="rr-x-date" style="font-size:0.72rem; padding:0.25rem 0.7rem;">X축: 날짜</button>
-        <button class="algo-tab" id="rr-x-cons" style="font-size:0.72rem; padding:0.25rem 0.7rem;">X축: 소모품</button>
+      <i class="bi bi-grid-3x3-gap" style="color:#4f8ef7;"></i> APC · RR · Pre Thk · Offset
+      <span class="section-desc">— 두께를 결정하는 항목별 Trend</span>
+      <span style="margin-left:auto; display:flex; align-items:center; gap:0.35rem;">
+        <span style="font-size:0.7rem; color:#8993a8;">RR X축</span>
+        <button class="algo-tab active" id="rr-x-date" style="font-size:0.72rem; padding:0.25rem 0.7rem;">날짜</button>
+        <button class="algo-tab" id="rr-x-cons" style="font-size:0.72rem; padding:0.25rem 0.7rem;">소모품</button>
       </span>
     </div>
-    <div id="rr-row" style="display:grid; grid-template-columns:7fr 3fr; gap:1rem;"></div>
-
-    <!-- 4. Pre Thk VM -->
-    <div class="section-title">
-      <i class="bi bi-arrow-down-up" style="color:#22c55e;"></i> Pre Thk VM 학습
-      <span class="section-desc">— 날짜별 학습값 추이 (pre 챔버별 분포)</span>
+    <div class="quad-grid">
+      <div class="quad-cell" id="q-apc"></div>
+      <div class="quad-cell" id="q-rr"></div>
+      <div class="quad-cell" id="q-prethk"></div>
+      <div class="quad-cell" id="q-offset"></div>
     </div>
-    <div id="prethk-row" style="display:grid; grid-template-columns:7fr 3fr; gap:1rem;"></div>
-
-    <!-- 5. Offset -->
-    <div class="section-title">
-      <i class="bi bi-clock-history" style="color:#f97316;"></i> Idle Offset 학습
-      <span class="section-desc">— IDLE 구간별 학습 보정량</span>
-    </div>
-    <div id="offset-row" style="display:grid; grid-template-columns:7fr 3fr; gap:1rem;"></div>
 
   </div>
 </div>
@@ -382,6 +561,17 @@ let charts    = {};      // canvasId → Chart
 let rrXMode   = 'date';  // 'date' | 'cons'
 let fselFormula = null, fselEqp = null, fselRecipe = null;
 let curKey    = { product:'', oper_desc:'', fab:'', zone:'', apc_para:'' };
+
+// APC 산식: FORMULA 가 null 이면 서버에 저장된 설정(없으면 기본 산식)을 그대로 쓴다.
+// 화면에서 값을 바꿔 '재계산' 하면 그때부터 화면 입력값이 우선한다.
+let FORMULA      = null;
+let FORMULA_META = { vars: {}, def: null, saved: false, source: '' };
+let FORMULA_MODE = '';     // 'TIME' | 'PRESSURE' — 선택한 zone 의 FB_Type
+let formulaBuilt = false;
+
+const C_SIM      = '#4f8ef7';   // 산식 산출값
+const C_LINEAR   = '#f97316';   // Linear 산식으로 빠진 타점
+const C_SIM_THK  = '#22c55e';   // 시뮬레이션 두께
 
 // ── Boxplot whisker plugin ───────────────────────────────────────────
 Chart.register({
@@ -476,6 +666,7 @@ btnSearch.addEventListener('click', () => {
     product: selProduct.value, oper_desc: selOper.value, fab: selFab.value,
     zone: '', apc_para: '',
   };
+  FORMULA = null;   // 공정이 바뀌면 그 공정에 저장된 산식을 다시 읽는다
   fetchData();
 });
 
@@ -486,6 +677,7 @@ function showState(active) {
   });
   document.getElementById('info-bar').style.display = (active === 'results-panel') ? '' : 'none';
   document.getElementById('detail-filter-bar').style.display = (active === 'results-panel') ? '' : 'none';
+  document.getElementById('formula-panel').style.display = (active === 'results-panel') ? '' : 'none';
 }
 function isDark()     { return document.documentElement.getAttribute('data-theme') === 'dark'; }
 function gridColor()  { return isDark() ? '#374151' : '#f0f2f7'; }
@@ -507,6 +699,7 @@ async function fetchData() {
   if (apc_para)       params.set('apc_para', apc_para);
   if (dateFrom.value) params.set('date_from', dateFrom.value);
   if (dateTo.value)   params.set('date_to', dateTo.value);
+  if (FORMULA)        params.set('formula', JSON.stringify(FORMULA));
 
   let resp;
   try { resp = await fetch(`{% url 'simulation_result_data' %}?${params}`); }
@@ -550,6 +743,7 @@ async function fetchData() {
   st.style.color      = n ? '#22c55e' : '#ca8a04';
 
   showState('results-panel');
+  renderFormula(json);
   renderZoneTabs();
   renderApcSelect();
   buildFilters();
@@ -564,7 +758,8 @@ function renderZoneTabs() {
     const b = document.createElement('button');
     b.className = 'algo-tab' + (z === simData.zone ? ' active' : '');
     b.textContent = z;
-    b.onclick = () => { curKey.zone = z; curKey.apc_para = ''; fetchData(); };
+    // zone 별로 저장된 산식이 다를 수 있으므로 화면 입력값을 버리고 서버 설정을 다시 읽는다
+    b.onclick = () => { curKey.zone = z; curKey.apc_para = ''; FORMULA = null; fetchData(); };
     box.appendChild(b);
   });
 }
@@ -576,6 +771,249 @@ function renderApcSelect() {
   sel.value = simData.apc_para;
   sel.onchange = () => { curKey.apc_para = sel.value; fetchData(); };
 }
+
+// ── APC 산식 패널 ─────────────────────────────────────────────────────
+// 화면에서 값을 바꾸고 '재계산' 을 누르면 그 값으로 서버가 다시 계산해 준다.
+// (산식 정의는 서버의 setup_mico/apc_formula.py 한 곳에만 있어서
+//  화면에서 본 값과 배치가 적재하는 값이 어긋나지 않는다)
+
+// 수식 항목은 zone 성격(TIME / PRESSURE)에 따라 달라져 서버가 내려준 목록을 그대로 쓴다
+let EXPR_FIELDS = [];
+
+const formulaHead = document.getElementById('formula-head');
+const formulaBody = document.getElementById('formula-body');
+
+formulaHead.addEventListener('click', () => {
+  const open = formulaBody.style.display === 'none';
+  formulaBody.style.display = open ? '' : 'none';
+  document.getElementById('formula-chev').className =
+    `bi bi-chevron-${open ? 'up' : 'down'}`;
+});
+
+function buildFormulaPanel() {
+  if (formulaBuilt) return;
+  formulaBuilt = true;
+
+  // Ref 개수별 weight 입력 (n 개면 n 칸)
+  const wbox = document.getElementById('f-weights');
+  wbox.innerHTML = '';
+  for (let n = 1; n <= 4; n++) {
+    const div = document.createElement('div');
+    div.className = 'wrow';
+    let html = `<span class="wlabel">Ref ${n}개</span>`;
+    for (let j = 1; j <= n; j++) {
+      html += `<input type="number" step="any" id="f-w-${n}-${j}" title="weight_${n}${j}"
+                      placeholder="w${n}${j}">`;
+    }
+    html += `<span class="wsum" id="f-wsum-${n}"></span>`;
+    div.innerHTML = html;
+    wbox.appendChild(div);
+  }
+
+  // 입력이 바뀌면 weight 합계를 즉시 갱신 (합이 1 이 아니면 눈에 띄게)
+  wbox.addEventListener('input', updateWeightSums);
+}
+
+// 수식 입력칸은 모드가 바뀌면 항목 자체가 달라지므로 다시 만든다
+function buildExprFields(keys, labels) {
+  const twoLine = new Set(['fb_expr', 'linear_expr']);
+  EXPR_FIELDS = (keys || []).map(k => ({
+    key: k, label: (labels || {})[k] || k, rows: twoLine.has(k) ? 2 : 1,
+  }));
+  document.getElementById('f-exprs').innerHTML = EXPR_FIELDS.map(f => `
+    <div class="expr-row">
+      <label>${f.label}</label>
+      <textarea class="expr-area" id="f-expr-${f.key}" rows="${f.rows}" spellcheck="false"></textarea>
+      <div class="expr-err" id="f-err-${f.key}" style="display:none;"></div>
+      <div class="expr-vars" id="f-vars-${f.key}"></div>
+    </div>`).join('');
+}
+
+// TIME 전용 / PRESSURE 전용 입력칸 표시 전환
+function applyFormulaMode(mode) {
+  const isPressure = mode === 'PRESSURE';
+  document.querySelectorAll('.mode-time').forEach(el => el.style.display = isPressure ? 'none' : '');
+  document.querySelectorAll('.mode-pressure').forEach(el => el.style.display = isPressure ? '' : 'none');
+}
+
+function updateWeightSums() {
+  for (let n = 1; n <= 4; n++) {
+    let sum = 0;
+    for (let j = 1; j <= n; j++) sum += (+document.getElementById(`f-w-${n}-${j}`).value || 0);
+    const el = document.getElementById(`f-wsum-${n}`);
+    el.textContent = `합계 ${fmt(sum, 3)}`;
+    el.classList.toggle('bad', Math.abs(sum - 1) > 1e-6);
+  }
+}
+
+function fillFormulaUI(cfg) {
+  const setVal = (id, v) => { document.getElementById(id).value = (v === null || v === undefined) ? '' : v; };
+  setVal('f-pre-weight', cfg.pre_weight);
+  setVal('f-rr-weight',  cfg.rr_weight);
+  setVal('f-upper',      cfg.upper_limit);
+  setVal('f-lower',      cfg.lower_limit);
+  setVal('f-refskip',    cfg.ref_skip_count);
+  document.getElementById('f-pol1').value = cfg.pol_time_1 || 'auto';
+  setVal('f-bias-slope', cfg.bias_slope);
+  setVal('f-bias-min',   cfg.bias_min_count);
+  setVal('f-bias-r2',    cfg.bias_min_r2);
+
+  for (let n = 1; n <= 4; n++) {
+    const ws = (cfg.weights || {})[String(n)] || [];
+    for (let j = 1; j <= n; j++) setVal(`f-w-${n}-${j}`, ws[j - 1]);
+  }
+  updateWeightSums();
+
+  EXPR_FIELDS.forEach(f => {
+    document.getElementById(`f-expr-${f.key}`).value = cfg[f.key] || '';
+    const vars = (FORMULA_META.vars || {})[f.key] || [];
+    document.getElementById(`f-vars-${f.key}`).textContent =
+      vars.length ? `사용 가능: ${vars.join(', ')}` : '';
+  });
+}
+
+function formulaFromUI() {
+  const numOrNull = id => {
+    const v = document.getElementById(id).value.trim();
+    return v === '' ? null : +v;
+  };
+  const weights = {};
+  for (let n = 1; n <= 4; n++) {
+    weights[String(n)] = Array.from({ length: n },
+      (_, j) => +document.getElementById(`f-w-${n}-${j + 1}`).value || 0);
+  }
+  const cfg = {
+    pre_weight    : numOrNull('f-pre-weight'),
+    rr_weight     : numOrNull('f-rr-weight'),
+    upper_limit   : numOrNull('f-upper'),
+    lower_limit   : numOrNull('f-lower'),
+    ref_skip_count: numOrNull('f-refskip'),
+    weights,
+  };
+  if (FORMULA_MODE === 'PRESSURE') {
+    cfg.bias_slope     = numOrNull('f-bias-slope');
+    cfg.bias_min_count = numOrNull('f-bias-min');
+    cfg.bias_min_r2    = numOrNull('f-bias-r2');
+  } else {
+    cfg.pol_time_1 = document.getElementById('f-pol1').value;
+  }
+  EXPR_FIELDS.forEach(f => { cfg[f.key] = document.getElementById(`f-expr-${f.key}`).value.trim(); });
+  return cfg;
+}
+
+function showFormulaErrors(errors) {
+  errors = errors || {};
+  EXPR_FIELDS.forEach(f => {
+    const area = document.getElementById(`f-expr-${f.key}`);
+    const err  = document.getElementById(`f-err-${f.key}`);
+    if (errors[f.key]) {
+      area.classList.add('invalid');
+      err.textContent = errors[f.key];
+      err.style.display = '';
+    } else {
+      area.classList.remove('invalid');
+      err.style.display = 'none';
+    }
+  });
+  if (errors.__all__) setFormulaMsg(errors.__all__, 'err');
+  // 수식 오류가 있으면 펼쳐서 바로 고칠 수 있게
+  if (Object.keys(errors).length) formulaBody.style.display = '';
+}
+
+function setFormulaMsg(text, kind) {
+  const el = document.getElementById('f-msg');
+  el.textContent = text || '';
+  el.style.color = kind === 'err' ? '#ef4444' : (kind === 'ok' ? '#22c55e' : '#8993a8');
+}
+
+function renderFormula(json) {
+  FORMULA_META = {
+    vars  : json.formula_vars   || {},
+    def   : json.formula_default || null,
+    saved : !!json.formula_saved,
+    source: json.formula_source || '',
+  };
+  buildFormulaPanel();
+
+  // zone 성격이 바뀌면(13P ↔ EDGE 등) 수식 항목 자체가 달라진다 → 다시 구성
+  const mode = json.formula_mode || 'TIME';
+  if (mode !== FORMULA_MODE || !EXPR_FIELDS.length) {
+    FORMULA_MODE = mode;
+    buildExprFields(json.formula_keys, json.formula_labels);
+    applyFormulaMode(mode);
+  }
+
+  // 화면 입력값이 없을 때만 서버가 준 설정으로 채운다 (입력 중인 값 보존)
+  if (!FORMULA) fillFormulaUI(json.formula || {});
+  showFormulaErrors(json.formula_errors);
+
+  const s = json.formula_summary || {};
+  const badge = document.getElementById('formula-badge');
+  const parts = [`${mode === 'PRESSURE' ? '압력' : '시간'} 산식`];
+  if (s.fb_count !== undefined)     parts.push(`FB ${(s.fb_count || 0).toLocaleString()}`);
+  if (s.linear_count !== undefined) parts.push(`Linear ${(s.linear_count || 0).toLocaleString()}`);
+  if (s.clipped)                    parts.push(`limit ${s.clipped.toLocaleString()}`);
+  if (s.slope_missing)              parts.push(`민감도 없음 ${s.slope_missing.toLocaleString()}`);
+  badge.textContent = parts.join(' · ');
+
+  const origin = FORMULA ? '화면 입력값'
+               : (FORMULA_META.source === 'zone' ? `저장값 (Zone ${json.zone})`
+               : (FORMULA_META.source === 'common' ? '저장값 (공정 공통)' : '기본 산식'));
+  setFormulaMsg(`적용 중: ${origin}`);
+
+  document.getElementById('f-delete').disabled = !FORMULA_META.saved;
+}
+
+document.getElementById('f-apply').addEventListener('click', () => {
+  FORMULA = formulaFromUI();
+  fetchData();
+});
+
+document.getElementById('f-reset').addEventListener('click', () => {
+  if (FORMULA_META.def) fillFormulaUI(FORMULA_META.def);
+  FORMULA = formulaFromUI();
+  fetchData();
+});
+
+function csrfToken() {
+  const m = document.cookie.match(/(^|;\s*)csrftoken=([^;]+)/);
+  return m ? m[2] : '';
+}
+
+async function postFormula(action) {
+  const body = {
+    action,
+    product  : curKey.product,
+    oper_desc: curKey.oper_desc,
+    zone     : document.getElementById('f-zone-only').checked ? curKey.zone : '',
+    mode     : FORMULA_MODE,
+    formula  : formulaFromUI(),
+  };
+  let resp, json;
+  try {
+    resp = await fetch("{% url 'simulation_formula' %}", {
+      method : 'POST',
+      headers: { 'Content-Type': 'application/json', 'X-CSRFToken': csrfToken() },
+      body   : JSON.stringify(body),
+    });
+    json = await resp.json();
+  } catch (e) {
+    setFormulaMsg('네트워크 오류: ' + e.message, 'err');
+    return;
+  }
+  if (!resp.ok) {
+    setFormulaMsg(json.error || '저장 실패', 'err');
+    showFormulaErrors(json.formula_errors);
+    return;
+  }
+  FORMULA = action === 'delete' ? null : formulaFromUI();
+  // 재조회가 '적용 중: ...' 로 메시지를 덮으므로 결과 반영 후에 표시
+  await fetchData();
+  setFormulaMsg(action === 'delete' ? '저장값을 삭제했습니다' : '기본값으로 저장했습니다', 'ok');
+}
+
+document.getElementById('f-save').addEventListener('click',   () => postFormula('save'));
+document.getElementById('f-delete').addEventListener('click', () => postFormula('delete'));
 
 // ── FilterSelect (다중선택) ───────────────────────────────────────────
 class FilterSelect {
@@ -688,6 +1126,24 @@ function chartBox(title, dotColor, canvasId, height, badge) {
     </div>
     <div style="position:relative; height:${height};"><canvas id="${canvasId}"></canvas></div>`;
   return div;
+}
+
+// 4분할 셀 — 차트 하나 + 그 아래 요약표를 한 박스에 담는다 (한눈에 비교하기 쉽게)
+function chartCell(cellId, title, dotColor, canvasId, height, badge, statHtml) {
+  const cell = document.getElementById(cellId);
+  cell.innerHTML = '';
+  const div = document.createElement('div');
+  div.className = 'chart-box';
+  div.innerHTML = `
+    <div class="chart-box-title">
+      <span class="dot" style="background:${dotColor};"></span>
+      <span style="font-size:0.75rem; word-break:break-all;">${title}</span>
+      ${badge ? `<span class="ms-auto" style="font-size:0.7rem; color:#8993a8; white-space:nowrap;">${badge}</span>` : ''}
+    </div>
+    <div style="position:relative; height:${height};"><canvas id="${canvasId}"></canvas></div>
+    ${statHtml ? `<div class="cell-stats">${statHtml}</div>` : ''}`;
+  cell.appendChild(div);
+  return cell;
 }
 
 function statBox(title, dotColor, html) {
@@ -922,130 +1378,273 @@ function renderAll() {
   selectedIds = new Set();
   document.getElementById('sel-info').style.display = 'none';
   document.getElementById('sel-hint').style.display = '';
-  renderThk(rows);
-  renderApc(rows);
-  renderRR(rows);
+  renderSimulThk(rows);   // 메인 — 실측 vs Simulation 두께
+  renderSimulApc(rows);   // 이하 4분할
+  // PRESSURE zone 은 RR(제거율)이 아니라 13P 대비 편차가 제어 대상
+  if (FORMULA_MODE === 'PRESSURE') renderBias(rows);
+  else                             renderRR(rows);
   renderPreThk(rows);
   renderOffset(rows);
 }
 
-// Formula 값별 색상 (THK / APC 차트가 같은 색을 쓰도록 한 곳에서 생성)
-function formulaColors(rows) {
-  const formulas = [...new Set(rows.map(r => String(r.Formula ?? '')))].sort();
-  const colorMap = {};
-  palette(formulas.length).forEach((c, i) => colorMap[formulas[i]] = c);
-  return { formulas, colorMap };
+// ── Simul APC / Simulation THK ────────────────────────────────────────
+
+// 산식 결과 차트에 기준선(Target, limit 등)을 얹기 위한 수평선 dataset
+function hlineDataset(label, y, datasets, color, dash) {
+  const xs = datasets.flatMap(ds => ds.data.map(p => p.x));
+  if (!xs.length || y === null || y === undefined || isNaN(y)) return null;
+  return {
+    label, data: [{ x: Math.min(...xs), y }, { x: Math.max(...xs), y }],
+    borderColor: color, borderDash: dash || [6, 4], borderWidth: 1.5,
+    pointRadius: 0, showLine: true, fill: false,
+  };
 }
 
-// 1) THK / 2) APC Para — Formula 값별 공통 렌더러 (scatter + boxplot + 통계)
-function renderFormulaTrend(rows, cfg) {
-  const row = document.getElementById(cfg.rowId);
-  [cfg.canvasId, cfg.boxCanvasId].forEach(destroyChart);
+// 좌우 비교용 boxplot (기존 boxplot 플러그인 재사용)
+function boxplotChart(canvasId, groups) {
+  if (!groups.length) return;
+  const yMin = Math.min(...groups.map(g => g.stats.whiskerLow));
+  const yMax = Math.max(...groups.map(g => g.stats.whiskerHigh));
+  const pad  = (yMax - yMin) * 0.15 || 1;
+  charts[canvasId] = new Chart(document.getElementById(canvasId), {
+    type: 'bar',
+    data: { labels: groups.map(g => g.label), datasets: [{
+      data: groups.map(g => [g.stats.q1, g.stats.q3]),
+      backgroundColor: groups.map(g => withAlpha(g.color, 0.27)),
+      borderColor: groups.map(g => g.color),
+      borderWidth: 1.5, barPercentage: 0.5, _groups: groups,
+    }]},
+    options: {
+      responsive: true, maintainAspectRatio: false, animation: { duration: 200 },
+      plugins: {
+        legend: { display: false },
+        tooltip: { callbacks: { title: c => groups[c[0].dataIndex].label, label: c => {
+          const s = groups[c.dataIndex].stats;
+          return [`n: ${s.n}`, `Avg: ${fmt(s.avg,2)}`, `Std: ${fmt(s.std,2)}`,
+                  `Q3: ${fmt(s.q3,2)}`, `Median: ${fmt(s.median,2)}`, `Q1: ${fmt(s.q1,2)}`];
+        }}}
+      },
+      scales: {
+        x: { ticks: { font: { size: 9 }, color: labelColor() }, grid: { display: false } },
+        y: { min: yMin - pad, max: yMax + pad, grid: { color: gridColor() },
+             ticks: { font: { size: 9 }, color: labelColor() } }
+      }
+    }
+  });
+}
+
+// 0-1) Simul APC — 산식 산출값 vs 실제 적용값
+function renderSimulApc(rows) {
+  destroyChart('chart-simapc');
+
+  const apcPara = (rows[0] || {}).APC_Para || 'APC';
+  const isTime  = (rows[0] || {}).FB_Type === 'TIME';
+  const unit    = isTime ? '연마시간' : '압력';
+
+  const fbRows  = rows.filter(r => r.Simul_APC_Mode === 'FB');
+  const linRows = rows.filter(r => r.Simul_APC_Mode === 'LINEAR');
+
+  const datasets = [
+    { label: '실제 적용 APC', data: pts(rows, 'Date', 'APC_Value'),
+      showLine: false, order: 10, ...mark(C_ACTUAL, 2) },
+    { label: `Simul APC · FB (${fbRows.length.toLocaleString()})`,
+      data: pts(fbRows, 'Date', 'Simul_APC_Limit'),
+      showLine: false, order: 1, ...mark(C_SIM, 2) },
+    { label: `Simul APC · Linear (${linRows.length.toLocaleString()})`,
+      data: pts(linRows, 'Date', 'Simul_APC_Limit'),
+      showLine: false, order: 1, ...mark(C_LINEAR, 2) },
+    // limit 적용 전 값 — 기본은 숨김 (범례 클릭으로 표시)
+    { label: 'Simul APC (limit 전)', data: pts(rows, 'Date', 'Simul_APC'),
+      showLine: false, order: 2, hidden: true, ...mark('#94a3b8', 1.6) },
+  ].filter(ds => ds.data.length);
+
+  const cfg = (simData && simData.formula) || {};
+  [['Upper Limit', cfg.upper_limit], ['Lower Limit', cfg.lower_limit]].forEach(([lbl, v]) => {
+    const ds = hlineDataset(`${lbl} (${v})`, v === null ? null : +v, datasets, '#ef4444');
+    if (ds) datasets.push(ds);
+  });
+
+  // 통계: 실제 vs 산식
+  const sActual = boxStats(rows.map(r => num(r.APC_Value)));
+  const sSimul  = boxStats(rows.map(r => num(r.Simul_APC)));
+  const sLimit  = boxStats(rows.map(r => num(r.Simul_APC_Limit)));
+  const err     = errStats(rows, 'Simul_APC_Limit', 'APC_Value');
+  const clipped = rows.filter(r => +r.Simul_APC_Clipped === 1).length;
+
+  const statRow = (label, color, s) => s ? `<tr>
+      <td><span class="stat-dot" style="background:${color};"></span>${label}</td>
+      <td>${s.n.toLocaleString()}</td><td>${fmt(s.avg,2)}</td><td>${fmt(s.std,2)}</td>
+    </tr>` : '';
+
+  let html = '<table class="stat-table"><thead><tr>' +
+    '<th>구분</th><th>N</th><th>Avg</th><th>Std</th></tr></thead><tbody>' +
+    statRow('실제 적용', C_ACTUAL, sActual) +
+    statRow('Simul (limit 전)', '#94a3b8', sSimul) +
+    statRow('Simul (limit 후)', C_SIM, sLimit) +
+    '</tbody></table>' +
+    '<div class="cell-note">' +
+    `FB ${fbRows.length.toLocaleString()} / Linear ${linRows.length.toLocaleString()}` +
+    ` · Limit 적용 ${clipped.toLocaleString()}건` +
+    (err ? ` · Bias ${fmt(err.bias,2)} · MAE ${fmt(err.mae,2)} · RMSE ${fmt(err.rmse,2)}` : '') +
+    '<br>Ref lot 이 있으면 FB, 없거나 Ref_YN=N 이면 Linear · Bias = 산식값 − 실제 적용값</div>';
+
+  const nCalc = rows.filter(r => num(r.Simul_APC_Limit) !== null).length;
+  chartCell('q-apc', `APC Para — ${apcPara} (${unit})`, C_SIM, 'chart-simapc', '260px',
+            `${nCalc.toLocaleString()} pts`, html);
+
+  charts['chart-simapc'] = new Chart(document.getElementById('chart-simapc'), {
+    type: 'scatter', data: { datasets }, options: baseOptions(timeAxis(apcPara), true),
+  });
+  enableSelect('chart-simapc');
+}
+
+// 0-2) Simulation THK — Simul_APC_Limit 로 연마했을 때의 예상 두께
+function renderSimulThk(rows) {
+  const row = document.getElementById('simthk-row');
+  ['chart-simthk', 'chart-simthk-box'].forEach(destroyChart);
   row.innerHTML = '';
 
-  const { formulas, colorMap } = formulaColors(rows);
+  const thkPara = (rows[0] || {}).Thk_Para || 'THK';
+  const target  = num((rows.find(r => num(r.Target) !== null) || {}).Target);
 
-  const datasets = formulas.map(f => ({
-    label: f === '' ? '(없음)' : f,
-    data: pts(rows.filter(r => String(r.Formula ?? '') === f), 'Date', cfg.field),
-    showLine: false, ...mark(colorMap[f], 2),
-  })).filter(ds => ds.data.length);
+  const datasets = [
+    { label: '실측 THK', data: pts(rows, 'Date', 'THK'),
+      showLine: false, order: 10, ...mark(C_ACTUAL, 2) },
+    { label: 'Simulation THK', data: pts(rows, 'Date', 'Simul_THK'),
+      showLine: false, order: 1, ...mark(C_SIM_THK, 2) },
+  ].filter(ds => ds.data.length);
 
-  // 기준선 (THK 는 Target, APC 는 없음)
-  const ref = cfg.refField ? num((rows.find(r => num(r[cfg.refField]) !== null) || {})[cfg.refField]) : null;
-  if (ref !== null && datasets.length) {
-    const xs = datasets.flatMap(ds => [ds.data[0].x, ds.data[ds.data.length-1].x]);
-    datasets.push({
-      label: `${cfg.refLabel} (${ref})`,
-      data: [{ x: Math.min(...xs), y: ref }, { x: Math.max(...xs), y: ref }],
-      borderColor: '#111827', borderDash: [6,4], borderWidth: 1.5,
-      pointRadius: 0, showLine: true, fill: false,
-    });
+  const tds = hlineDataset(`Target (${target})`, target, datasets, '#111827');
+  if (tds) datasets.push(tds);
+
+  const nSim = rows.filter(r => num(r.Simul_THK) !== null).length;
+  row.appendChild(chartBox(`THK Trend — ${thkPara} (실측 vs Simulation)`, C_SIM_THK,
+    'chart-simthk', '400px', `${nSim.toLocaleString()} pts`));
+
+  const sActual = boxStats(rows.map(r => num(r.THK)));
+  const sSimul  = boxStats(rows.map(r => num(r.Simul_THK)));
+  const sRR     = boxStats(rows.map(r => num(r.Simul_RR)));
+  const sRemove = boxStats(rows.map(r => num(r.Removal_Amount)));
+
+  // Target 대비 성능: 편차 평균(정확도)과 산포(std)
+  const dev = (s) => (s && target !== null) ? fmt(s.avg - target, 2) : '–';
+
+  let html = '<table class="stat-table"><thead><tr>' +
+    '<th>구분</th><th>N</th><th>Avg</th><th>Std</th><th>Δ Target</th></tr></thead><tbody>';
+  [['실측 THK', C_ACTUAL, sActual], ['Simulation THK', C_SIM_THK, sSimul]].forEach(([lbl, c, s]) => {
+    if (!s) return;
+    html += `<tr>
+      <td><span class="stat-dot" style="background:${c};"></span>${lbl}</td>
+      <td>${s.n.toLocaleString()}</td><td>${fmt(s.avg,2)}</td><td>${fmt(s.std,2)}</td>
+      <td>${dev(s)}</td></tr>`;
+  });
+  html += '</tbody></table>';
+
+  // 산포가 줄면 그만큼 산식이 개선된 것 — 한눈에 보이도록 별도 표기
+  if (sActual && sSimul && sActual.std > 0) {
+    const gain = (1 - sSimul.std / sActual.std) * 100;
+    const color = gain >= 0 ? '#22c55e' : '#ef4444';
+    html += `<div style="margin-top:0.6rem; font-size:0.75rem; color:#344054;">
+      산포 변화 <b style="color:${color};">${gain >= 0 ? '−' : '+'}${fmt(Math.abs(gain),1)}%</b>
+      <span style="color:#8993a8;">(std ${fmt(sActual.std,2)} → ${fmt(sSimul.std,2)})</span></div>`;
   }
 
-  row.appendChild(chartBox(`${cfg.title} — ${cfg.yLabel}`, cfg.color, cfg.canvasId, '330px',
-    `${rows.filter(r => num(r[cfg.field]) !== null).length.toLocaleString()} pts`));
-
-  const groups = formulas.map(f => ({
-    label: f === '' ? '(없음)' : f,
-    stats: boxStats(rows.filter(r => String(r.Formula ?? '') === f).map(r => num(r[cfg.field]))),
-    color: colorMap[f],
-  })).filter(g => g.stats);
-
-  let statHtml = '<table class="stat-table"><thead><tr>' +
-    `<th>Formula</th><th>N</th><th>Avg</th><th>Std</th>${ref !== null ? `<th>Δ ${cfg.refLabel}</th>` : ''}` +
-    '</tr></thead><tbody>';
-  groups.forEach(g => {
-    statHtml += `<tr>
-      <td><span class="stat-dot" style="background:${g.color};"></span>${g.label}</td>
-      <td>${g.stats.n.toLocaleString()}</td>
-      <td>${fmt(g.stats.avg, 2)}</td>
-      <td>${fmt(g.stats.std, 2)}</td>
-      ${ref !== null ? `<td>${fmt(g.stats.avg - ref, 2)}</td>` : ''}
-    </tr>`;
-  });
-  statHtml += '</tbody></table>';
+  if (FORMULA_MODE === 'PRESSURE') {
+    const sBias  = boxStats(rows.map(r => num(r.Simul_Bias)));
+    const s13P   = boxStats(rows.map(r => num(r.Simul_THK_13P)));
+    html += '<table class="stat-table" style="margin-top:0.5rem;"><tbody>' +
+      `<tr><td>13P 시뮬 두께 (avg)</td><td>${s13P ? fmt(s13P.avg,2) : '–'}</td></tr>` +
+      `<tr><td>Simul 편차 (avg)</td><td>${sBias ? fmt(sBias.avg,2) : '–'}</td></tr>` +
+      '</tbody></table>' +
+      '<div class="cell-note">' +
+      '편차 = (THK − THK_13P) − (Target − Target_13P)<br>' +
+      'Simul 편차 = Bias_Slope × Simul_APC_Limit + Bias_Intercept<br>' +
+      '<b>Simulation THK = 13P 시뮬 두께 + (Target − Target_13P) + Simul 편차</b></div>';
+  } else {
+    html += '<table class="stat-table" style="margin-top:0.5rem;"><tbody>' +
+      `<tr><td>Simul RR (avg)</td><td>${sRR ? fmt(sRR.avg,4) : '–'}</td></tr>` +
+      `<tr><td>제거량 (avg)</td><td>${sRemove ? fmt(sRemove.avg,2) : '–'}</td></tr>` +
+      '</tbody></table>' +
+      '<div class="cell-note">' +
+      'RR = (Pre_Target + Pre_Thk − 실측 THK) / Pol_Time<br>' +
+      '제거량 = RR × (Simul_APC_Limit + Pol_Time_1)<br>' +
+      'Simulation THK = Pre_Target + Pre_Thk − 제거량</div>';
+  }
 
   const right = document.createElement('div');
   right.style.cssText = 'display:flex; flex-direction:column; gap:1rem;';
-  right.appendChild(chartBox('Boxplot — Formula 별', cfg.color, cfg.boxCanvasId, '200px'));
-  right.appendChild(statBox('Formula 별 통계', cfg.color, statHtml));
+  right.appendChild(chartBox('Boxplot — 실측 vs 시뮬', C_SIM_THK, 'chart-simthk-box', '250px'));
+  right.appendChild(statBox('두께 산포 비교', C_SIM_THK, html));
   row.appendChild(right);
 
-  charts[cfg.canvasId] = new Chart(document.getElementById(cfg.canvasId), {
-    type: 'scatter', data: { datasets }, options: baseOptions(timeAxis(cfg.yLabel), true),
+  charts['chart-simthk'] = new Chart(document.getElementById('chart-simthk'), {
+    type: 'scatter', data: { datasets }, options: baseOptions(timeAxis(thkPara), true),
   });
-  enableSelect(cfg.canvasId);
+  enableSelect('chart-simthk');
 
-  if (groups.length) {
-    const yMin = Math.min(...groups.map(g => g.stats.whiskerLow));
-    const yMax = Math.max(...groups.map(g => g.stats.whiskerHigh));
-    const pad  = (yMax - yMin) * 0.15 || 1;
-    charts[cfg.boxCanvasId] = new Chart(document.getElementById(cfg.boxCanvasId), {
-      type: 'bar',
-      data: { labels: groups.map((g,i) => `F${i+1}`), datasets: [{
-        data: groups.map(g => [g.stats.q1, g.stats.q3]),
-        backgroundColor: groups.map(g => withAlpha(g.color, 0.27)),
-        borderColor: groups.map(g => g.color),
-        borderWidth: 1.5, barPercentage: 0.5, _groups: groups,
-      }]},
-      options: {
-        responsive: true, maintainAspectRatio: false, animation: { duration: 200 },
-        plugins: {
-          legend: { display: false },
-          tooltip: { callbacks: { title: c => groups[c[0].dataIndex].label, label: c => {
-            const s = groups[c.dataIndex].stats;
-            return [`n: ${s.n}`, `Max: ${fmt(s.max,2)}`, `Q3: ${fmt(s.q3,2)}`,
-                    `Median: ${fmt(s.median,2)}`, `Q1: ${fmt(s.q1,2)}`, `Min: ${fmt(s.min,2)}`];
-          }}}
-        },
-        scales: {
-          x: { ticks: { font: { size: 9 }, color: labelColor() }, grid: { display: false } },
-          y: { min: yMin - pad, max: yMax + pad, grid: { color: gridColor() },
-               ticks: { font: { size: 9 }, color: labelColor() } }
-        }
-      }
-    });
-  }
+  boxplotChart('chart-simthk-box', [
+    { label: '실측',  color: C_ACTUAL,  stats: sActual },
+    { label: 'Simul', color: C_SIM_THK, stats: sSimul  },
+  ].filter(g => g.stats));
 }
 
-function renderThk(rows) {
-  renderFormulaTrend(rows, {
-    rowId: 'thk-row', canvasId: 'chart-thk', boxCanvasId: 'chart-thk-box',
-    field: 'THK', title: 'THK Trend', color: '#4f8ef7',
-    yLabel: (rows[0] || {}).Thk_Para || 'THK',
-    refField: 'Target', refLabel: 'Target',
-  });
-}
+// 2-P) 편차(BIAS) — PRESSURE zone 의 제어 대상
+//   Bias = (THK − THK_13P) − (Target − Target_13P)   … 0 이 목표
+function renderBias(rows) {
+  destroyChart('chart-bias');
 
-function renderApc(rows) {
-  const apcPara = (rows[0] || {}).APC_Para || 'APC';
-  const isTime  = (rows[0] || {}).FB_Type === 'TIME';
-  renderFormulaTrend(rows, {
-    rowId: 'apc-row', canvasId: 'chart-apc', boxCanvasId: 'chart-apc-box',
-    field: 'APC_Value', title: `APC Para Trend${isTime ? ' (연마시간)' : ' (압력)'}`,
-    color: '#22c55e', yLabel: apcPara,
+  const xField = rrXMode === 'date' ? 'Date' : 'APC_Value';
+  const apcPara = (rows[0] || {}).APC_Para || '압력';
+
+  const datasets = [
+    { label: '실측 편차', data: pts(rows, xField, 'Bias_Actual'),
+      showLine: false, order: 10, ...mark(C_ACTUAL, 2) },
+    { label: 'Simulation 편차', data: pts(rows, xField, 'Simul_Bias'),
+      showLine: false, order: 1, ...mark(C_SIM, 2) },
+  ].filter(ds => ds.data.length);
+
+  const zeroLine = hlineDataset('목표 (편차 0)', 0, datasets, '#111827');
+  if (zeroLine) datasets.push(zeroLine);
+
+  const sActual = boxStats(rows.map(r => num(r.Bias_Actual)));
+  const sSimul  = boxStats(rows.map(r => num(r.Simul_Bias)));
+  const slopes  = rows.map(r => num(r.Bias_Slope)).filter(v => v !== null);
+  const noSlope = rows.length - slopes.length;
+
+  let html = '<table class="stat-table"><thead><tr>' +
+    '<th>구분</th><th>N</th><th>Avg</th><th>Std</th></tr></thead><tbody>';
+  [['실측 편차', C_ACTUAL, sActual], ['Simulation 편차', C_SIM, sSimul]].forEach(([lbl, c, s]) => {
+    if (!s) return;
+    html += `<tr><td><span class="stat-dot" style="background:${c};"></span>${lbl}</td>
+             <td>${s.n.toLocaleString()}</td><td>${fmt(s.avg,2)}</td><td>${fmt(s.std,2)}</td></tr>`;
   });
+  html += '</tbody></table>';
+
+  const slopeAvg = slopes.length ? slopes.reduce((a,v)=>a+v,0)/slopes.length : null;
+  const r2s      = rows.map(r => num(r.Bias_R2)).filter(v => v !== null);
+  const r2Avg    = r2s.length ? r2s.reduce((a,v)=>a+v,0)/r2s.length : null;
+  html += '<table class="stat-table" style="margin-top:0.5rem;"><tbody>' +
+    `<tr><td>Bias Slope 평균</td><td>${slopeAvg === null ? '–' : fmt(slopeAvg, 4)}</td></tr>` +
+    `<tr><td>회귀 설명력 R² 평균</td><td>${r2Avg === null ? '–' : fmt(r2Avg, 3)}</td></tr>` +
+    `<tr><td>민감도 산출 실패</td><td>${noSlope.toLocaleString()}건</td></tr>` +
+    '</tbody></table>' +
+    '<div class="cell-note">' +
+    '편차 = (THK − THK_13P) − (Target − Target_13P) · 0 이 목표<br>' +
+    `Bias Slope = d(편차)/d(${apcPara}) — 장비·레시피별 회귀 (Bias Slope 를 입력하면 고정)` +
+    (noSlope ? '<br><b style="color:#f97316;">민감도를 못 구한 구간(R² 미달 포함)은 Simul 값이 비어 있습니다 — '
+             + 'Bias Slope 를 직접 입력하면 그 값으로 계산됩니다</b>' : '') +
+    '</div>';
+
+  chartCell('q-rr', `편차 (BIAS) — 실측 vs Simulation (X: ${rrXMode === 'date' ? '날짜' : apcPara})`,
+    C_LINEAR, 'chart-bias', '260px',
+    `${rows.filter(r => num(r.Bias_Actual) !== null).length.toLocaleString()} pts`, html);
+
+  charts['chart-bias'] = new Chart(document.getElementById('chart-bias'), {
+    type: 'scatter', data: { datasets },
+    options: baseOptions(rrXMode === 'date' ? timeAxis('편차 (Å)') : linearAxis(apcPara, '편차 (Å)'),
+                         rrXMode === 'date'),
+  });
+  enableSelect('chart-bias');
 }
 
 // 2) Removal Rate — 실제 RR vs 학습 모델
@@ -1070,9 +1669,7 @@ function rrAppliedModel(r) {
 }
 
 function renderRR(rows) {
-  const row = document.getElementById('rr-row');
   destroyChart('chart-rr');
-  row.innerHTML = '';
 
   const xField   = rrXMode === 'date' ? 'Date' : 'Consumable';
   const consPara = (rows.find(r => r.Consumable_Para) || {}).Consumable_Para || 'Consumable';
@@ -1101,11 +1698,6 @@ function renderRR(rows) {
     });
   });
 
-  row.appendChild(chartBox(
-    `Removal Rate — 실제 vs 적용 모델 (X: ${rrXMode === 'date' ? '날짜' : consPara})`,
-    C_NORMAL, 'chart-rr', '330px',
-    `${rows.filter(r => num(r.RR_Actual) !== null).length.toLocaleString()} pts`));
-
   // 모델별 추종 오차
   let html = '<table class="stat-table"><thead><tr>' +
     '<th>모델</th><th>N</th><th>Bias</th><th>MAE</th><th>RMSE</th></tr></thead><tbody>';
@@ -1133,13 +1725,14 @@ function renderRR(rows) {
     </tr>`;
   });
   html += '</tbody></table>' +
-    '<div style="font-size:0.68rem; color:#8993a8; margin-top:0.5rem; line-height:1.5;">' +
-    '차트는 <b>if &gt; current &gt; weighted &gt; normal</b> 우선순위로<br>' +
-    '타점마다 실제 적용된 모델만 표시 (= RR_DB)<br>' +
-    '표는 전 구간을 각 모델로 계산했을 때의 비교값<br>' +
-    'Bias = 학습−실제 평균, MAE/RMSE 작을수록 잘 따라감</div>';
+    '<div class="cell-note">' +
+    '차트는 <b>if &gt; current &gt; weighted &gt; normal</b> 우선순위로 타점마다 적용된 모델만 표시 (= RR_DB)<br>' +
+    '표는 전 구간을 각 모델로 계산했을 때의 비교값 · Bias = 학습−실제 평균, MAE/RMSE 작을수록 잘 따라감</div>';
 
-  row.appendChild(statBox('학습 모델 추종 오차', C_NORMAL, html));
+  chartCell('q-rr',
+    `Removal Rate — 실제 vs 적용 모델 (X: ${rrXMode === 'date' ? '날짜' : consPara})`,
+    C_NORMAL, 'chart-rr', '260px',
+    `${rows.filter(r => num(r.RR_Actual) !== null).length.toLocaleString()} pts`, html);
 
   charts['chart-rr'] = new Chart(document.getElementById('chart-rr'), {
     type: 'scatter', data: { datasets },
@@ -1153,20 +1746,18 @@ document.getElementById('rr-x-date').addEventListener('click', () => {
   rrXMode = 'date';
   document.getElementById('rr-x-date').classList.add('active');
   document.getElementById('rr-x-cons').classList.remove('active');
-  if (simData) renderRR(filtered());
+  if (simData) (FORMULA_MODE === 'PRESSURE' ? renderBias : renderRR)(filtered());
 });
 document.getElementById('rr-x-cons').addEventListener('click', () => {
   rrXMode = 'cons';
   document.getElementById('rr-x-cons').classList.add('active');
   document.getElementById('rr-x-date').classList.remove('active');
-  if (simData) renderRR(filtered());
+  if (simData) (FORMULA_MODE === 'PRESSURE' ? renderBias : renderRR)(filtered());
 });
 
 // 3) Pre Thk VM — 학습값
 function renderPreThk(rows) {
-  const row = document.getElementById('prethk-row');
   destroyChart('chart-prethk');
-  row.innerHTML = '';
 
   // Pre_Thk_VM 학습값은 사전공정 챔버(pre_eq_ch)별로 따로 학습되므로 챔버별 색상으로 구분
   const chambers = [...new Set(rows.map(r => String(r.pre_eq_ch ?? '')))].sort();
@@ -1178,9 +1769,6 @@ function renderPreThk(rows) {
     data: pts(rows.filter(r => String(r.pre_eq_ch ?? '') === ch), 'Date', 'Pre_Thk_VM'),
     showLine: false, order: 1, ...mark(chColor[ch], 2),
   })).filter(ds => ds.data.length);
-
-  row.appendChild(chartBox('Pre Thk VM — 학습값 (Pre 챔버별)', '#22c55e', 'chart-prethk', '320px',
-    `${rows.filter(r => num(r.Pre_Thk_VM) !== null).length.toLocaleString()} pts`));
 
   // pre chamber 별 학습값 분포 (색상은 차트와 동일)
   let html = '<table class="stat-table"><thead><tr>' +
@@ -1195,7 +1783,9 @@ function renderPreThk(rows) {
              <td>${s.n.toLocaleString()}</td><td>${fmt(s.avg,2)}</td><td>${fmt(s.std,2)}</td></tr>`;
   });
   html += '</tbody></table>';
-  row.appendChild(statBox('Pre 챔버별 학습값 분포', '#22c55e', html));
+
+  chartCell('q-prethk', 'Pre Thk VM — 학습값 (Pre 챔버별)', '#22c55e', 'chart-prethk', '260px',
+    `${rows.filter(r => num(r.Pre_Thk_VM) !== null).length.toLocaleString()} pts`, html);
 
   charts['chart-prethk'] = new Chart(document.getElementById('chart-prethk'), {
     type: 'scatter', data: { datasets }, options: baseOptions(timeAxis('Pre Thk 편차'), true),
@@ -1205,9 +1795,7 @@ function renderPreThk(rows) {
 
 // 4) Offset — IDLE 별 학습값
 function renderOffset(rows) {
-  const row = document.getElementById('offset-row');
-  ['chart-offset','chart-offset-idle'].forEach(destroyChart);
-  row.innerHTML = '';
+  destroyChart('chart-offset');
 
   // IDLE 구간별로 학습값이 다르므로 IDLE 별 색상으로 분리 표시.
   // IDLE 이 없는(Normal) 웨이퍼는 회색 — 구간별 색과 구분되게.
@@ -1222,48 +1810,28 @@ function renderOffset(rows) {
     showLine: false, ...mark(idleColor[idle], 2),
   })).filter(ds => ds.data.length);
 
-  row.appendChild(chartBox('Idle Offset — 학습값', '#f97316', 'chart-offset', '300px',
-    `${rows.filter(r => num(r.OFFSET_Learn) !== null).length.toLocaleString()} pts`));
-
-  // IDLE 별 평균
-  const learnAvg = [], labels = [], barColors = [];
+  // IDLE 구간별 학습값 요약 (차트 색상과 동일)
+  let html = '<table class="stat-table"><thead><tr>' +
+    '<th>IDLE 구간</th><th>N</th><th>Avg</th><th>Std</th></tr></thead><tbody>';
+  const all = boxStats(rows.map(r => num(r.OFFSET_Learn)));
+  html += `<tr style="font-weight:600;"><td>전체</td>
+           <td>${all ? all.n.toLocaleString() : '–'}</td><td>${all ? fmt(all.avg,2) : '–'}</td>
+           <td>${all ? fmt(all.std,2) : '–'}</td></tr>`;
   idles.forEach(idle => {
-    const l = boxStats(rows.filter(r => String(r.IDLE ?? '') === idle).map(r => num(r.OFFSET_Learn)));
-    if (!l) return;
-    labels.push(idle === '' ? '(없음)' : idle);
-    learnAvg.push(l.avg);
-    barColors.push(idleColor[idle]);
+    const s = boxStats(rows.filter(r => String(r.IDLE ?? '') === idle).map(r => num(r.OFFSET_Learn)));
+    if (!s) return;
+    html += `<tr><td><span class="stat-dot" style="background:${idleColor[idle]};"></span>${idle === '' ? '(없음)' : idle}</td>
+             <td>${s.n.toLocaleString()}</td><td>${fmt(s.avg,2)}</td><td>${fmt(s.std,2)}</td></tr>`;
   });
+  html += '</tbody></table>';
 
-  const right = document.createElement('div');
-  right.style.cssText = 'display:flex; flex-direction:column; gap:1rem;';
-  right.appendChild(chartBox('IDLE 별 평균', '#f97316', 'chart-offset-idle', '300px'));
-  row.appendChild(right);
+  chartCell('q-offset', 'Idle Offset — 학습값 (IDLE 구간별)', '#f97316', 'chart-offset', '260px',
+    `${rows.filter(r => num(r.OFFSET_Learn) !== null).length.toLocaleString()} pts`, html);
 
   charts['chart-offset'] = new Chart(document.getElementById('chart-offset'), {
     type: 'scatter', data: { datasets }, options: baseOptions(timeAxis('Offset (sec)'), true),
   });
   enableSelect('chart-offset');
-
-  charts['chart-offset-idle'] = new Chart(document.getElementById('chart-offset-idle'), {
-    type: 'bar',
-    data: { labels, datasets: [
-      { label: '학습값 평균', data: learnAvg,
-        backgroundColor: barColors.map(c => c + 'bb'), borderColor: barColors, borderWidth: 1 },
-    ]},
-    options: {
-      responsive: true, maintainAspectRatio: false, animation: { duration: 200 },
-      plugins: {
-        legend: { display: false },
-        tooltip: { callbacks: { label: it => `${it.dataset.label}: ${fmt(it.parsed.y)}` } },
-      },
-      scales: {
-        x: { ticks: { font: { size: 9 }, color: labelColor(), maxRotation: 45 }, grid: { display: false } },
-        y: { title: { display: true, text: 'Offset (sec)', font: { size: 9 }, color: labelColor() },
-             grid: { color: gridColor() }, ticks: { font: { size: 9 }, color: labelColor() } },
-      }
-    }
-  });
 }
 
 // DB 오류 안내
