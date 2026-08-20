@@ -843,6 +843,58 @@ def _fill_output_columns(data):
             data['columns'].append(col)
 
 
+def _attach_simul_thk_13p(df, table, product, oper_desc, date_from, date_to):
+    """PRESSURE zone 프레임에 Simul_THK_13P(같은 웨이퍼의 13P 시뮬 두께)를 붙인다.
+
+    PRESSURE 는 두께를 직접 맞추지 않고 '13P 시뮬 두께 + 편차' 로 만들기 때문에
+    13P 결과가 재료로 필요하다. 그런데 13P 시뮬 두께 자체가 산식 결과라 배치는
+    적재하지 않는다 → 여기서 13P 행을 함께 읽어 TIME 산식으로 계산해 붙인다.
+
+    13P 는 그 zone 에 저장된 설정(없으면 기본 산식)으로 계산한다. 화면에서 key-in 한
+    값은 지금 보고 있는 PRESSURE zone 의 파라미터이므로 13P 에 적용하지 않는다.
+    """
+    import numpy as np
+    import pandas as pd
+
+    from . import apc_formula, simulation_db
+
+    if df.empty or 'substrate_id' not in df.columns:
+        df['Simul_THK_13P'] = np.nan
+        return df
+
+    try:
+        # APC_Para 는 13P 안에서도 여러 개일 수 있어 지정하지 않는다.
+        # 샘플링하면 웨이퍼가 빠지므로 max_rows=None.
+        data13 = simulation_db.fetch(table, date_from, date_to, '13P', None, max_rows=None)
+        df13   = _result_frame(data13)
+        if df13.empty:
+            raise ValueError('13P 조회 결과 없음')
+
+        params13, _ = simulation_db.load_formula_params(product, oper_desc, '13P')
+        cfg13 = apc_formula.resolve_config(params13, apc_formula.MODE_TIME)
+        if apc_formula.validate_config(cfg13, apc_formula.MODE_TIME):
+            raise ValueError('13P 산식 설정 오류')
+
+        df13 = apc_formula.apply_formula(df13, cfg13, mode=apc_formula.MODE_TIME)
+        if 'Simul_THK' not in df13.columns:
+            raise ValueError('13P Simul_THK 산출 실패')
+
+        thk13 = (
+            df13[['substrate_id', 'Simul_THK']]
+            .dropna(subset=['substrate_id'])
+            # 같은 웨이퍼에 TIME set-up 이 여러 건이면 마지막 결과 사용 (배치 동작과 동일)
+            .drop_duplicates(subset=['substrate_id'], keep='last')
+            .rename(columns={'Simul_THK': 'Simul_THK_13P'})
+        )
+        merged = pd.merge(df, thk13, on='substrate_id', how='left')
+        # merge 로 행이 늘지 않았는지 확인 (drop_duplicates 로 보장되지만 방어적으로)
+        return merged if len(merged) == len(df) else df.assign(Simul_THK_13P=np.nan)
+    except Exception:
+        # 13P 를 못 구해도 편차(Bias)는 그릴 수 있어야 하므로 계산은 계속한다
+        df['Simul_THK_13P'] = np.nan
+        return df
+
+
 def _apply_apc_formula_to_result(data, df, params, mode):
     """조회 결과에 APC 산식을 적용해 Simul_APC / Simul_THK 컬럼을 채운다.
 
@@ -923,6 +975,13 @@ def simulation_result_data(request):
     # 산식은 zone 성격(FB_Type)에 따라 갈린다 — TIME(두께) / PRESSURE(13P 대비 편차)
     df     = _result_frame(data)
     mode   = apc_formula.detect_mode(df)
+
+    # PRESSURE 는 13P 시뮬 두께를 재료로 쓴다 — 배치가 적재하지 않으므로 여기서 계산해 붙인다
+    if mode == apc_formula.MODE_PRESSURE:
+        df = _attach_simul_thk_13p(df, table, product, oper_desc, date_from, date_to)
+        data['columns'] = list(df.columns)
+        data['rows']    = df.values.tolist()
+
     config = apc_formula.resolve_config(params, mode)
     errors = apc_formula.validate_config(config, mode)
 

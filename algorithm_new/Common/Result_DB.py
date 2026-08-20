@@ -37,10 +37,24 @@ django.setup()
 
 from django.db import connection
 
-# 테이블 명명 규칙은 web 조회측(setup_mico/simulation_db.py)과 한 곳에서 공유한다.
+# ── 테이블 명명 규칙 ───────────────────────────────────────────────────────
 #   MICO_Simulation_{Lot_Code}_{Oper_Desc}_{Fab}
-# 공백 유지 여부(KEEP_SPACE_IN_TABLE_NAME) 등 규칙 변경도 그 파일에서 한 번만 수정.
-from setup_mico.simulation_db import TABLE_PREFIX, table_name
+# algorithm_new 는 사내에서 web(setup_mico)과 별개 환경에 배포되므로 import 로
+# 공유하지 않고 여기서 직접 정의한다.
+# ※ web 조회측 setup_mico/simulation_db.py 의 TABLE_PREFIX / KEEP_SPACE_IN_TABLE_NAME /
+#   table_name() 과 반드시 동일하게 유지할 것 (다르면 web 이 테이블을 못 찾는다).
+
+TABLE_PREFIX = 'MICO_Simulation'
+
+# 테이블명에 Oper_Desc 의 공백을 그대로 둘지 여부
+KEEP_SPACE_IN_TABLE_NAME = True
+
+
+def table_name(lot_code, oper_desc, fab):
+    oper = str(oper_desc)
+    if not KEEP_SPACE_IN_TABLE_NAME:
+        oper = oper.replace(' ', '_')
+    return f'{TABLE_PREFIX}_{lot_code}_{oper}_{fab}'
 
 # DB 종류별 컬럼 타입 (vendor = django.db.connection.vendor)
 _TYPE_MAP = {

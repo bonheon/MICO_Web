@@ -11,9 +11,10 @@ from Common.Get_Data import Get_data
 from Common import Result_DB
 from day.commc.cube import Cube_Connector
 
-# APC 산식(Simul_APC / Simul_THK)은 web 과 같은 모듈을 쓴다 — 배치가 낸 값과
-# web 에서 파라미터를 바꿔 본 값이 어긋나지 않도록 산식 정의는 한 곳만 존재.
-from setup_mico import apc_formula
+# ※ APC 산식(Simul_APC / Simul_THK)은 여기서 계산하지 않는다.
+#    algorithm_new 는 사내에서 web(setup_mico)과 별개 환경에 배포되므로
+#    setup_mico 를 import 하면 안 된다. 배치는 산식의 '재료' 컬럼만 적재하고,
+#    산식 적용·파라미터 조정은 web(setup_mico/apc_formula.py)이 전담한다.
 
 _MICO_URL = 'mongodb://cncmico:/...'
 _MICO_DB  = 'mico-platform-mongodb'
@@ -596,10 +597,43 @@ def _finalize(df, sk, Main_Para, Pad_Para, Disk_Para, Head_Para, Consumable_Para
                              Thk_Para_13P, Target_13P)
 
 
-# ── web 조회용 표준 컬럼 ───────────────────────────────────────────────────
-# 결과 테이블을 web 에서 공정/zone 구분 없이 같은 코드로 그릴 수 있도록,
+# ── DB 저장 컬럼 (web 조회용 표준 컬럼) ────────────────────────────────────
+# 결과 테이블에는 '산식의 재료'만 담는다.
+# Simul_APC / Simul_THK 처럼 web 에서 key-in 한 파라미터로 값이 달라지는 컬럼은
+# 미리 만들어 두지 않는다 — 저장해 봐야 화면에서 곧바로 덮어써지고, 파라미터를
+# 바꾸면 DB 값과 화면 값이 어긋나 혼란만 생긴다. (계산: setup_mico/apc_formula.py)
+#
+# ※ 이 목록은 web 조회측 setup_mico/simulation_db.py 의 VIEW_COLUMNS 와 짝이다.
+#    한쪽만 고치면 컬럼이 조회되지 않으므로 반드시 함께 수정할 것.
+#    (두 환경이 분리 배포되므로 import 로 공유하지 않고 각자 정의한다)
+
+# 테이블 분리/조회 키
+KEY_COLUMNS = ['Lot_Code', 'Product', 'Oper_Code', 'Oper_Desc', 'Fab', 'ZONE']
+
+SAVE_META_COLUMNS = [
+    'Date', 'FB_Type', 'APC_Para', 'Thk_Para', 'Formula',
+    'lot_id', 'substrate_id', 'eqp_id', 'eqp_model', 'recipe_id', 'process_id',
+    'IDLE', 'pre_eq_ch', 'Consumable_Para',
+]
+SAVE_VALUE_COLUMNS = [
+    'THK', 'Target', 'Pre_Target', 'Pad_Seperation', 'APC_Value', 'Pol_Time', 'Consumable',
+    'RR_Actual', 'RR_DB', 'RR_Normal', 'RR_Weighted', 'RR_Current', 'RR_IF',
+    'Pre_Thk_VM', 'Pre_Thk_MA', 'Pre_Thk_ITM', 'Pre_Thk_Actual', 'Pre_Thk_Implied',
+    'OFFSET_Learn', 'OFFSET_Actual',
+]
+# APC 산식 재계산 재료 (Simul_THK_13P 는 산식 결과라 제외 — web 이 계산해 붙인다)
+SAVE_FORMULA_INPUT_COLUMNS = (
+    ['Pol_Time_1', 'Pol_Time_2', 'Ref_Count', 'Ref_YN', 'THK_13P', 'Target_13P']
+    + [f'Ref_{i}_{suffix}'
+       for i in range(1, 5)
+       for suffix in ('APC', 'Post', '13P', 'Pre_VM', 'OFFSET', 'Pre_ITM')]
+)
+
+SAVE_COLUMNS = KEY_COLUMNS + SAVE_META_COLUMNS + SAVE_VALUE_COLUMNS + SAVE_FORMULA_INPUT_COLUMNS
+
+
 # 공정마다 이름이 달라지는 파라미터(APC_Para / Thk_Para / 소모품 등)의 값을
-# 이름이 고정된 컬럼으로 복사해 둔다. (원본 컬럼은 그대로 유지)
+# 이름이 고정된 컬럼으로 복사해 둔다. (원본 컬럼은 그대로 유지 — CSV 출력용)
 
 def _add_view_columns(df, sk, Consumable_Para, mode, ITM_PRE_Para,
                       Thk_Para_13P=None, Target_13P=None):
@@ -845,56 +879,6 @@ def _zone_label(thk_para, extra_zones):
     return None
 
 
-def _simul_thk_13p(zones):
-    """TIME(13P) 시뮬레이션 결과에서 substrate_id → Simul_THK 매핑을 만든다.
-
-    PRESSURE zone 은 두께를 직접 산출하지 않고 '13P 시뮬 두께 + 편차' 로 만들기
-    때문에, 같은 웨이퍼의 13P 결과가 재료로 필요하다.
-    """
-    frames = [f for f in zones.get('13P', [])
-              if 'Simul_THK' in f.columns and 'substrate_id' in f.columns]
-    if not frames:
-        return None
-
-    out = pd.concat([f[['substrate_id', 'Simul_THK']] for f in frames])
-    out = out.dropna(subset=['substrate_id'])
-    # 같은 웨이퍼에 TIME set-up 이 여러 건이면 마지막 결과 사용
-    out = out.drop_duplicates(subset=['substrate_id'], keep='last')
-    return out.rename(columns={'Simul_THK': 'Simul_THK_13P'})
-
-
-def _attach_simul_thk_13p(Simul_df, thk13_map):
-    if thk13_map is None or Simul_df.empty:
-        if 'Simul_THK_13P' not in Simul_df.columns:
-            Simul_df['Simul_THK_13P'] = np.nan
-        return Simul_df
-    return pd.merge(Simul_df, thk13_map, on='substrate_id', how='left')
-
-
-def _apply_apc_formula(Simul_df, ident, zone):
-    """학습값 → Simul_APC / Simul_THK 산출 (web 과 동일한 산식 모듈).
-
-    산식 파라미터(weight / limit / 수식)는 web Simulation 화면에서 저장해 둔
-    설정을 읽어 쓴다. 저장된 것이 없으면 apc_formula 의 기본 산식이 적용되고,
-    web 에서는 언제든 값을 바꿔 즉시 다시 계산해 볼 수 있다.
-    """
-    params = {}
-    try:
-        from setup_mico.simulation_db import load_formula_params
-        params, source = load_formula_params(ident.get('Product', ''),
-                                             ident.get('Oper_Desc', ''), zone)
-        if params:
-            print(f'    APC 산식 설정 적용: web 저장값 ({source}, zone={zone})')
-    except Exception as e:
-        print(f'    ! APC 산식 설정 조회 실패 → 기본 산식 사용: {e}')
-
-    try:
-        return apc_formula.apply_formula(Simul_df, params)
-    except apc_formula.FormulaError as e:
-        print(f'    ! APC 산식 오류 → Simul_APC 계산 skip: {e}')
-        return Simul_df
-
-
 def _append_zone(zones, zone, Simul_df, ident=None):
     """zone 별 DataFrame 누적 (source 의 eval/exec 동적 변수 대체).
 
@@ -907,7 +891,6 @@ def _append_zone(zones, zone, Simul_df, ident=None):
     if ident:
         for k, v in ident.items():
             Simul_df[k] = v
-        Simul_df = _apply_apc_formula(Simul_df, ident, zone)
     zones[zone].append(Simul_df)
 
 
@@ -966,11 +949,9 @@ def _run_key(mico_info_key, zones, extra_zones, pre_thk_formula, c):
             print('    ! TIME set-up 없음 (Thk_Para_13P 미확보) → PRESSURE 시뮬레이션 skip')
             return
 
-        # PRESSURE 는 '13P 시뮬 두께 + 편차' 로 두께를 만든다 → TIME 결과를 재료로 넘김
-        thk13_map = _simul_thk_13p(zones)
-        if len(info_pressure) > 0 and thk13_map is None:
-            print('    ! 13P Simul_THK 없음 → PRESSURE 두께는 편차만 산출됨')
-
+        # PRESSURE 는 '13P 시뮬 두께 + 편차' 로 두께를 만들지만, 그 13P 시뮬 두께는
+        # 산식 결과라 배치가 만들지 않는다. web 이 조회 시점에 같은 웨이퍼의 13P 행을
+        # 함께 계산해 Simul_THK_13P 로 붙인다 (setup_mico/views.simulation_result_data).
         for i in range(len(info_pressure)):
             key      = info_pressure.iloc[i, :]
             Thk_Para = key['Thk_Para']
@@ -987,8 +968,6 @@ def _run_key(mico_info_key, zones, extra_zones, pre_thk_formula, c):
             )
             if Simul_df.empty:
                 continue
-
-            Simul_df = _attach_simul_thk_13p(Simul_df, thk13_map)
 
             if zone in ('EDGE', 'EXED'):
                 Simul_df[f'Pre_Target_{zone}'] = float(key['Pre_Target'])
@@ -1045,8 +1024,14 @@ def _save_results_db(zones, extra_zones):
         print(f'  ! [DB] 키 컬럼 누락({key_cols}) → DB 저장 skip')
         return
 
+    # 산식 재료만 남긴다 (중간 계산 컬럼·산식 결과 컬럼은 적재하지 않음)
+    keep = [c for c in SAVE_COLUMNS if c in df.columns]
+    missing = [c for c in SAVE_COLUMNS if c not in df.columns]
+    if missing:
+        print(f'  [DB] 미생성 컬럼 {len(missing)}개 skip: {", ".join(missing)}')
+
     for (lot_code, oper_desc, fab), part in df.groupby(key_cols, dropna=False):
-        Result_DB.save_simulation(part, lot_code, oper_desc, fab, mode='replace')
+        Result_DB.save_simulation(part[keep], lot_code, oper_desc, fab, mode='replace')
 
 
 # ── 메인 실행 ──────────────────────────────────────────────────────────────

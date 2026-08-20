@@ -40,29 +40,25 @@ VALUE_COLUMNS = [
 ]
 
 # APC 산식(Simul_APC / Simul_THK) 재계산 재료.
-# web 에서 weight·limit 을 바꿔가며 다시 계산해야 하므로 결과값이 아니라
-# '재료' 를 그대로 내려보내고 계산은 apc_formula 가 한다.
+# 배치(algorithm_new)는 산식을 적용하지 않고 이 '재료' 컬럼까지만 적재한다.
+# 계산은 항상 web 의 apc_formula 가 조회 시점에 수행 — 화면에서 파라미터를 바꾸면
+# 즉시 다시 계산되고, DB 에는 파라미터에 좌우되는 값이 남지 않는다.
+#
+# ※ 배치 적재측 algorithm_new/Common/Simulation.py 의 SAVE_COLUMNS 와 짝이다.
+#   (두 환경이 분리 배포되므로 import 로 공유하지 않고 각자 정의 — 함께 수정할 것)
 FORMULA_INPUT_COLUMNS = (
     ['Pol_Time_1', 'Pol_Time_2', 'Ref_Count', 'Ref_YN']
-    # PRESSURE zone: 13P(중심) 대비 편차를 맞추므로 13P 계측·Target 과
-    # TIME 이 산출한 13P 시뮬 두께가 재료로 필요하다
-    + ['THK_13P', 'Target_13P', 'Simul_THK_13P']
+    # PRESSURE zone: 13P(중심) 대비 편차를 맞추므로 13P 계측·Target 이 재료로 필요하다.
+    # (13P 시뮬 두께 Simul_THK_13P 는 산식 결과 — 저장하지 않고 조회 시 계산해 붙인다)
+    + ['THK_13P', 'Target_13P']
     + [f'Ref_{i}_{suffix}'
        for i in range(1, 5)
        for suffix in ('APC', 'Post', '13P', 'Pre_VM', 'OFFSET', 'Pre_ITM')]
 )
 
-# 배치 실행이 기본 설정으로 계산해 둔 값 (web 이 파라미터를 바꾸면 덮어써진다)
-FORMULA_OUTPUT_COLUMNS = [
-    'FB_1', 'FB_2', 'FB_3', 'FB_4',
-    'Simul_APC', 'Simul_APC_Limit', 'Simul_APC_Mode', 'Simul_Ref_Used',
-    'Simul_APC_Clipped',
-    'Simul_RR', 'Removal_Amount',                                   # TIME
-    'Bias_Actual', 'Bias_Slope', 'Bias_Intercept', 'Bias_R2', 'Simul_Bias',   # PRESSURE
-    'Simul_THK',
-]
-
-VIEW_COLUMNS = META_COLUMNS + VALUE_COLUMNS + FORMULA_INPUT_COLUMNS + FORMULA_OUTPUT_COLUMNS
+# 산식 결과 컬럼(FB_*/Simul_*/Bias_*)은 테이블에서 읽지 않는다.
+# apc_formula.ALL_OUTPUT_COLUMNS 가 조회 후 계산으로 채운다.
+VIEW_COLUMNS = META_COLUMNS + VALUE_COLUMNS + FORMULA_INPUT_COLUMNS
 
 
 def table_name(lot_code, oper_desc, fab):
@@ -125,6 +121,8 @@ def fetch(table, date_from=None, date_to=None, zone=None, apc_para=None,
 
     Returns: dict(columns, rows, total_rows, sampled)
     행 수가 max_rows 를 넘으면 시간순으로 균등 샘플링해 차트 렌더링 비용을 제한한다.
+    max_rows=None 이면 샘플링하지 않는다 — PRESSURE zone 의 Simul_THK_13P 계산처럼
+    substrate_id 를 빠짐없이 맞춰야 하는 조회에 사용.
     """
     available = set(table_columns(table))
     columns   = [c for c in VIEW_COLUMNS if c in available]
@@ -135,7 +133,7 @@ def fetch(table, date_from=None, date_to=None, zone=None, apc_para=None,
         cur.execute(f'SELECT COUNT(*) FROM {_q(table)}{where}', params)
         total = cur.fetchone()[0]
 
-        stride = max(1, -(-total // max_rows)) if total else 1   # ceil
+        stride = max(1, -(-total // max_rows)) if (max_rows and total) else 1   # ceil
         cur.execute(f'SELECT {col_sql} FROM {_q(table)}{where} ORDER BY {_q("Date")}', params)
 
         rows, i = [], 0
