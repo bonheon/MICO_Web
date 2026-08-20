@@ -106,7 +106,8 @@ class Get_data:
                         'RR_Count'        : det.rr_count,
                         'FB_Type'         : det.fb_type,
                         'RR_Alarm_Sigma'  : det.rr_alarm_sigma,
-                        'Pol_Type'        : cat.pol_type,
+                        # 사내 mico_info 스키마와 동일하게 소문자 (다른 키와 달리 pol_type)
+                        'pol_type'        : cat.pol_type,
                         'Group_Name'      : group_name,
                     })
 

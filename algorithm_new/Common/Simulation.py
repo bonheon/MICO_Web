@@ -910,7 +910,7 @@ def _run_key(mico_info_key, zones, extra_zones, pre_thk_formula, c):
         'Fab'      : Fab,
     }
 
-    pol_type_vals = mico_info_key['Pol_Type'].dropna().unique()
+    pol_type_vals = mico_info_key['pol_type'].dropna().unique()
     pol_type      = int(pol_type_vals[0]) if len(pol_type_vals) > 0 else None
 
     # Offset_Group 은 TIME set-up 값 사용 (unique()[0] 스칼라 — 배열 비교 버그 방지)
@@ -1069,7 +1069,7 @@ def run(Family, oper_desc,
                           None(기본) → export_dir 이 존재할 때만 출력 (로컬에선 자동 skip)
 
     (PRE_THK_INFO 결합은 web Set-up 의 Pre_Oper_Code2 유무로 키별 자동 처리,
-     pol_type 은 web Set-up 의 Pol_Type, ITM para 는 Pre_Thk_Para_ITM 에서 자동으로 읽어옴)
+     pol_type 은 web Set-up 의 pol_type, ITM para 는 Pre_Thk_Para_ITM 에서 자동으로 읽어옴)
     """
     if extra_zones is None:
         extra_zones = []

@@ -575,7 +575,7 @@ def _run_pipeline(merge_df, mico_info_key, use_group_rr=False):
     fab       = mico_info_key['Fab'].unique()[0]
 
     # Category.pol_type (web DB set-up 값)에서 pol_type 결정
-    pol_type_vals = mico_info_key['Pol_Type'].dropna().unique()
+    pol_type_vals = mico_info_key['pol_type'].dropna().unique()
     pol_type = int(pol_type_vals[0]) if len(pol_type_vals) > 0 else None
 
     print(f'\n{"=" * 60}')
@@ -668,7 +668,7 @@ def run(family, oper_desc):
         print(f'  처리 키 목록 ({len(key_list)}개):')
         for k in key_list:
             grp      = mico_info_table[mico_info_table['for_key_list'] == k]['Group_Name'].unique()[0]
-            pol_vals = mico_info_table[mico_info_table['for_key_list'] == k]['Pol_Type'].dropna().unique()
+            pol_vals = mico_info_table[mico_info_table['for_key_list'] == k]['pol_type'].dropna().unique()
             pol_label = f'pol_type={int(pol_vals[0])}' if len(pol_vals) > 0 else 'pol_type=미설정'
             grp_label = f'그룹={grp}' if grp != 'not_group' else '단독'
             print(f'    - {k}  ({grp_label} | {pol_label})')
