@@ -240,43 +240,6 @@ class SimulationLink(models.Model):
         return f'{self.category.product} / {self.category.oper_desc}'
 
 
-class SimulFormulaConfig(models.Model):
-    """Simulation 화면에서 key-in 한 APC 산식 설정의 저장본.
-
-    산식 자체는 setup_mico/apc_formula.py 가 단일 소스이고, 이 모델은
-    '이 공정(zone)에서 기본으로 쓸 파라미터/수식' 을 보관만 한다.
-    화면에서는 언제든 값을 바꿔 즉시 재계산할 수 있고, 저장을 눌렀을 때만
-    여기에 반영되어 다음 조회 시 기본값으로 복원된다.
-
-    params(JSON) 구조는 apc_formula.DEFAULTS 와 동일:
-        pre_weight / rr_weight / weights / upper_limit / lower_limit /
-        pol_time_1 / ref_skip_count / fb_expr / linear_expr /
-        rr_expr / removal_expr / thk_expr
-    """
-    category = models.ForeignKey(
-        Category, on_delete=models.CASCADE,
-        related_name='simul_formulas', verbose_name='공정 (Category)'
-    )
-    # '' = 공통 기본값. zone 별로 다르게 쓰고 싶을 때만 zone 값을 채운 행이 생긴다.
-    zone = models.CharField(max_length=20, blank=True, default='', verbose_name='Zone')
-    params = models.JSONField(default=dict, verbose_name='산식 파라미터')
-    updated_by = models.ForeignKey(
-        User, on_delete=models.SET_NULL, null=True, blank=True,
-        related_name='simul_formulas', verbose_name='수정자'
-    )
-    updated_at = models.DateTimeField(auto_now=True, verbose_name='수정일')
-
-    class Meta:
-        verbose_name = 'Simulation 산식 설정'
-        verbose_name_plural = 'Simulation 산식 설정'
-        unique_together = ('category', 'zone')
-        ordering = ['category__product', 'category__oper_desc', 'zone']
-
-    def __str__(self):
-        zone = self.zone or '공통'
-        return f'{self.category.product} / {self.category.oper_desc} / {zone}'
-
-
 class Voc(models.Model):
     author = models.ForeignKey(User, on_delete=models.CASCADE, related_name='vocs', verbose_name='작성자')
     title = models.CharField(max_length=200, verbose_name='제목')
