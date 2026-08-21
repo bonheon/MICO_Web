@@ -350,7 +350,9 @@ if __name__ == '__main__':
         export_csv=False,   # 로컬에는 Spotfire 공유 폴더가 없으므로 CSV 출력 생략
     )
 
-    from Common import Result_DB
-    print('\n저장된 Simulation 테이블:')
-    for t in Result_DB.list_simulation_tables():
-        print(f'  - {t}')
+    # 로컬은 MongoDB mock(_STORE) 이므로 적재 결과를 거기서 확인
+    from Common.MongoDB_Control import _STORE
+    print('\n저장된 Simulation 컬렉션:')
+    for name, rows in _STORE.items():
+        if name.startswith(SIM.TABLE_PREFIX):
+            print(f'  - {name}: {len(rows)}건')

@@ -131,41 +131,63 @@ ADMIN (superuser만 노출)
 - Category 선택 시 드롭다운에 `product / oper_id — oper_desc` 표시
 - 선택 후 카드 하단에 oper_desc 설명 표시
 
-### Simulation 결과 → DB 적재 → web 조회
-Spotfire 연동용 CSV 대신 **Set-up 과 같은 DB(Django default)** 에 적재하고 web 에서 바로 조회.
+### Simulation 결과 → MongoDB 적재 → web 조회
+Spotfire 연동용 CSV 대신 **다른 학습값과 같은 MongoDB** 에 적재하고 web 에서 바로 조회.
 
-**테이블명 (다른 학습 테이블과 동일 규칙 — 공정명 포함)**
+**컬렉션명 (다른 학습 테이블과 동일 규칙 — 공정명 포함)**
 ```
 MICO_PRE_THK_{Lot_Code}_{Oper_Desc}_{Fab}_Period   (Pre Thk 학습, MongoDB)
 MICO_Removal_Rate_{Lot_Code}_{Oper_Desc}_{Fab}     (RR 학습,      MongoDB)
 MICO_OFFSET_{Lot_Code}_{Oper_Desc}_{Fab}           (Offset 학습,  MongoDB)
-MICO_Simulation_{Lot_Code}_{Oper_Desc}_{Fab}       (Simulation 결과, Set-up DB) ← 신규
+MICO_Simulation_{Lot_Code}_{Oper_Desc}_{Fab}       (Simulation 결과, MongoDB)
 ```
-- zone(13P / EDGE / EXED / Z5 …) 은 테이블 분리 대신 `ZONE` 컬럼으로 구분
+- zone(13P / EDGE / EXED / Z5 …) 은 컬렉션 분리 대신 `ZONE` 필드로 구분
 - Lot_Code = Category.product / Oper_Desc = Category.oper_desc / Fab = SubCategory.fab
+- 매 실행이 전체 재계산이라 적재 전 해당 컬렉션을 비운다 (`_clear_collection`)
+
+**접속 주소 (한 곳에서만 관리)**
+| 환경 | 위치 |
+|------|------|
+| 배치 (`algorithm_new`) | `Common/Simulation.py` 의 `_MICO_URL` / `_MICO_DB` |
+| web (`setup_mico`) | `config/settings.py` 의 `MICO_MONGO_URL` / `MICO_MONGO_DB` (환경변수로 덮어쓰기 가능) |
+
+두 환경이 **같은 MongoDB** 를 가리켜야 한다. web 은 `pymongo` 필요.
+APC 산식 설정(`SimulFormulaConfig`)만 Set-up 정보라 Django DB 에 남는다.
 
 **구성 파일**
 | 파일 | 역할 |
 |------|------|
-| `algorithm_new/Common/Result_DB.py` | 결과 적재 (Django connection 사용, vendor 별 타입 분기) |
-| `setup_mico/apc_formula.py` | **APC 산식 단일 소스** (Simul_APC / Simul_THK, 안전한 수식 평가) |
-| `setup_mico/simulation_db.py` | 테이블 명명 규칙(단일 소스) + web 조회 helper + 산식 설정 load/save |
-| `algorithm_new/Common/Simulation.py` | `_add_view_columns()` 로 web 표준 컬럼 생성 → `_save_results_db()` |
+| `setup_mico/apc_formula.py` | **APC 산식 단일 소스** (Simul_APC / Simul_THK, 안전한 수식 평가) — web 전용 |
+| `setup_mico/simulation_db.py` | 컬렉션 명명 규칙 + MongoDB 조회 helper + 산식 설정 load/save |
+| `algorithm_new/Common/Simulation.py` | `_add_view_columns()` 로 web 표준 컬럼 생성 → `_save_results_db()` (MongoDB 적재) |
 | `setup_mico/views.py` | `simulation_result`, `simulation_result_data` |
 | `algorithm_new/test_dram_m1cu_simul.py` | **[TEST 삭제]** 로컬 검증 러너 (학습 테이블 샘플 생성 + 적재) |
+
+**환경 분리 (중요)**
+사내에서 `algorithm_new`(배치)와 `setup_mico`(web)는 **별개 환경에 배포**된다.
+→ `algorithm_new` 는 `setup_mico` 를 import 하면 안 된다.
+아래 짝은 import 로 공유하지 않고 각자 정의하므로 **함께 수정**할 것:
+- `Simulation.SAVE_COLUMNS` ↔ `simulation_db.VIEW_COLUMNS`
+- `Simulation.table_name()` ↔ `simulation_db.table_name()` (`TABLE_PREFIX` / `KEEP_SPACE_IN_TABLE_NAME`)
 
 **web 표준 컬럼** (공정/zone 무관하게 이름 고정 — 차트 코드 공통화용)
 `ZONE / APC_Para / Thk_Para / Formula / Target / Pre_Target / Pad_Seperation / THK / APC_Value /
 Consumable(_Para) / RR_Actual / RR_DB / RR_Normal / RR_Weighted / RR_Current / RR_IF /
 Pre_Thk_VM / Pre_Thk_MA / Pre_Thk_ITM / Pre_Thk_Actual / Pre_Thk_Implied / OFFSET_Learn / OFFSET_Actual`
 
-APC 산식 재료 + 결과 컬럼 (`simulation_db.FORMULA_INPUT_COLUMNS` / `FORMULA_OUTPUT_COLUMNS`)
-`Pol_Time_1 / Pol_Time_2 / Ref_Count / Ref_YN / Ref_{1..4}_{APC,Post,Pre_VM,OFFSET,Pre_ITM}`
-`FB_1~4 / Simul_APC / Simul_APC_Limit / Simul_APC_Mode / Simul_Ref_Used / Simul_APC_Clipped /
- Simul_RR / Removal_Amount / Simul_THK`
+APC 산식 **재료** 컬럼만 적재 (`simulation_db.FORMULA_INPUT_COLUMNS`)
+`Pol_Time_1 / Pol_Time_2 / Ref_Count / Ref_YN / THK_13P / Target_13P /
+ Ref_{1..4}_{APC,Post,13P,Pre_VM,OFFSET,Pre_ITM}`
+
+산식 **결과** 컬럼(`FB_1~4 / Simul_APC / Simul_APC_Limit / Simul_RR / Removal_Amount /
+Bias_* / Simul_Bias / Simul_THK`)은 **적재하지 않는다.**
+web 화면에서 key-in 한 파라미터로 값이 달라지므로 조회 시점에 `apc_formula` 가 계산한다.
+- `Simul_THK_13P`(PRESSURE 재료)도 TIME 산식의 결과라 저장하지 않는다.
+  web 이 같은 기간의 13P 행을 함께 읽어 계산 후 `substrate_id` 로 붙인다
+  (`views._attach_simul_thk_13p`, 샘플링 누락 방지를 위해 `fetch(max_rows=None)`)
 
 **로컬 → 사내 전환**
-- Django `settings.DATABASES` 만 사내 DB 로 교체 (코드 수정 없음)
+- MongoDB 주소만 교체 (위 '접속 주소' 표 참조) — 코드 수정 없음
 - 로컬 검증은 `test_dram_m1cu_simul.py`, 사내는 `simulation/{공정}/Simulation_Hub.py` 를 그대로 실행
 - CSV 출력은 `run(export_csv=...)` — 기본값은 `export_dir` 존재 시에만 출력(로컬 자동 skip)
 

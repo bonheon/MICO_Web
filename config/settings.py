@@ -10,6 +10,7 @@ For the full list of settings and their values, see
 https://docs.djangoproject.com/en/4.1/ref/settings/
 """
 
+import os
 from pathlib import Path
 
 # Build paths inside the project like this: BASE_DIR / 'subdir'.
@@ -86,6 +87,16 @@ DATABASES = {
         'PORT': '5432',
     }
 }
+
+
+# ── 학습값 MongoDB (Simulation 결과 조회용) ────────────────────────────────
+# Simulation 결과는 다른 학습값과 동일하게 MongoDB 의
+#   MICO_Simulation_{Lot_Code}_{Oper_Desc}_{Fab}
+# 컬렉션에 적재된다 (적재: algorithm_new/Common/Simulation.py).
+# 접속 주소는 여기 또는 환경변수(MICO_MONGO_URL / MICO_MONGO_DB)로 지정한다.
+# ※ 배치(algorithm_new)와 같은 MongoDB 를 가리켜야 한다.
+MICO_MONGO_URL = os.environ.get('MICO_MONGO_URL', 'mongodb://localhost:27017')
+MICO_MONGO_DB  = os.environ.get('MICO_MONGO_DB',  'mico-platform-mongodb')
 
 
 # Password validation

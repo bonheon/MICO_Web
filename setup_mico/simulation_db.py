@@ -1,27 +1,43 @@
-"""Simulation 결과 테이블 (MICO_Simulation_*) 명명 규칙 및 조회 helper.
+"""Simulation 결과 컬렉션 (MICO_Simulation_*) 명명 규칙 및 조회 helper.
 
-Simulation 결과는 Spotfire 연동 CSV 대신 Set-up 과 동일한 DB 에 적재된다.
-쓰기(적재)는 algorithm_new/Common/Result_DB.py, 읽기(web 조회)는 이 모듈이 담당하며
-테이블 명명 규칙은 이 파일 하나만 참조한다.
+Simulation 결과는 다른 학습값(Pre Thk / RR / OFFSET)과 동일하게 MongoDB 에 적재한다.
+쓰기(적재)는 algorithm_new/Common/Simulation.py, 읽기(web 조회)는 이 모듈이 담당한다.
 
     MICO_Simulation_{Lot_Code}_{Oper_Desc}_{Fab}
 
   · Lot_Code  : web Set-up 의 Category.product
   · Oper_Desc : Category.oper_desc  (예: 'M1 CU CMP')
   · Fab       : SubCategory.fab
-  · zone(13P / EDGE / EXED / Z5 ...) 은 ZONE 컬럼으로 구분
+  · zone(13P / EDGE / EXED / Z5 ...) 은 ZONE 필드로 구분
 
-사내 전환 시 별도 수정 없음 — Django settings 의 DATABASES 만 사내 DB 로 바꾸면
-같은 코드가 사내 DB 의 같은 이름 테이블을 읽는다.
+접속 주소는 config/settings.py 의 MICO_MONGO_URL / MICO_MONGO_DB
+(환경변수로 덮어쓰기 가능) 한 곳에서만 관리한다.
+
+※ APC 산식 설정(SimulFormulaConfig)은 Set-up 정보라 Django DB 에 그대로 둔다.
 """
 
-from django.db import connection
+from django.conf import settings
 
 TABLE_PREFIX = 'MICO_Simulation'
 
-# 테이블명에 Oper_Desc 의 공백을 그대로 둘지 여부.
-# (algorithm_new/Common/Result_DB.KEEP_SPACE_IN_TABLE_NAME 과 반드시 동일하게 유지)
+# 컬렉션명에 Oper_Desc 의 공백을 그대로 둘지 여부.
+# (algorithm_new/Common/Simulation.KEEP_SPACE_IN_TABLE_NAME 과 반드시 동일하게 유지)
 KEEP_SPACE_IN_TABLE_NAME = True
+
+# MongoDB 응답이 없을 때 화면이 오래 매달리지 않도록 제한
+_SERVER_TIMEOUT_MS = 5000
+
+_client = None
+
+
+def _mongo_db():
+    """MongoDB 연결 (프로세스당 1개 재사용 — pymongo 클라이언트는 커넥션 풀을 갖는다)."""
+    global _client
+    if _client is None:
+        from pymongo import MongoClient
+        _client = MongoClient(settings.MICO_MONGO_URL,
+                              serverSelectionTimeoutMS=_SERVER_TIMEOUT_MS)
+    return _client[settings.MICO_MONGO_DB]
 
 # 차트 렌더링 상한 — 초과 시 균등 샘플링
 MAX_ROWS = 8000
@@ -69,50 +85,60 @@ def table_name(lot_code, oper_desc, fab):
 
 
 def existing_tables():
-    """DB 에 실제 존재하는 Simulation 결과 테이블 집합."""
-    return {t for t in connection.introspection.table_names() if t.startswith(TABLE_PREFIX)}
+    """MongoDB 에 실제 존재하는 Simulation 결과 컬렉션 집합."""
+    return {c for c in _mongo_db().list_collection_names() if c.startswith(TABLE_PREFIX)}
 
 
 def table_columns(table):
-    with connection.cursor() as cur:
-        return [c.name for c in connection.introspection.get_table_description(cur, table)]
+    """컬렉션에 실제로 들어있는 필드 목록.
+
+    zone 마다 필드 구성이 다를 수 있어(PRESSURE 만 THK_13P 보유) 앞쪽 문서를
+    여러 건 훑어 합집합을 만든다.
+    """
+    keys = set()
+    for doc in _mongo_db()[table].find({}, limit=200):
+        keys.update(doc.keys())
+    keys.discard('_id')
+    return sorted(keys)
 
 
-def _q(name):
-    return connection.ops.quote_name(name)
+def _as_datetime(value, end_of_day=False):
+    """'YYYY-MM-DD' 또는 date/datetime → datetime (Mongo 의 Date 는 BSON date)."""
+    from datetime import date, datetime, time
+
+    if isinstance(value, datetime):
+        return value
+    if isinstance(value, date):
+        return datetime.combine(value, time.max if end_of_day else time.min)
+    parsed = datetime.strptime(str(value)[:10], '%Y-%m-%d')
+    return parsed.replace(hour=23, minute=59, second=59, microsecond=999999) if end_of_day else parsed
 
 
-def _where(date_from, date_to, zone, apc_para):
-    clauses, params = [], []
-    if date_from:
-        clauses.append(f'{_q("Date")} >= %s')
-        params.append(date_from)
-    if date_to:
-        # 종료일 당일 23:59:59 포함
-        clauses.append(f'{_q("Date")} < %s')
-        params.append(f'{date_to} 23:59:59.999999')
+def _filter(date_from, date_to, zone, apc_para):
+    query = {}
+    if date_from or date_to:
+        rng = {}
+        if date_from:
+            rng['$gte'] = _as_datetime(date_from)
+        if date_to:
+            # 종료일 당일 23:59:59 포함
+            rng['$lte'] = _as_datetime(date_to, end_of_day=True)
+        query['Date'] = rng
     if zone:
-        clauses.append(f'{_q("ZONE")} = %s')
-        params.append(zone)
+        query['ZONE'] = zone
     if apc_para:
-        clauses.append(f'{_q("APC_Para")} = %s')
-        params.append(apc_para)
-    return (' WHERE ' + ' AND '.join(clauses) if clauses else ''), params
+        query['APC_Para'] = apc_para
+    return query
 
 
 def distinct_values(table, column, date_from=None, date_to=None, zone=None):
-    """필터 선택지용 distinct 값 목록 (없는 컬럼이면 빈 리스트).
+    """필터 선택지용 distinct 값 목록 (없는 필드면 빈 리스트).
 
     zone 을 주면 그 zone 안에서만 뽑는다 — APC_Para 는 zone 마다 다르므로
     (13P=P3, EDGE=P3_ZONE1 …) zone 을 무시하면 0건 조회가 된다.
     """
-    if column not in table_columns(table):
-        return []
-    where, params = _where(date_from, date_to, zone, None)
-    sql = f'SELECT DISTINCT {_q(column)} FROM {_q(table)}{where}'
-    with connection.cursor() as cur:
-        cur.execute(sql, params)
-        return sorted(str(r[0]) for r in cur.fetchall() if r[0] is not None)
+    values = _mongo_db()[table].distinct(column, _filter(date_from, date_to, zone, None))
+    return sorted(str(v) for v in values if v is not None)
 
 
 def fetch(table, date_from=None, date_to=None, zone=None, apc_para=None,
@@ -124,27 +150,26 @@ def fetch(table, date_from=None, date_to=None, zone=None, apc_para=None,
     max_rows=None 이면 샘플링하지 않는다 — PRESSURE zone 의 Simul_THK_13P 계산처럼
     substrate_id 를 빠짐없이 맞춰야 하는 조회에 사용.
     """
-    available = set(table_columns(table))
-    columns   = [c for c in VIEW_COLUMNS if c in available]
-    col_sql   = ', '.join(_q(c) for c in columns)
-    where, params = _where(date_from, date_to, zone, apc_para)
+    collection = _mongo_db()[table]
+    query      = _filter(date_from, date_to, zone, apc_para)
+    total      = collection.count_documents(query)
 
-    with connection.cursor() as cur:
-        cur.execute(f'SELECT COUNT(*) FROM {_q(table)}{where}', params)
-        total = cur.fetchone()[0]
+    stride = max(1, -(-total // max_rows)) if (max_rows and total) else 1   # ceil
 
-        stride = max(1, -(-total // max_rows)) if (max_rows and total) else 1   # ceil
-        cur.execute(f'SELECT {col_sql} FROM {_q(table)}{where} ORDER BY {_q("Date")}', params)
+    projection = {c: 1 for c in VIEW_COLUMNS}
+    projection['_id'] = 0
 
-        rows, i = [], 0
-        while True:
-            batch = cur.fetchmany(2000)
-            if not batch:
-                break
-            for row in batch:
-                if i % stride == 0:
-                    rows.append([_json_safe(v) for v in row])
-                i += 1
+    docs = []
+    for i, doc in enumerate(collection.find(query, projection).sort('Date', 1)):
+        if i % stride == 0:
+            docs.append(doc)
+
+    # 실제로 값이 들어있는 필드만 컬럼으로 (조회 목록 순서 유지)
+    present = set()
+    for doc in docs:
+        present.update(doc.keys())
+    columns = [c for c in VIEW_COLUMNS if c in present]
+    rows    = [[_json_safe(doc.get(c)) for c in columns] for doc in docs]
 
     return {
         'columns'   : columns,

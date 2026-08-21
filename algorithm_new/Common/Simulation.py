@@ -8,7 +8,7 @@ from pymongo import MongoClient
 
 sys.path.append(str(Path(__file__).parents[1]))
 from Common.Get_Data import Get_data
-from Common import Result_DB
+from Common.MongoDB_Control import mongodb_controller
 from day.commc.cube import Cube_Connector
 
 # ※ APC 산식(Simul_APC / Simul_THK)은 여기서 계산하지 않는다.
@@ -1007,31 +1007,67 @@ def _export_results(zones, Product, export_oper, file_labels, extra_zones, expor
         print(f'  [출력] {path} ({len(df)}행, zones={list(extra_zones)})')
 
 
-def _save_results_db(zones, extra_zones):
-    """zone 별 누적 결과를 MICO Web 과 동일한 DB 에 저장.
+# ── 결과 적재 (MongoDB) ────────────────────────────────────────────────────
+# 다른 학습값(Pre Thk / RR / OFFSET)과 동일하게 MongoDB 컬렉션에 담는다.
+# ※ web 조회측 setup_mico/simulation_db.py 의 TABLE_PREFIX /
+#   KEEP_SPACE_IN_TABLE_NAME / table_name() 과 반드시 동일하게 유지할 것
+#   (다르면 web 이 컬렉션을 못 찾는다). 두 환경이 분리 배포되므로 각자 정의한다.
 
-    CSV(Spotfire) 는 zone 별 파일로 나뉘어 있었으나 DB 는 학습 테이블과 같은 규칙의
-    테이블 1개(MICO_Simulation_{Lot_Code}_{Oper_Desc}_{Fab})에 ZONE 컬럼으로 담는다.
-    한 Product 안에 여러 Lot_Code / Fab 가 섞여 있어도 키별로 테이블이 분리된다.
+TABLE_PREFIX = 'MICO_Simulation'
+
+# 컬렉션명에 Oper_Desc 의 공백을 그대로 둘지 여부
+KEEP_SPACE_IN_TABLE_NAME = True
+
+
+def table_name(lot_code, oper_desc, fab):
+    oper = str(oper_desc)
+    if not KEEP_SPACE_IN_TABLE_NAME:
+        oper = oper.replace(' ', '_')
+    return f'{TABLE_PREFIX}_{lot_code}_{oper}_{fab}'
+
+
+def _clear_collection(collection):
+    """이전 실행 결과 제거 (Simulation 은 매 실행이 전체 재계산 → 누적하면 중복)."""
+    try:
+        client = MongoClient(_MICO_URL, serverSelectionTimeoutMS=5000)
+        try:
+            removed = client[_MICO_DB][collection].delete_many({}).deleted_count
+            if isinstance(removed, int) and removed:
+                print(f'    [Mongo] {collection}: 이전 결과 {removed}건 삭제')
+        finally:
+            client.close()
+    except Exception as e:
+        print(f'    ! [Mongo] {collection} 이전 결과 삭제 실패 → 중복 적재 가능: {e}')
+
+
+def _save_results_db(zones, extra_zones):
+    """zone 별 누적 결과를 학습값과 같은 MongoDB 에 저장.
+
+    CSV(Spotfire) 는 zone 별 파일로 나뉘어 있었으나 MongoDB 는 학습 테이블과 같은 규칙의
+    컬렉션 1개(MICO_Simulation_{Lot_Code}_{Oper_Desc}_{Fab})에 ZONE 필드로 담는다.
+    한 Product 안에 여러 Lot_Code / Fab 가 섞여 있어도 키별로 컬렉션이 분리된다.
     """
     df = _concat_zones(zones, ['13P', 'EDGE', 'EXED'] + list(extra_zones))
     if df.empty:
-        print('  [DB] 저장할 Simulation 결과 없음')
+        print('  [Mongo] 저장할 Simulation 결과 없음')
         return
 
     key_cols = ['Lot_Code', 'Oper_Desc', 'Fab']
     if any(c not in df.columns for c in key_cols):
-        print(f'  ! [DB] 키 컬럼 누락({key_cols}) → DB 저장 skip')
+        print(f'  ! [Mongo] 키 컬럼 누락({key_cols}) → 저장 skip')
         return
 
     # 산식 재료만 남긴다 (중간 계산 컬럼·산식 결과 컬럼은 적재하지 않음)
     keep = [c for c in SAVE_COLUMNS if c in df.columns]
     missing = [c for c in SAVE_COLUMNS if c not in df.columns]
     if missing:
-        print(f'  [DB] 미생성 컬럼 {len(missing)}개 skip: {", ".join(missing)}')
+        print(f'  [Mongo] 미생성 컬럼 {len(missing)}개 skip: {", ".join(missing)}')
 
     for (lot_code, oper_desc, fab), part in df.groupby(key_cols, dropna=False):
-        Result_DB.save_simulation(part[keep], lot_code, oper_desc, fab, mode='replace')
+        collection = table_name(lot_code, oper_desc, fab)
+        _clear_collection(collection)
+        mongodb_controller(_MICO_URL, _MICO_DB, collection).push_df(part[keep])
+        print(f'    [Mongo] {collection}: {len(part)}행 저장')
 
 
 # ── 메인 실행 ──────────────────────────────────────────────────────────────
