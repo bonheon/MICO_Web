@@ -124,6 +124,9 @@ class Module_Get:
         ITM set-up 여부에 따라 자동 분기:
           - Pre_Thk_Para_ITM 있음 → ITM moving avg (detrend 없음),  Y(회귀) = BIAS (0-centered)
           - Pre_Thk_Para_ITM 없음 + Pre_Oper_Code 있음 → detrend + moving avg,  Y(회귀) = Detrend_Thk (0-centered)
+        단, Set-up의 Pre_Thk_VM_Source == 'POST' 이면 ITM이 있어도 detrend(post thk) 경로로 학습.
+        (사전공정 zone 차이가 입고 두께가 아닌 RR에 영향을 주는 공정용, ex. CBL HM NIT CMP.
+         Pre_Thk_Para_ITM 자체는 유지되므로 Simulation·RR 학습의 ITM 사용은 영향 없음)
         Pre_Oper2~4 회귀식은 두 경로 공통 적용.
         """
         Fab       = mico_info_key['Fab'].unique()[0]
@@ -153,7 +156,15 @@ class Module_Get:
                 key_df    = mico_info_key[mico_info_key['Thk_Para'] == Thk_Para].copy()
                 itm_paras = key_df['Pre_Thk_Para_ITM'].dropna()
                 itm_paras = itm_paras[itm_paras != ''].unique()
-                use_itm   = len(itm_paras) > 0          # ITM 계측값 경로 여부
+
+                # Pre_Thk_VM_Source == 'POST' → ITM set-up이 있어도 detrend(post thk) 경로 강제
+                # (컬럼이 없는 구버전 mico_info_key는 기존 동작(AUTO) 유지)
+                if 'Pre_Thk_VM_Source' in key_df.columns:
+                    force_post = (key_df['Pre_Thk_VM_Source'].fillna('') == 'POST').any()
+                else:
+                    force_post = False
+
+                use_itm   = len(itm_paras) > 0 and not force_post    # ITM 계측값 경로 여부
 
                 ref_key        = key_df.iloc[0]
                 Pre_Oper_Code2 = ref_key['Pre_Oper_Code2']
@@ -168,7 +179,7 @@ class Module_Get:
                 use_moving_avg = (not use_itm) and len(pre_oper_vals[pre_oper_vals != '']) > 0  # detrend + moving avg 경로
                 has_regression = isinstance(Pre_Oper_Code2, str) and Pre_Oper_Code2 != ''       # Pre_Oper2~4 회귀식 산출 여부
 
-                path  = 'ITM' if use_itm else 'Detrend'
+                path  = 'ITM' if use_itm else ('Detrend(POST 강제)' if force_post and len(itm_paras) > 0 else 'Detrend')
                 path += '+MA'   if use_moving_avg  else ''
                 path += '+회귀' if has_regression  else ''
                 print(f'    Thk_Para={Thk_Para} | 경로={path}')

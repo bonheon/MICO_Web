@@ -42,6 +42,7 @@
         <th class="text-center">Pre Target</th>
         <th class="text-center">Offset Group <i class="bi bi-info-circle text-muted ms-1" style="font-size:0.72rem; cursor:help;" data-bs-toggle="tooltip" data-bs-placement="top" data-bs-html="true" title="Layer Change의 Offset 값을 학습할 시 제품들을 Grouping 하는 Option<br>(ex. Y → 해당 공정은 다른 Device 합쳐서 학습)"></i></th>
         <th>Pre THK Para ITM</th>
+        <th class="text-center">Pre THK VM Source <i class="bi bi-info-circle text-muted ms-1" style="font-size:0.72rem; cursor:help;" data-bs-toggle="tooltip" data-bs-placement="top" data-bs-html="true" title="Pre Thickness VM 학습 y축 소스<br>AUTO: ITM 있으면 ITM BIAS, 없으면 Post THK Detrend<br>POST: ITM이 있어도 Post THK Detrend 경로로 학습"></i></th>
         <th>Pre Oper Code</th>
         <th>Pre Oper Desc</th>
         <th>Pre Oper Para</th>
@@ -76,6 +77,7 @@
         <th><input type="text" class="col-search form-control form-control-sm" placeholder="검색..." name="f_pre_target" value="{{ request.GET.f_pre_target }}"></th>
         <th><input type="text" class="col-search form-control form-control-sm" placeholder="검색..." name="f_offset_group" value="{{ request.GET.f_offset_group }}"></th>
         <th><input type="text" class="col-search form-control form-control-sm" placeholder="검색..." name="f_pre_thk_para_itm" value="{{ request.GET.f_pre_thk_para_itm }}"></th>
+        <th><input type="text" class="col-search form-control form-control-sm" placeholder="검색..." name="f_pre_thk_vm_source" value="{{ request.GET.f_pre_thk_vm_source }}"></th>
         <th><input type="text" class="col-search form-control form-control-sm" placeholder="검색..." name="f_pre_oper_code" value="{{ request.GET.f_pre_oper_code }}"></th>
         <th><input type="text" class="col-search form-control form-control-sm" placeholder="검색..." name="f_pre_oper_desc" value="{{ request.GET.f_pre_oper_desc }}"></th>
         <th><input type="text" class="col-search form-control form-control-sm" placeholder="검색..." name="f_pre_oper_para" value="{{ request.GET.f_pre_oper_para }}"></th>
@@ -120,6 +122,7 @@
               data-rr_period="{{ d.rr_period|default:'' }}"
               data-rr_if="{{ d.rr_if|default:'' }}"
               data-pre_thk_para_itm="{{ d.pre_thk_para_itm }}"
+              data-pre_thk_vm_source="{{ d.pre_thk_vm_source }}"
               data-pre_oper_code="{{ d.pre_oper_code }}"
               data-pre_oper_desc="{{ d.pre_oper_desc }}"
               data-pre_oper_para="{{ d.pre_oper_para }}"
@@ -154,6 +157,7 @@
               data-rr_period="{{ d.rr_period|default:'' }}"
               data-rr_if="{{ d.rr_if|default:'' }}"
               data-pre_thk_para_itm="{{ d.pre_thk_para_itm }}"
+              data-pre_thk_vm_source="{{ d.pre_thk_vm_source }}"
               data-pre_oper_code="{{ d.pre_oper_code }}"
               data-pre_oper_desc="{{ d.pre_oper_desc }}"
               data-pre_oper_para="{{ d.pre_oper_para }}"
@@ -199,6 +203,13 @@
           {% else %}<span class="text-muted">—</span>{% endif %}
         </td>
         <td>{{ d.pre_thk_para_itm|default:"—" }}</td>
+        <td class="text-center">
+          {% if d.pre_thk_vm_source == 'POST' %}
+            <span class="badge-pill" style="background:#fff7ed; color:#f97316;">POST</span>
+          {% else %}
+            <span class="badge-pill" style="background:#f0f2f7; color:#8993a8;">AUTO</span>
+          {% endif %}
+        </td>
         <td>{{ d.pre_oper_code|default:"—" }}</td>
         <td>{{ d.pre_oper_desc|default:"—" }}</td>
         <td>{{ d.pre_oper_para|default:"—" }}</td>
@@ -236,7 +247,7 @@
       </tr>
       {% empty %}
       <tr>
-        <td colspan="31" class="text-center text-muted py-5">
+        <td colspan="32" class="text-center text-muted py-5">
           <i class="bi bi-inbox" style="font-size:1.5rem; display:block; margin-bottom:0.4rem;"></i>
           등록된 Detail이 없습니다
         </td>
@@ -330,6 +341,10 @@
             <div class="col-4">
               <label class="form-label fw-semibold" style="font-size:0.82rem;">Pre THK Para ITM</label>
               {{ form.pre_thk_para_itm }}
+            </div>
+            <div class="col-4">
+              <label class="form-label fw-semibold" style="font-size:0.82rem;">Pre THK VM Source <i class="bi bi-info-circle text-muted ms-1" style="font-size:0.72rem; cursor:help;" data-bs-toggle="tooltip" data-bs-placement="top" data-bs-html="true" title="Pre Thickness VM 학습 y축 소스<br>AUTO: ITM 있으면 ITM BIAS, 없으면 Post THK Detrend<br>POST: ITM이 있어도 Post THK Detrend 경로로 학습"></i></label>
+              {{ form.pre_thk_vm_source }}
             </div>
             <div class="col-4">
               <label class="form-label fw-semibold" style="font-size:0.82rem;">FB Type</label>
@@ -574,6 +589,7 @@ function fillDetailForm(data) {
   document.getElementById('id_rr_period').value         = data.rr_period;
   document.getElementById('id_rr_if').value             = data.rr_if;
   document.getElementById('id_pre_thk_para_itm').value  = data.pre_thk_para_itm || '';
+  document.getElementById('id_pre_thk_vm_source').value = data.pre_thk_vm_source || 'AUTO';
   document.getElementById('id_pre_oper_code').value     = data.pre_oper_code || '';
   document.getElementById('id_pre_oper_desc').value     = data.pre_oper_desc || '';
   document.getElementById('id_pre_oper_para').value     = data.pre_oper_para || '';
@@ -595,7 +611,7 @@ function fillDetailForm(data) {
 const emptyDetail = {
   subcategory:'', apc_para:'', thk_para:'', target:'', pre_target:'',
   pre_thk_period:'', rr_para:'', offset_group:'', rr_max:'', rr_period:'', rr_if:'',
-  pre_thk_para_itm:'',
+  pre_thk_para_itm:'', pre_thk_vm_source:'AUTO',
   pre_oper_code:'', pre_oper_desc:'', pre_oper_para:'',
   pre_oper_code2:'', pre_oper_desc2:'', pre_oper_para2:'',
   pre_oper_code3:'', pre_oper_desc3:'', pre_oper_para3:'',

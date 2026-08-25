@@ -90,6 +90,8 @@ class Get_data:
                         'RR_Period'       : det.rr_period,
                         'Pad_Seperation'  : det.rr_if,
                         'Pre_Thk_Para_ITM': det.pre_thk_para_itm,
+                        # Pre_Thk VM 학습 y축 소스 (AUTO: ITM 유무 자동 분기 / POST: ITM 있어도 detrend)
+                        'Pre_Thk_VM_Source': getattr(det, 'pre_thk_vm_source', 'AUTO') or 'AUTO',
                         'Pre_Oper_Code'   : det.pre_oper_code,
                         'Pre_Oper_Desc'   : det.pre_oper_desc,
                         'Pre_Oper_Para'   : det.pre_oper_para,

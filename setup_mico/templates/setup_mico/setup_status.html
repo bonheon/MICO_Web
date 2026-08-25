@@ -330,6 +330,7 @@
                           data-rr_period="{{ d.rr_period|default:'' }}"
                           data-rr_if="{{ d.rr_if|default:'' }}"
                           data-pre_thk_para_itm="{{ d.pre_thk_para_itm }}"
+                          data-pre_thk_vm_source="{{ d.pre_thk_vm_source }}"
                           data-pre_oper_code="{{ d.pre_oper_code }}"
                           data-pre_oper_desc="{{ d.pre_oper_desc }}"
                           data-pre_oper_para="{{ d.pre_oper_para }}"
@@ -462,6 +463,10 @@
               {{ form.pre_thk_para_itm }}
             </div>
             <div class="col-4">
+              <label class="form-label fw-semibold" style="font-size:0.82rem;">Pre THK VM Source</label>
+              {{ form.pre_thk_vm_source }}
+            </div>
+            <div class="col-4">
               <label class="form-label fw-semibold" style="font-size:0.82rem;">FB Type</label>
               {{ form.fb_type }}
             </div>
@@ -570,6 +575,7 @@ function fillStatusDetailForm(d) {
   f.querySelector('#id_rr_period').value          = d.rr_period || '';
   f.querySelector('#id_rr_if').value              = d.rr_if || '';
   f.querySelector('#id_pre_thk_para_itm').value   = d.pre_thk_para_itm || '';
+  f.querySelector('#id_pre_thk_vm_source').value  = d.pre_thk_vm_source || 'AUTO';
   f.querySelector('#id_pre_oper_code').value      = d.pre_oper_code || '';
   f.querySelector('#id_pre_oper_desc').value      = d.pre_oper_desc || '';
   f.querySelector('#id_pre_oper_para').value      = d.pre_oper_para || '';
