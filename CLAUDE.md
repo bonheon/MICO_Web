@@ -126,8 +126,10 @@ ADMIN (superuser만 노출)
 - 선택 후 카드 하단에 oper_desc 설명 표시
 
 ### Merge Hub route(process_id) 적재 제외
-- `Merge_Data.run(..., exclude_process_ids=[...])`: 목록의 process_id 행은 merge DB 적재에서 제외
-- DataLake 초기 로드·HUB 업데이트 공통 적용 (`_prepare_merge_df`에서 필터)
+- `Merge_Data.run(..., exclude_process_ids=[...])`: 목록의 process_id 행은 적재에서 제외
+- merge DB: DataLake 초기 로드·HUB 업데이트 공통 적용 (`_prepare_merge_df`에서 필터)
+- PRE_THK_INFO: 사전공정 초기 로드(SRC/MES)·HUB upsert, simple·pivot 경로 모두 적용 (`_drop_excluded_routes`)
+  - 단, PRE_THK 데이터 소스 쿼리 결과에 process_id 컬럼(대소문자 무관)이 있어야 동작 — 없으면 해당 소스는 필터 없이 기존 동작
 - 각 `algorithm_new/merge/*/Merge_Hub.py`의 `EXCLUDE_PROCESS_IDS` 리스트에 route ID를 등록해서 사용 (기본 `[]` = 제외 없음)
 - 이미 적재된 과거 데이터는 지우지 않음 — 필요 시 MongoDB에서 해당 process_id 문서 수동 삭제
 
