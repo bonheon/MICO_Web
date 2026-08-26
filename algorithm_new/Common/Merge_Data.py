@@ -76,8 +76,16 @@ def _set_eqp_ch(df, Maker):
     return df
 
 
-def _prepare_merge_df(df, Product, oper_desc, Fab, Lot_Code, Maker):
+def _prepare_merge_df(df, Product, oper_desc, Fab, Lot_Code, Maker, exclude_process_ids=None):
     df = df.rename(columns={'request_dtts': 'Date'})
+    # 적재 제외 route 필터: exclude_process_ids 에 있는 process_id 행은 merge DB 에 넣지 않음
+    # (DataLake 초기 로드·HUB 업데이트 모두 이 함수를 거치므로 두 경로 공통 적용)
+    if exclude_process_ids and 'process_id' in df.columns:
+        before = len(df)
+        df = df[~df['process_id'].isin(exclude_process_ids)].copy()
+        dropped = before - len(df)
+        if dropped:
+            print(f'    [route 제외] process_id {sorted(exclude_process_ids)} 해당 {dropped}건 적재 제외')
     df = df.sort_values(by='Date')
     df['Product']   = Product
     df['OPER_DESC'] = oper_desc
@@ -112,7 +120,7 @@ def _push_with_index(mongo_db, collection, df, c, ctx):
 
 def _load_initial_lake(mongo_db, Fab, Maker, Lot_Code, Oper_Code,
                        Pre_Oper_Code, Recipe_ID_List, Recipe_info, Days,
-                       Product, oper_desc):
+                       Product, oper_desc, exclude_process_ids=None):
     if mongo_db.count_row() > 0:
         return
     print('MongoDB 없어 DataLake 30일치 조회 시작!!')
@@ -120,7 +128,7 @@ def _load_initial_lake(mongo_db, Fab, Maker, Lot_Code, Oper_Code,
         Fab, Maker, Lot_Code, Oper_Code,
         Pre_Oper_Code, Recipe_ID_List, Recipe_info, Days,
     )
-    df = _prepare_merge_df(df, Product, oper_desc, Fab, Lot_Code, Maker)
+    df = _prepare_merge_df(df, Product, oper_desc, Fab, Lot_Code, Maker, exclude_process_ids)
     mongo_db.push_df(df)
     del df
 
@@ -486,22 +494,29 @@ def _process_pre_oper(collection, info_df, i, data_source, Lot_Code, Fab, Data_l
 
 def run(Family, oper_desc,
         pre_oper_config=None,
-        Days=30):
+        Days=30,
+        exclude_process_ids=None):
     """Merge Hub 메인 실행
 
     Args:
-        Family          : 'NAND' or 'DRAM'
-        oper_desc       : 공정 이름 (예: 'M1 CU CMP')
-        pre_oper_config : {인덱스: data_source} dict
-                          예) {2: 'SRC_HUB', 3: 'SRC_HUB', 4: 'SRC_HUB'}
-                              {2: 'MES_HUB', 3: 'MES_HUB'}
-                              {} 또는 None → 사전공정 처리 없음
-        Days            : DataLake 초기 로드 기간 (일)
+        Family             : 'NAND' or 'DRAM'
+        oper_desc          : 공정 이름 (예: 'M1 CU CMP')
+        pre_oper_config    : {인덱스: data_source} dict
+                             예) {2: 'SRC_HUB', 3: 'SRC_HUB', 4: 'SRC_HUB'}
+                                 {2: 'MES_HUB', 3: 'MES_HUB'}
+                                 {} 또는 None → 사전공정 처리 없음
+        Days               : DataLake 초기 로드 기간 (일)
+        exclude_process_ids: 적재 제외할 route(process_id) 목록.
+                             예) ['ROUTE_A', 'ROUTE_B']
+                             해당 process_id 행은 DataLake 초기 로드·HUB 업데이트
+                             모두에서 merge DB 에 적재되지 않음.
+                             [] 또는 None → 제외 없음 (기존 동작)
 
     (채널 분리(AB/CD, L/R)는 web Set-up 의 Maker 값으로 키별 자동 처리)
     """
     if pre_oper_config is None:
         pre_oper_config = {}
+    exclude_process_ids = list(exclude_process_ids or [])
 
     c          = Cube_Connector(_CUBE_BOT_ID, _CUBE_BOT_TOKEN)
     start_time = time.time()
@@ -553,7 +568,7 @@ def run(Family, oper_desc,
                 _load_initial_lake(
                     mongo_db, Fab, Maker, Lot_Code, Oper_Code,
                     Pre_Oper_Code, Recipe_ID_List, Recipe_info, Days,
-                    Product, oper_desc,
+                    Product, oper_desc, exclude_process_ids,
                 )
 
                 # 3. HUB 최신 데이터 업데이트
@@ -563,9 +578,10 @@ def run(Family, oper_desc,
                 )
                 hub_cnt = 0
                 if not hub_df.empty:
-                    hub_df = _prepare_merge_df(hub_df, Product, oper_desc, Fab, Lot_Code, Maker)
+                    hub_df = _prepare_merge_df(hub_df, Product, oper_desc, Fab, Lot_Code, Maker, exclude_process_ids)
                     hub_cnt = len(hub_df)
-                    _push_with_index(mongo_db, merge_collection, hub_df, c, f'{Fab} {Lot_Code} {Oper_Desc}')
+                    if not hub_df.empty:
+                        _push_with_index(mongo_db, merge_collection, hub_df, c, f'{Fab} {Lot_Code} {Oper_Desc}')
 
                 print(f'  [merge] merge data 생성 완료: 이번 {hub_cnt}건 / 누적 {mongo_db.count_row()}건 '
                       f'({time.time() - start_time:.1f}s)')
