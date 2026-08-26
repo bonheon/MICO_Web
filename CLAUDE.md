@@ -125,6 +125,12 @@ ADMIN (superuser만 노출)
 - Category 선택 시 드롭다운에 `product / oper_id — oper_desc` 표시
 - 선택 후 카드 하단에 oper_desc 설명 표시
 
+### Merge Hub route(process_id) 적재 제외
+- `Merge_Data.run(..., exclude_process_ids=[...])`: 목록의 process_id 행은 merge DB 적재에서 제외
+- DataLake 초기 로드·HUB 업데이트 공통 적용 (`_prepare_merge_df`에서 필터)
+- 각 `algorithm_new/merge/*/Merge_Hub.py`의 `EXCLUDE_PROCESS_IDS` 리스트에 route ID를 등록해서 사용 (기본 `[]` = 제외 없음)
+- 이미 적재된 과거 데이터는 지우지 않음 — 필요 시 MongoDB에서 해당 process_id 문서 수동 삭제
+
 ### Jupyter 노트북
 - `notebooks/mico_setup_query.ipynb`: SQLite 직접 연결, Set-up 전체 계층 DataFrame 조회
 
