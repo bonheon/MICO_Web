@@ -91,7 +91,8 @@ class Get_data:
                         'Pad_Seperation'  : det.rr_if,
                         'Pre_Thk_Para_ITM': det.pre_thk_para_itm,
                         # Pre_Thk VM 학습 y축 소스 (AUTO: ITM 유무 자동 분기 / POST: ITM 있어도 detrend)
-                        'Pre_Thk_VM_Source': getattr(det, 'pre_thk_vm_source', 'AUTO') or 'AUTO',
+                        # 모델 default='AUTO' + choices(AUTO/POST) 라 항상 값이 채워짐
+                        'Pre_Thk_VM_Source': det.pre_thk_vm_source,
                         'Pre_Oper_Code'   : det.pre_oper_code,
                         'Pre_Oper_Desc'   : det.pre_oper_desc,
                         'Pre_Oper_Para'   : det.pre_oper_para,
