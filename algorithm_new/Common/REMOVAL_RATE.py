@@ -154,7 +154,16 @@ class Removal_Rate_Get:
 
         no_pre_thk   = Pre_Thk_Para == '' or pd.isna(Pre_Thk_Para)
         is_bias_type = key.FB_Type == 'PRESSURE'
-        vm_col       = (Thk_Para if no_pre_thk else Pre_Thk_Para) + '_VM'
+
+        # VM 컬럼명은 Set-up(ITM 유무)이 아니라 '실제로 학습·적재된 결과'를 따라간다.
+        #   ITM 경로     → _Period 에 Pre_THK_Para(ITM 파라) 이름으로 저장 → {ITM 파라}_VM
+        #   detrend 경로 → _Period 에 THK_Para(후공정 파라) 이름으로 저장 → {THK_Para}_VM
+        # Pre_Thk_VM_Source='POST' 는 ITM Set-up 을 남긴 채 detrend 로 학습하므로
+        # ITM 유무만 보면 존재하지 않는 {ITM 파라}_VM 을 찾게 된다.
+        # → load_pre_thk_data 가 merge_df 에 실제로 만든 컬럼을 보고 결정한다.
+        #   (Set-up 과 학습 결과가 어긋나도 조회 이름이 학습 결과를 따라감)
+        itm_vm_col   = None if no_pre_thk else Pre_Thk_Para + '_VM'
+        vm_col       = itm_vm_col if (itm_vm_col is not None and itm_vm_col in temp_data3.columns) else Thk_Para + '_VM'
         iter_col     = 'rr_key' if group_mode else 'eq_recipe'
 
         for x in temp_data3['eqp_model'].unique():
