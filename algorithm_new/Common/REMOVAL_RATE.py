@@ -10,6 +10,38 @@ import numpy as np
 from pymongo import MongoClient
 
 
+def _normalize_thk_para(Pre_Thk_Table):
+    """_Period 테이블의 THK_Para 를 VM 컬럼명 기준으로 정규화.
+
+    ITM 경로 학습 행    : Pre_THK_Para(ITM 파라) + THK_Para(후공정 파라) 둘 다 적재
+    detrend 경로 학습 행: THK_Para 만 적재 (Pre_THK_Para 없음)
+
+    두 경로는 같은 _Period 컬렉션에 append 되므로 한 테이블에 섞일 수 있다.
+    (같은 공정을 AUTO→POST 로 바꾼 경우, 또는 Thk_Para 별로 경로가 다른 경우)
+
+    예전에는 'Pre_THK_Para 컬럼이 있으면 THK_Para 를 통째로 drop' 하는 컬럼 단위
+    처리였다. 이 경우 Pre_THK_Para 가 없는 detrend 행의 THK_Para 가 NaN 이 되어
+    이후 `Thk_key + '_VM'` 에서 TypeError(float + str) 가 발생했다.
+    → 행 단위로 'ITM 파라가 있으면 그것을, 없으면 원래 THK_Para 를' 쓰도록 수정.
+    """
+    if 'Pre_THK_Para' in Pre_Thk_Table.columns:
+        itm_para = Pre_Thk_Table['Pre_THK_Para'].replace('', np.nan)
+        if 'THK_Para' in Pre_Thk_Table.columns:
+            Pre_Thk_Table['THK_Para'] = itm_para.fillna(Pre_Thk_Table['THK_Para'])
+        else:
+            Pre_Thk_Table['THK_Para'] = itm_para
+        Pre_Thk_Table = Pre_Thk_Table.drop(columns='Pre_THK_Para')
+
+    # 그래도 THK_Para 가 비어 있는 행(구버전·불완전 문서)은 학습 대상에서 제외
+    if 'THK_Para' in Pre_Thk_Table.columns:
+        bad = Pre_Thk_Table['THK_Para'].isna()
+        if bad.any():
+            print(f'    [경고] THK_Para 없는 _Period 문서 {int(bad.sum())}건 제외')
+            Pre_Thk_Table = Pre_Thk_Table[~bad].copy()
+
+    return Pre_Thk_Table
+
+
 class Removal_Rate_Get:
 
 
@@ -357,11 +389,8 @@ class Removal_Rate_Get:
         if _cache_file.exists():
             print(f'    [Excel 캐시] {_cache_file.name} 로드')
             Pre_Thk_Table = pd.read_excel(_cache_file, parse_dates=['pre_oper_time'])
-            # ITM 학습 시 Pre_THK_Para(ITM 파라)와 THK_Para(후공정 파라)가 모두 적재된 경우,
-            # THK_Para를 제거하고 Pre_THK_Para를 THK_Para로 정규화하여 VM 컬럼명 일치
-            if 'Pre_THK_Para' in Pre_Thk_Table.columns:
-                Pre_Thk_Table = Pre_Thk_Table.drop(columns='THK_Para', errors='ignore')
-                Pre_Thk_Table.rename(columns={'Pre_THK_Para': 'THK_Para', 'pre_oper_time': 'Pre_Oper_Date'}, inplace=True)
+            # ITM 행/detrend 행이 섞여도 안전하게 THK_Para 정규화 (행 단위)
+            Pre_Thk_Table = _normalize_thk_para(Pre_Thk_Table)
             Pre_Thk_Table.rename(columns={'pre_oper_time': 'Pre_Oper_Date'}, inplace=True)
             has_pre_thk = 'Pre_Thk' in Pre_Thk_Table.columns  # MA 기반 VM 존재 여부
 
@@ -430,11 +459,8 @@ class Removal_Rate_Get:
 
             period_col    = 'MICO_PRE_THK_' + Lot_Code + '_' + Oper_Desc + '_' + Fab + '_Period'
             Pre_Thk_Table = pd.DataFrame(list(db[period_col].find({}, {'_id': False})))
-            # ITM 학습 시 Pre_THK_Para(ITM 파라)와 THK_Para(후공정 파라)가 모두 적재된 경우,
-            # THK_Para를 제거하고 Pre_THK_Para를 THK_Para로 정규화하여 VM 컬럼명 일치
-            if 'Pre_THK_Para' in Pre_Thk_Table.columns:
-                Pre_Thk_Table = Pre_Thk_Table.drop(columns='THK_Para', errors='ignore')
-                Pre_Thk_Table.rename(columns={'Pre_THK_Para': 'THK_Para', 'pre_oper_time': 'Pre_Oper_Date'}, inplace=True)
+            # ITM 행/detrend 행이 섞여도 안전하게 THK_Para 정규화 (행 단위)
+            Pre_Thk_Table = _normalize_thk_para(Pre_Thk_Table)
             Pre_Thk_Table.rename(columns={'pre_oper_time': 'Pre_Oper_Date'}, inplace=True)
             has_pre_thk   = 'Pre_Thk' in Pre_Thk_Table.columns  # MA 기반 VM 존재 여부
 
