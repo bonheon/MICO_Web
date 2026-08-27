@@ -467,6 +467,18 @@
             </select>
           </div>
 
+          <div class="bulk-field-row d-flex align-items-center gap-3 mb-2 py-2" style="border-bottom:1px solid #f0f2f7;">
+            <input type="checkbox" name="update_fields" value="pre_thk_vm_source" id="chk_pre_thk_vm_source" class="bulk-chk" style="cursor:pointer; flex-shrink:0;">
+            <label for="chk_pre_thk_vm_source" class="fw-semibold mb-0" style="font-size:0.82rem; width:150px; cursor:pointer;">
+              Pre THK VM Source
+              <i class="bi bi-info-circle text-muted ms-1" style="font-size:0.72rem; cursor:help;" data-bs-toggle="tooltip" data-bs-placement="top" data-bs-html="true" title="Pre Thickness VM 학습 y축 소스<br>AUTO: ITM 있으면 ITM BIAS, 없으면 Post THK Detrend<br>POST: ITM이 있어도 Post THK Detrend 경로로 학습"></i>
+            </label>
+            <select name="bulk_pre_thk_vm_source" id="inp_pre_thk_vm_source" class="form-select form-select-sm" disabled style="flex:1;">
+              <option value="AUTO">AUTO</option>
+              <option value="POST">POST</option>
+            </select>
+          </div>
+
           {% include "setup_mico/_bulk_field_row.html" with field_name="rr_alarm_sigma" label="RR Alarm Sigma" input_type="number" %}
         </div>
         <div class="modal-footer" style="border-top:1px solid #e4e7ed; padding:1rem 1.5rem;">
@@ -700,6 +712,8 @@ document.getElementById('bulkEditModal').addEventListener('show.bs.modal', funct
     const inp = document.getElementById('inp_' + chk.value);
     if (inp) { inp.disabled = true; inp.value = ''; }
   });
+  // 빈 옵션이 없는 select 는 value='' 로 리셋하면 미선택(공란)이 되므로 기본값으로 복구
+  document.getElementById('inp_pre_thk_vm_source').value = 'AUTO';
 });
 
 // bulk 필드 체크박스 → 입력 활성화
