@@ -29,7 +29,7 @@ python3 manage.py runserver 0.0.0.0:8000
 |------|------|-----------|
 | Category | - | product, oper_id, oper_desc (CharField max_length=100) |
 | SubCategory | → Category (FK) | fab, device, recipe_id, maker |
-| Detail | → SubCategory (FK) | apc_para, thk_para, target, pre_target, pre_thk_period, rr_para, offset_group, rr_max, rr_period, if_rr |
+| Detail | → SubCategory (FK) | apc_para, thk_para, target, pre_target, pre_thk_period, rr_para, offset_group, rr_max, rr_period, if_rr, pre_thk_vm_source(AUTO/POST) |
 | RecipeGroup | → Category (FK), SubCategory (M2M) | name, subcategories |
 | Voc | → User (FK x2) | title, content, reply, replied_by, replied_at |
 | SetupHistory | → User (FK) | action, model_type, object_id, object_repr, changes (JSONField) |
@@ -163,9 +163,16 @@ ADMIN (superuser만 노출)
 
 ---
 
-## 논의 중 (미구현) — CBL HM NIT CMP Pre_Thk VM 학습 소스 문제
+## 구현 완료 — CBL HM NIT CMP Pre_Thk VM 학습 소스 문제
 
-> 2026-08-19 검토 완료, 구현 보류 상태. 별도 브랜치에서 진행 예정.
+> 2026-08-19 검토 완료 → 2026-08-25 방안 3 구현 완료 (브랜치 claude/cbl-hm-nit-cmp-post-thk-u4a9zw).
+> 단, "추가 개선" 항목(POST 모드 detrend RR 계산에 ITM 실측값 사용)은 **적용하지 않음** — detrend는 기존 `RR = (Pre_Target − post) / Pol_Time` 그대로 사용.
+>
+> 구현 내역: Detail 모델에 `pre_thk_vm_source` 필드(AUTO/POST, 기본 AUTO) 추가 (migration 0022),
+> Detail CRUD 화면(detail_list.html)·Set-up 현황 수정 모달(setup_status.html)에 선택 UI 추가,
+> Get_Data.py mico_info_key에 `Pre_Thk_VM_Source` 컬럼 추가,
+> Module.py `compute_pre_thk_vm`에서 `POST`면 ITM이 있어도 detrend 경로로 분기 (`use_itm = ITM존재 and not force_post`).
+> 컬럼이 없는 구버전 mico_info_key는 기존 AUTO 동작 유지. Simulation·RR 학습의 ITM 사용은 변경 없음.
 
 ### 문제
 - `Module.compute_pre_thk_vm`(algorithm_new/Common/Module.py:122~)은 **Pre_Thk_Para_ITM 존재 여부** 하나로 학습 경로를 결정

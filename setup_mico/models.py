@@ -89,6 +89,10 @@ class Detail(models.Model):
         ('TIME', 'TIME'),
         ('PRESSURE', 'PRESSURE'),
     ]
+    PRE_THK_VM_SOURCE_CHOICES = [
+        ('AUTO', 'AUTO'),
+        ('POST', 'POST'),
+    ]
 
     subcategory = models.ForeignKey(
         SubCategory,
@@ -107,6 +111,14 @@ class Detail(models.Model):
     rr_period = models.IntegerField(verbose_name='RR Period', null=True, blank=True)
     rr_if = models.IntegerField(verbose_name='RR IF', null=True, blank=True)
     pre_thk_para_itm = models.CharField(max_length=100, verbose_name='Pre THK Para ITM', blank=True, default='')
+    # Pre_Thk VM 학습 y축 소스 선택.
+    # AUTO: 기존 동작(ITM 있으면 ITM BIAS, 없으면 post thk detrend)
+    # POST: ITM Set-up이 있어도 post thk detrend 경로로 학습
+    #       (사전공정 zone 차이가 입고 두께가 아닌 RR에 영향을 주는 공정용, ex. CBL HM NIT CMP)
+    pre_thk_vm_source = models.CharField(
+        max_length=4, choices=PRE_THK_VM_SOURCE_CHOICES,
+        verbose_name='Pre THK VM Source', default='AUTO'
+    )
     pre_oper_code = models.CharField(max_length=100, verbose_name='Pre Oper Code', blank=True, default='')
     pre_oper_desc = models.CharField(max_length=100, verbose_name='Pre Oper Desc', blank=True, default='')
     pre_oper_para = models.CharField(max_length=100, verbose_name='Pre Oper Para', blank=True, default='')

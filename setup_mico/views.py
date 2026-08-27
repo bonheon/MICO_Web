@@ -40,6 +40,7 @@ def _det_fields(obj):
         'rr_para': obj.rr_para or '', 'offset_group': obj.offset_group or '',
         'rr_max': obj.rr_max, 'rr_period': obj.rr_period, 'rr_if': obj.rr_if,
         'pre_thk_para_itm': obj.pre_thk_para_itm or '',
+        'pre_thk_vm_source': obj.pre_thk_vm_source or 'AUTO',
         'pre_oper_code': obj.pre_oper_code or '', 'pre_oper_desc': obj.pre_oper_desc or '', 'pre_oper_para': obj.pre_oper_para or '',
         'pre_oper_code2': obj.pre_oper_code2 or '', 'pre_oper_desc2': obj.pre_oper_desc2 or '', 'pre_oper_para2': obj.pre_oper_para2 or '',
         'pre_oper_code3': obj.pre_oper_code3 or '', 'pre_oper_desc3': obj.pre_oper_desc3 or '', 'pre_oper_para3': obj.pre_oper_para3 or '',
@@ -1384,6 +1385,7 @@ def detail_list(request):
             'f_pre_target':       'pre_target__icontains',
             'f_offset_group':     'offset_group__icontains',
             'f_pre_thk_para_itm': 'pre_thk_para_itm__icontains',
+            'f_pre_thk_vm_source': 'pre_thk_vm_source__icontains',
             'f_pre_oper_code':    'pre_oper_code__icontains',
             'f_pre_oper_desc':    'pre_oper_desc__icontains',
             'f_pre_oper_para':    'pre_oper_para__icontains',
@@ -1474,9 +1476,13 @@ _BULK_ALLOWED = {
     'rr_max', 'rr_period', 'rr_if',
     'rr_weight', 'rr_count',
     'fb_type', 'rr_alarm_sigma',
+    'pre_thk_vm_source',
 }
 _BULK_INT = {'target', 'pre_target', 'pre_thk_period', 'rr_max', 'rr_period', 'rr_if', 'rr_weight', 'rr_count', 'rr_alarm_sigma'}
 _BULK_INT_NULL = {'rr_max', 'rr_period', 'rr_if', 'rr_weight', 'rr_count'}
+# 빈 값 저장이 불가한(blank=True 아닌) choice 필드 → 유효값이 아니면 해당 필드만 skip.
+# (체크만 하고 값을 고르지 않은 채 제출하면 select 가 미선택 상태로 전송되지 않아 '' 가 들어옴)
+_BULK_CHOICES = {'pre_thk_vm_source': {'AUTO', 'POST'}}
 
 
 @login_required
@@ -1505,6 +1511,8 @@ def detail_bulk_update(request):
                             continue
                 else:
                     val = raw
+                    if field in _BULK_CHOICES and val not in _BULK_CHOICES[field]:
+                        continue
                 setattr(detail, field, val)
             detail.save()
             diff = _diff(old, _det_fields(detail))
