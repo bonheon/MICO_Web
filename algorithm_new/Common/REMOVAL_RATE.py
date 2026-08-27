@@ -186,7 +186,14 @@ class Removal_Rate_Get:
 
         no_pre_thk   = Pre_Thk_Para == '' or pd.isna(Pre_Thk_Para)
         is_bias_type = key.FB_Type == 'PRESSURE'
-        vm_col       = (Thk_Para if no_pre_thk else Pre_Thk_Para) + '_VM'
+
+        # VM 컬럼명은 'Pre_Thk_VM 을 어느 이름으로 학습·저장했는가'를 따라가야 한다.
+        #   ITM 경로    → _Period 에 Pre_THK_Para(ITM 파라) 이름으로 저장 → {ITM 파라}_VM
+        #   detrend 경로 → _Period 에 THK_Para(후공정 파라) 이름으로 저장 → {THK_Para}_VM
+        # Pre_Thk_VM_Source='POST' 는 ITM Set-up 을 남겨둔 채 detrend 로 학습하므로,
+        # ITM 유무만 보면 존재하지 않는 {ITM 파라}_VM 을 찾아 KeyError 가 난다.
+        force_post   = str(getattr(key, 'Pre_Thk_VM_Source', 'AUTO') or 'AUTO') == 'POST'
+        vm_col       = (Thk_Para if (no_pre_thk or force_post) else Pre_Thk_Para) + '_VM'
         iter_col     = 'rr_key' if group_mode else 'eq_recipe'
 
         for x in temp_data3['eqp_model'].unique():
