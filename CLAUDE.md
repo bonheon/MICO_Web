@@ -152,6 +152,20 @@ ADMIN (superuser만 노출)
 
 ---
 
+## nAPC 이관 (MLflow / AI Studio) — 검토·예제 단계
+
+MICO를 HCP → nAPC로 전환하면서 핵심 알고리즘을 MLflow 기반 AI Studio에 올리는 작업.
+상세 내용·실행 순서·미해결 항목은 **`nAPC/README.md`** 참고.
+
+- `nAPC/simple_example.py` — 한 파일 최소 예제. pre_thk_vm → removal_rate → offset 3단계 체인을 사칙연산으로 구현
+- `nAPC/mico_deploy/` — 작업지시서 구조 전체 예제 (save/register/test)
+- 핵심: MLflow pyfunc는 ML 모델이 아니어도 됨. `predict()` 메서드만 있으면 임의 파이썬 코드 서빙 가능
+- 구조: 매시간 학습 = 스케줄 실행(타임아웃 없음) / 시뮬레이션 = 엔드포인트(60초 제한) 로 분리
+- merge_df(8.8MB)는 HTTP로 보내지 않고 컨테이너가 Mongo Hub에서 직접 조회
+- 이관 순서: offset → removal_rate → pre_thk_vm (역순, pre_thk_vm이 제일 무거움)
+
+---
+
 ## 예정 작업
 - 사내 DB 연동 (학습값, History, APC 수정건수, 산포 개선 전 항목)
 - Skynet API 실제 연동 (`_mock_skynet_api()` 함수 교체)
