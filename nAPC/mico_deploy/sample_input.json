@@ -1,0 +1,10 @@
+{
+  "dataframe_split": {
+    "columns": ["setup_json"],
+    "data": [
+      ["{\"equipment_id\": \"EQ001\", \"target\": 1000.0, \"measurements\": [1012.0, 1008.0, 1015.0]}"],
+      ["{\"equipment_id\": \"EQ002\", \"target\": 1000.0, \"measurements\": [985.0, 991.0, 989.0]}"],
+      ["{\"equipment_id\": \"EQ003\", \"target\": 1000.0, \"measurements\": []}"]
+    ]
+  }
+}

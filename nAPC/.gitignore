@@ -1,0 +1,8 @@
+# MLflow 실행 산출물 (save_model.py 실행하면 생김)
+mlruns/
+mico_model/
+mico_model.zip
+simple_model/
+
+__pycache__/
+.venv/
