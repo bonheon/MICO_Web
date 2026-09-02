@@ -85,17 +85,55 @@ python3 test_local.py --serve
 
 **(a) 가장 간단한 경로 — `simple_upload.py` 파일 하나.** 사칙연산만 든 모델을
 코드만으로 올린다. 폴더 구조도, zip 도, 별도 패키지도 필요 없다.
+
 ```bash
 cd nAPC
-python3 simple_upload.py                              # 주소 없이 → 로컬 저장만 (연습)
-python3 simple_upload.py --uri http://<host>:5000     # 주소 받은 뒤 → 실제 업로드
+python3 simple_upload.py                       # 주소 없이 → 로컬 저장만 (연습)
+
+export MLFLOW_TRACKING_USERNAME=aistudio       # 사내 AI Studio 계정
+export MLFLOW_TRACKING_PASSWORD='...'
+python3 simple_upload.py --uri https://<host>   # 실제 업로드
 ```
 → `run_id` / `model_uri` / `version` 이 찍히고, 마지막에 되불러서 3줄 출력.
-`MLFLOW_TRACKING_URI` 환경변수로 줘도 된다.
 
 모델 클래스를 파일 안에 두는 것이 핵심이다. MLflow 가 클래스를 cloudpickle 로
 **값 자체**로 직렬화하므로 `code_paths` 없이 이 파일 하나로 업로드가 끝난다.
 (검증: 이 파일이 없는 별도 프로세스에서 `models:/...` 로 로드해도 동작함)
+
+#### 사내 예제(ElasticNet/iris)와 맞춘 부분
+
+| 항목 | 사내 예제 | `simple_upload.py` |
+|---|---|---|
+| 인증 | `MLFLOW_TRACKING_USERNAME/PASSWORD` + `INSECURE_TLS=true` | 동일. `--user/--password` 또는 환경변수 |
+| 등록 | `log_model(registered_model_name=...)` 한 번에 | 동일 (`ModelInfo.registered_model_version` 로 버전 확인) |
+| `artifact_path` | `"ai_studio"` | 동일 |
+| `input_example` | `{"input":[{"name","shape","datatype","data"}]}` | 동일이 기본 (`--io-style aistudio`) |
+| 래퍼 위치 | `aiu_custom/predict.py` + `code_paths` | 이 파일 안 (code_paths 불필요) |
+| `pip_requirements` | `"requirements.txt"` 파일 경로 | 리스트로 버전 고정 (파일 경로도 가능) |
+
+**인증이 제일 중요하다.** 이 세 환경변수가 없으면 업로드가 401 로 떨어진다.
+사내 https 가 자체서명 인증서라 `MLFLOW_TRACKING_INSECURE_TLS=true` 도 필요하다.
+
+#### input_example 형식이 서빙 계약을 결정한다 (중요)
+
+사내 예제처럼 엔벨로프 dict 를 `input_example` 로 주면, MLflow 가 거기서
+**스키마를 추론해 강제**한다. 즉 그 뒤로는 호출도 반드시 그 모양이어야 한다.
+(`setup_json` DataFrame 을 보내면 `Model is missing inputs ['input']` 로 거부됨)
+
+또 MLflow 는 이 엔벨로프를 `input` 컬럼 1개짜리 DataFrame 으로 바꿔서
+`predict()` 에 넘긴다 (셀 = 블록 리스트). 그래서 래퍼가 그 모양을 풀 줄 알아야 한다.
+`simple_upload.py` 의 `extract_setups()` 가 엔벨로프·표준 DataFrame·리스트를 모두 받는다.
+
+로컬 scoring server 로 확인한 결과 — 아래 셋 다 **HTTP 200**:
+
+| payload | 결과 |
+|---|---|
+| `{"input": [{...}]}` (사내 예제 그대로) | 200, 응답이 배열 그대로 |
+| `{"inputs": {"input": [{...}]}}` | 200, `{"predictions": [...]}` |
+| `{"dataframe_split": {"columns":["input"], "data":[[...]]}}` | 200, `{"predictions": [...]}` |
+
+MLflow 표준 계약(`setup_json` 컬럼)으로 올리고 싶으면 `--io-style mlflow` 를 준다.
+AI Studio 엔드포인트가 어느 쪽을 요구하는지 확정되면 그쪽으로 고정하면 된다.
 
 **(b) 폴더 구조 경로 — `mico_deploy/register_model.py`.** 실제 알고리즘처럼
 코드가 여러 모듈로 나뉘고 artifact(설정 파일)가 붙는 경우.
