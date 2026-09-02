@@ -13,6 +13,13 @@ cloudpickle 로 '값 자체'로 직렬화하므로 code_paths·별도 패키지 
     # 1) 서버 주소를 아직 못 받았을 때 — 로컬 저장까지만 확인
     python3 simple_upload.py
 
+    Jupyter / AI Studio 노트북에서는 이 파일 내용을 셀에 그대로 붙여넣고 실행해도 되고,
+    옆에 두고 아래처럼 불러도 된다.
+
+        import simple_upload
+        simple_upload.run()                                    # 로컬 저장만
+        simple_upload.run(uri="https://<host>", password="...")  # 업로드
+
     # 2) 주소를 받은 뒤 — 실제 업로드. 방법 세 가지 중 아무거나.
     #    (a) 파일 위 TRACKING_* 상수를 채우고 그냥 실행 (사내 예제와 같은 방식)
     python3 simple_upload.py
@@ -31,6 +38,7 @@ import json
 import logging
 import os
 import shutil
+import sys
 
 import mlflow
 import mlflow.pyfunc
@@ -274,6 +282,36 @@ def save_local(io_style: str) -> None:
     print(f"\n로컬 저장 완료: {LOCAL_DIR}")
 
 
+def _in_notebook() -> bool:
+    """Jupyter / IPython 안에서 실행 중인지 판정한다."""
+    try:
+        from IPython import get_ipython
+        return get_ipython() is not None
+    except Exception:
+        return False
+
+
+def run(uri: str = "", user: str = "", password: str = "",
+        io_style: str = "aistudio") -> None:
+    """노트북 셀에서 바로 호출하는 진입점.
+
+        import simple_upload
+        simple_upload.run(uri="https://<host>", password="...")
+
+    인자를 비워두면 환경변수 → 파일 상단 상수 순으로 찾는다.
+    uri 가 끝내 비어 있으면 서버 없이 로컬 저장만 한다.
+    """
+    uri = uri or os.environ.get("MLFLOW_TRACKING_URI") or TRACKING_URI
+    user = user or os.environ.get("MLFLOW_TRACKING_USERNAME") or TRACKING_USERNAME
+    password = password or os.environ.get("MLFLOW_TRACKING_PASSWORD") or TRACKING_PASSWORD
+
+    if uri and "<" not in uri:
+        setup_auth(user, password)
+        upload(uri, io_style)
+    else:
+        save_local(io_style)
+
+
 def main() -> None:
     parser = argparse.ArgumentParser(description=__doc__)
     parser.add_argument(
@@ -297,13 +335,15 @@ def main() -> None:
         default="aistudio",
         help="input_example 형식. aistudio=사내 예제 엔벨로프(기본), mlflow=표준 DataFrame",
     )
-    args = parser.parse_args()
+    # Jupyter 셀에서 실행하면 sys.argv 에 커널 인자(-f kernel.json)가 들어 있다.
+    # parse_args 를 쓰면 그걸 모르는 인자로 보고 SystemExit 을 내서
+    # IPython 이 "To exit: use 'exit', 'quit', or Ctrl-D." 경고를 띄운다.
+    # parse_known_args 는 모르는 인자를 그냥 무시하므로 노트북에서도 그대로 돌아간다.
+    args, unknown = parser.parse_known_args()
+    if unknown and not _in_notebook():
+        print(f"무시된 인자: {unknown}\n")
 
-    if args.uri and "<" not in args.uri:
-        setup_auth(args.user, args.password)
-        upload(args.uri, args.io_style)
-    else:
-        save_local(args.io_style)
+    run(args.uri, args.user, args.password, args.io_style)
 
 
 if __name__ == "__main__":

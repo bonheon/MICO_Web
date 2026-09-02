@@ -91,6 +91,20 @@ cd nAPC
 python3 simple_upload.py            # 주소 없이 → 로컬 저장만 (연습)
 ```
 
+**Jupyter / AI Studio 노트북에서 쓸 때** — 파일 내용을 셀에 그대로 붙여넣고
+실행해도 되고, 옆에 두고 아래처럼 불러도 된다.
+
+```python
+import simple_upload
+simple_upload.run()                                      # 로컬 저장만
+simple_upload.run(uri="https://<host>", password="...")  # 업로드
+```
+
+> 노트북 셀은 `sys.argv` 에 커널 인자(`-f kernel.json`)를 달고 있다.
+> `argparse.parse_args()` 는 그걸 모르는 인자로 보고 `SystemExit` 을 내고,
+> IPython 이 그걸 잡아 `To exit: use 'exit', 'quit', or Ctrl-D.` 경고를 띄운다.
+> 그래서 이 파일은 `parse_known_args()` 를 써서 모르는 인자를 무시한다.
+
 업로드하려면 주소·계정을 줘야 한다. 셋 중 아무 방법이나 되고,
 **우선순위는 명령행 인자 > 환경변수 > 파일 상수**다.
 
