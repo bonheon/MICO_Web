@@ -4,7 +4,9 @@ MICO를 HCP → nAPC로 전환하면서, 핵심 알고리즘을 MLflow 기반 AI
 올리기 위한 검토·예제 폴더.
 
 - `MICO MLflow 작업지시서.md` — 원본 작업지시서
-- `simple_example.py` — **여기부터 시작.** 한 파일짜리 최소 예제
+- `simple_example.py` — **여기부터 시작.** 한 파일짜리 최소 예제 (로컬 저장까지)
+- `simple_upload.py` — **사내에서 실제로 올려볼 파일.** 한 파일 + 사칙연산만으로
+  tracking 서버에 업로드 + 레지스트리 등록까지
 - `mico_deploy/` — 작업지시서 구조를 그대로 구현한 전체 예제
 
 ---
@@ -78,9 +80,26 @@ python3 test_local.py --serve
 `--env-manager local` 을 빼면 conda 환경을 새로 만들려다 사내망에서 막힌다.
 `gunicorn: not found` (return code 127) 가 나오면 gunicorn 이 PATH에 없는 것.
 
-### 5단계 — tracking 서버 등록
-주소를 받은 뒤 `register_model.py` 의 `TRACKING_URI` 를 채우고 실행.
-받기 전에는 건너뛴다.
+### 5단계 — tracking 서버 업로드
+주소를 받은 뒤 실행한다. 받기 전에는 건너뛴다. 두 가지 경로가 있다.
+
+**(a) 가장 간단한 경로 — `simple_upload.py` 파일 하나.** 사칙연산만 든 모델을
+코드만으로 올린다. 폴더 구조도, zip 도, 별도 패키지도 필요 없다.
+```bash
+cd nAPC
+python3 simple_upload.py                              # 주소 없이 → 로컬 저장만 (연습)
+python3 simple_upload.py --uri http://<host>:5000     # 주소 받은 뒤 → 실제 업로드
+```
+→ `run_id` / `model_uri` / `version` 이 찍히고, 마지막에 되불러서 3줄 출력.
+`MLFLOW_TRACKING_URI` 환경변수로 줘도 된다.
+
+모델 클래스를 파일 안에 두는 것이 핵심이다. MLflow 가 클래스를 cloudpickle 로
+**값 자체**로 직렬화하므로 `code_paths` 없이 이 파일 하나로 업로드가 끝난다.
+(검증: 이 파일이 없는 별도 프로세스에서 `models:/...` 로 로드해도 동작함)
+
+**(b) 폴더 구조 경로 — `mico_deploy/register_model.py`.** 실제 알고리즘처럼
+코드가 여러 모듈로 나뉘고 artifact(설정 파일)가 붙는 경우.
+`TRACKING_URI` 를 채우고 실행한다.
 
 ---
 
