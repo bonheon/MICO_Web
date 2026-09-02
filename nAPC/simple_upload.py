@@ -13,12 +13,16 @@ cloudpickle 로 '값 자체'로 직렬화하므로 code_paths·별도 패키지 
     # 1) 서버 주소를 아직 못 받았을 때 — 로컬 저장까지만 확인
     python3 simple_upload.py
 
-    # 2) 주소를 받은 뒤 — 실제 업로드 (계정은 환경변수로)
+    # 2) 주소를 받은 뒤 — 실제 업로드. 방법 세 가지 중 아무거나.
+    #    (a) 파일 위 TRACKING_* 상수를 채우고 그냥 실행 (사내 예제와 같은 방식)
+    python3 simple_upload.py
+
+    #    (b) 환경변수로
     export MLFLOW_TRACKING_USERNAME=aistudio
-    export MLFLOW_TRACKING_PASSWORD='...'          # 사내 AI Studio 계정
+    export MLFLOW_TRACKING_PASSWORD='...'
     python3 simple_upload.py --uri https://<ai-studio-mlflow-host>
 
-    # 환경변수 대신 인자로 줘도 된다
+    #    (c) 명령행 인자로
     python3 simple_upload.py --uri https://<host> --user aistudio --password '...'
 """
 
@@ -35,11 +39,20 @@ from mlflow.models.signature import infer_signature
 
 logging.getLogger("mlflow").setLevel(logging.ERROR)   # 업로드 로그 노이즈 억제
 
+# ── 0. 접속 정보 ──────────────────────────────────────────
+# 여기를 채우면 export 없이 `python3 simple_upload.py` 만으로 업로드된다
+# (사내 예제와 같은 방식). 비워두면 환경변수 / 명령행 인자로 받는다.
+# 우선순위: 명령행 인자 > 환경변수 > 아래 상수
+#
+# 주의: 비밀번호를 채운 채로 커밋하지 말 것. 공유 저장소에 올라간다.
+TRACKING_URI = ""                  # 예: "https://<ai-studio-mlflow-host>"
+TRACKING_USERNAME = "aistudio"
+TRACKING_PASSWORD = ""             # 예: "aistudio123!"
+
 EXPERIMENT_NAME = "MICO"
 ARTIFACT_PATH = "ai_studio"        # 사내 예제와 동일하게 맞춤
 REGISTERED_MODEL_NAME = "MICO_Algorithm_Simple"
 LOCAL_DIR = "./simple_upload_model"
-DEFAULT_USERNAME = "aistudio"
 
 # 서빙 컨테이너에 설치될 의존성. 버전 고정 필수.
 # 사내 예제처럼 requirements.txt 파일 경로를 줘도 된다 (pip_requirements="requirements.txt").
@@ -265,18 +278,18 @@ def main() -> None:
     parser = argparse.ArgumentParser(description=__doc__)
     parser.add_argument(
         "--uri",
-        default=os.environ.get("MLFLOW_TRACKING_URI", ""),
+        default=os.environ.get("MLFLOW_TRACKING_URI") or TRACKING_URI,
         help="MLflow tracking 서버 주소. 없으면 로컬 저장만 한다.",
     )
     parser.add_argument(
         "--user",
-        default=os.environ.get("MLFLOW_TRACKING_USERNAME", DEFAULT_USERNAME),
-        help=f"tracking 서버 계정 (기본 {DEFAULT_USERNAME})",
+        default=os.environ.get("MLFLOW_TRACKING_USERNAME") or TRACKING_USERNAME,
+        help=f"tracking 서버 계정 (기본 {TRACKING_USERNAME!r})",
     )
     parser.add_argument(
         "--password",
-        default=os.environ.get("MLFLOW_TRACKING_PASSWORD", ""),
-        help="tracking 서버 비밀번호. MLFLOW_TRACKING_PASSWORD 환경변수 권장.",
+        default=os.environ.get("MLFLOW_TRACKING_PASSWORD") or TRACKING_PASSWORD,
+        help="tracking 서버 비밀번호. 커밋을 피하려면 MLFLOW_TRACKING_PASSWORD 환경변수 권장.",
     )
     parser.add_argument(
         "--io-style",

@@ -88,12 +88,28 @@ python3 test_local.py --serve
 
 ```bash
 cd nAPC
-python3 simple_upload.py                       # 주소 없이 → 로컬 저장만 (연습)
-
-export MLFLOW_TRACKING_USERNAME=aistudio       # 사내 AI Studio 계정
-export MLFLOW_TRACKING_PASSWORD='...'
-python3 simple_upload.py --uri https://<host>   # 실제 업로드
+python3 simple_upload.py            # 주소 없이 → 로컬 저장만 (연습)
 ```
+
+업로드하려면 주소·계정을 줘야 한다. 셋 중 아무 방법이나 되고,
+**우선순위는 명령행 인자 > 환경변수 > 파일 상수**다.
+
+```bash
+# (a) 파일 위 TRACKING_URI / TRACKING_USERNAME / TRACKING_PASSWORD 를 채우고 (사내 예제 방식)
+python3 simple_upload.py
+
+# (b) 환경변수로
+export MLFLOW_TRACKING_USERNAME=aistudio
+export MLFLOW_TRACKING_PASSWORD='...'
+python3 simple_upload.py --uri https://<host>
+
+# (c) 명령행 인자로
+python3 simple_upload.py --uri https://<host> --user aistudio --password '...'
+```
+
+어느 방법을 쓰든 `setup_auth()` 가 `MLFLOW_TRACKING_USERNAME` / `PASSWORD` /
+`INSECURE_TLS=true` 를 `os.environ` 에 세팅한 뒤 업로드한다.
+(a) 를 쓸 때 **비밀번호를 채운 채로 커밋하지 않도록 주의.**
 → `run_id` / `model_uri` / `version` 이 찍히고, 마지막에 되불러서 3줄 출력.
 
 모델 클래스를 파일 안에 두는 것이 핵심이다. MLflow 가 클래스를 cloudpickle 로
