@@ -86,84 +86,42 @@ python3 test_local.py --serve
 **(a) 가장 간단한 경로 — `simple_upload.py` 파일 하나.** 사칙연산만 든 모델을
 코드만으로 올린다. 폴더 구조도, zip 도, 별도 패키지도 필요 없다.
 
+**사내 예제(ElasticNet/iris)와 같은 순서·구조**로 써 뒀다. 위에서 아래로 한 번
+훑으면 되고, Jupyter 셀에 그대로 붙여넣어도 된다 (`# %%` 가 셀 구분자).
+
+| 셀 | 하는 일 | 사내 예제의 대응 |
+|---|---|---|
+| [1] | 접속 설정 (`{TODO}` 두 개) | tracking uri / 계정 / experiment |
+| [2] | 데이터 준비 (set-up 3건) | `load_iris` + `train_test_split` |
+| [3] | 알고리즘 정의 (사칙연산 3단계) | `ElasticNet` + `compute_metrics` |
+| [4] | `input_example` 엔벨로프 + json 저장 | 동일 |
+| [5] | 래퍼 `ModelWrapper` | `aiu_custom/predict.py` |
+| [6] | `config/config.json` 저장 | 동일 |
+| [7] | `with mlflow.start_run():` 로깅 + 등록 | 동일 |
+| [8] | 되불러서 검증 | (추가) |
+
 ```bash
+pip install mlflow==2.16.2 pandas
 cd nAPC
-python3 simple_upload.py            # 주소 없이 → 로컬 저장만 (연습)
+python3 simple_upload.py        # {TODO} 그대로면 로컬 저장만 (연습)
 ```
 
-**Jupyter / AI Studio 노트북에서 쓸 때** — 파일 내용을 셀에 그대로 붙여넣고
-실행해도 되고, 옆에 두고 아래처럼 불러도 된다.
+업로드하려면 [1] 의 `{TODO}` 두 곳만 채우고 다시 실행한다.
 
 ```python
-import simple_upload
-simple_upload.run()                                      # 로컬 저장만
-simple_upload.run(uri="https://<host>", password="...")  # 업로드
+mlflow_tracking_uri = "https://<ai-studio-mlflow-host>"
+mlflow_tracking_password = "..."      # 채운 채로 커밋하지 말 것
 ```
 
-> 노트북 셀은 `sys.argv` 에 커널 인자(`-f kernel.json`)를 달고 있다.
-> `argparse.parse_args()` 는 그걸 모르는 인자로 보고 `SystemExit` 을 내고,
-> IPython 이 그걸 잡아 `To exit: use 'exit', 'quit', or Ctrl-D.` 경고를 띄운다.
-> 그래서 이 파일은 `parse_known_args()` 를 써서 모르는 인자를 무시한다.
+노트북에서는 파일 내용을 셀에 붙여넣어도 되고 `%run simple_upload.py` 도 된다.
 
-업로드하려면 주소·계정을 줘야 한다. 셋 중 아무 방법이나 되고,
-**우선순위는 명령행 인자 > 환경변수 > 파일 상수**다.
+`version = 1` 과 `models_uri` 가 찍히면 **사칙연산만으로 업로드 + 레지스트리
+등록이 된다**는 게 확인된 것이다.
 
-```bash
-# (a) 파일 위 TRACKING_URI / TRACKING_USERNAME / TRACKING_PASSWORD 를 채우고 (사내 예제 방식)
-python3 simple_upload.py
-
-# (b) 환경변수로
-export MLFLOW_TRACKING_USERNAME=aistudio
-export MLFLOW_TRACKING_PASSWORD='...'
-python3 simple_upload.py --uri https://<host>
-
-# (c) 명령행 인자로
-python3 simple_upload.py --uri https://<host> --user aistudio --password '...'
-```
-
-어느 방법을 쓰든 `setup_auth()` 가 `MLFLOW_TRACKING_USERNAME` / `PASSWORD` /
-`INSECURE_TLS=true` 를 `os.environ` 에 세팅한 뒤 업로드한다.
-(a) 를 쓸 때 **비밀번호를 채운 채로 커밋하지 않도록 주의.**
-→ `run_id` / `model_uri` / `version` 이 찍히고, 마지막에 되불러서 3줄 출력.
-
-모델 클래스를 파일 안에 두는 것이 핵심이다. MLflow 가 클래스를 cloudpickle 로
-**값 자체**로 직렬화하므로 `code_paths` 없이 이 파일 하나로 업로드가 끝난다.
+사내 예제와 다른 점은 하나 — 래퍼를 별도 모듈이 아니라 파일 안에 뒀다.
+MLflow 가 클래스를 cloudpickle 로 **값 자체**로 직렬화하므로 `code_paths` 없이
+이 파일 하나로 업로드가 끝난다.
 (검증: 이 파일이 없는 별도 프로세스에서 `models:/...` 로 로드해도 동작함)
-
-#### 사내 예제(ElasticNet/iris)와 맞춘 부분
-
-| 항목 | 사내 예제 | `simple_upload.py` |
-|---|---|---|
-| 인증 | `MLFLOW_TRACKING_USERNAME/PASSWORD` + `INSECURE_TLS=true` | 동일. `--user/--password` 또는 환경변수 |
-| 등록 | `log_model(registered_model_name=...)` 한 번에 | 동일 (`ModelInfo.registered_model_version` 로 버전 확인) |
-| `artifact_path` | `"ai_studio"` | 동일 |
-| `input_example` | `{"input":[{"name","shape","datatype","data"}]}` | 동일이 기본 (`--io-style aistudio`) |
-| 래퍼 위치 | `aiu_custom/predict.py` + `code_paths` | 이 파일 안 (code_paths 불필요) |
-| `pip_requirements` | `"requirements.txt"` 파일 경로 | 리스트로 버전 고정 (파일 경로도 가능) |
-
-**인증이 제일 중요하다.** 이 세 환경변수가 없으면 업로드가 401 로 떨어진다.
-사내 https 가 자체서명 인증서라 `MLFLOW_TRACKING_INSECURE_TLS=true` 도 필요하다.
-
-#### input_example 형식이 서빙 계약을 결정한다 (중요)
-
-사내 예제처럼 엔벨로프 dict 를 `input_example` 로 주면, MLflow 가 거기서
-**스키마를 추론해 강제**한다. 즉 그 뒤로는 호출도 반드시 그 모양이어야 한다.
-(`setup_json` DataFrame 을 보내면 `Model is missing inputs ['input']` 로 거부됨)
-
-또 MLflow 는 이 엔벨로프를 `input` 컬럼 1개짜리 DataFrame 으로 바꿔서
-`predict()` 에 넘긴다 (셀 = 블록 리스트). 그래서 래퍼가 그 모양을 풀 줄 알아야 한다.
-`simple_upload.py` 의 `extract_setups()` 가 엔벨로프·표준 DataFrame·리스트를 모두 받는다.
-
-로컬 scoring server 로 확인한 결과 — 아래 셋 다 **HTTP 200**:
-
-| payload | 결과 |
-|---|---|
-| `{"input": [{...}]}` (사내 예제 그대로) | 200, 응답이 배열 그대로 |
-| `{"inputs": {"input": [{...}]}}` | 200, `{"predictions": [...]}` |
-| `{"dataframe_split": {"columns":["input"], "data":[[...]]}}` | 200, `{"predictions": [...]}` |
-
-MLflow 표준 계약(`setup_json` 컬럼)으로 올리고 싶으면 `--io-style mlflow` 를 준다.
-AI Studio 엔드포인트가 어느 쪽을 요구하는지 확정되면 그쪽으로 고정하면 된다.
 
 **(b) 폴더 구조 경로 — `mico_deploy/register_model.py`.** 실제 알고리즘처럼
 코드가 여러 모듈로 나뉘고 artifact(설정 파일)가 붙는 경우.

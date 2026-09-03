@@ -5,6 +5,8 @@ mico_model.zip
 simple_model/
 simple_upload_model/
 mlflow.db
+input_example.json
+config/
 
 __pycache__/
 .venv/

@@ -159,9 +159,12 @@ MICO를 HCP → nAPC로 전환하면서 핵심 알고리즘을 MLflow 기반 AI 
 
 - `nAPC/simple_example.py` — 한 파일 최소 예제. pre_thk_vm → removal_rate → offset 3단계 체인을 사칙연산으로 구현 (로컬 저장까지)
 - `nAPC/simple_upload.py` — 위 예제 + tracking 서버 업로드/레지스트리 등록. 사내에서 실제로 올려볼 파일
+  - 사내 MLflow 예제(ElasticNet/iris)와 같은 순서·구조. `# %%` 셀 8개 선형 흐름, 노트북에 붙여넣기 가능
+  - 상단 `{TODO}` 2개(uri, password)만 채우면 업로드. 그대로 두면 로컬 저장만
   - 인증 필수: `MLFLOW_TRACKING_USERNAME/PASSWORD` + `MLFLOW_TRACKING_INSECURE_TLS=true` (없으면 401)
-  - `--io-style aistudio`(기본, 사내 예제 엔벨로프) / `mlflow`(표준 DataFrame) 선택
-  - input_example 형식이 서빙 계약을 결정함 — 엔벨로프를 주면 MLflow가 그 스키마를 강제
+  - input_example 형식이 서빙 계약을 결정함 — 엔벨로프를 주면 MLflow가 그 스키마를 강제하고,
+    predict에는 `input` 컬럼 1개짜리 DataFrame(셀=블록 리스트)으로 넘어옴
+  - 래퍼를 파일 안에 두면 cloudpickle이 값으로 직렬화 → `code_paths` 불필요
 - `nAPC/mico_deploy/` — 작업지시서 구조 전체 예제 (save/register/test)
 - 핵심: MLflow pyfunc는 ML 모델이 아니어도 됨. `predict()` 메서드만 있으면 임의 파이썬 코드 서빙 가능
 - 구조: 매시간 학습 = 스케줄 실행(타임아웃 없음) / 시뮬레이션 = 엔드포인트(60초 제한) 로 분리
