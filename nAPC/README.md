@@ -166,6 +166,26 @@ python3 mini_call.py       # req_url 채우고 실행
 
 `mini_upload.py` 는 config·artifact·load_context·predict_stream 없이
 `predict()` 하나뿐이고, `[a, b]` 를 받아 `a + b` 를 돌려준다.
+`mini_call.py` 는 url 만 채우면 되고 payload 를 코드 안에서 만든다.
+
+**`datatype` 은 `"ndarray"` 로 쓴다.** 사내 예제가 `type(sample_data).__name__`
+으로 만들어 낸 값이 그것이고, 사내 런타임이 이 값으로 분기할 가능성이 높다.
+(MLflow 자체는 이 값을 따지지 않는다 — `ndarray`/`FP64`/`BYTES` 셋 다 200 이 나온다.
+즉 이 필드를 읽는 쪽은 사내 서빙 런타임이다. `NOT_IMPLEMENTED` 가
+"모르는 datatype" 에서 나왔을 수 있다.)
+
+```python
+payload = {
+    "input": [
+        {
+            "name": "mico_example",
+            "shape": [3, 2],          # [행, 열]
+            "datatype": "ndarray",    # 여기가 핵심
+            "data": [[1.0, 2.0], [3.0, 4.0], [10.0, 5.0]],
+        }
+    ]
+}
+```
 
 - **이게 되면** 문제는 우리 모델의 입출력 형식(문자열 JSON)이다. 그 모양을
   숫자 배열로 바꾸면 된다.

@@ -34,7 +34,7 @@ input_example = {
         {
             "name": "mico",
             "shape": [len(sample_data), 2],
-            "datatype": "FP64",
+            "datatype": "ndarray",
             "data": sample_data,
         }
     ]
