@@ -4,7 +4,9 @@ MICO를 HCP → nAPC로 전환하면서, 핵심 알고리즘을 MLflow 기반 AI
 올리기 위한 검토·예제 폴더.
 
 - `MICO MLflow 작업지시서.md` — 원본 작업지시서
-- `simple_example.py` — **여기부터 시작.** 한 파일짜리 최소 예제 (로컬 저장까지)
+- `mini_upload.py` / `mini_call.py` — **가장 단순한 최소 재현.** 숫자 배열 in/out,
+  각각 50줄·15줄. 엔드포인트가 안 될 때 여기부터 좁힌다
+- `simple_example.py` — 한 파일짜리 최소 예제 (로컬 저장까지)
 - `simple_upload.py` — **사내에서 실제로 올려볼 파일.** 한 파일 + 사칙연산만으로
   tracking 서버에 업로드 + 레지스트리 등록까지
 - `simple_call.py` — 올린 모델을 **불러서 호출하고 반환값 확인**. `simple_upload.py` 다음
@@ -152,6 +154,26 @@ python3 simple_call.py
 > 그래서 `build_payload()` 로 호출할 때마다 새로 만든다.
 
 #### 엔드포인트가 `NOT_IMPLEMENTED` 를 돌려줄 때
+
+**먼저 `mini_upload.py` / `mini_call.py` 로 좁힌다.** 우리 모델이 문자열(JSON)을
+주고받는 게 사내 런타임과 안 맞을 수 있다. 사내 예제(ElasticNet/iris)는
+**숫자 배열 in / 숫자 배열 out** 이었으므로, 그 모양으로 최소 재현을 만들었다.
+
+```bash
+python3 mini_upload.py     # {TODO} 2개 채우고 실행 -> MICO_Mini 등록
+python3 mini_call.py       # req_url 채우고 실행
+```
+
+`mini_upload.py` 는 config·artifact·load_context·predict_stream 없이
+`predict()` 하나뿐이고, `[a, b]` 를 받아 `a + b` 를 돌려준다.
+
+- **이게 되면** 문제는 우리 모델의 입출력 형식(문자열 JSON)이다. 그 모양을
+  숫자 배열로 바꾸면 된다.
+- **이것도 안 되면** 모델 복잡도 문제가 아니다. 사내 서빙 런타임이 pyfunc 를
+  그대로 부르지 않는 것이므로 담당자 확인이 필요하다 (아래 참고).
+
+로컬 MLflow 서버로 검증한 결과: `HTTP 200`, 본문 `[3.0, 7.0, 15.0]`.
+
 
 ```json
 {"error_code": "15001", "error_type": "NotImplementedError",
