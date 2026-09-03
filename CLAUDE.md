@@ -171,8 +171,8 @@ MICO를 HCP → nAPC로 전환하면서 핵심 알고리즘을 MLflow 기반 AI 
 - ModelWrapper는 `predict(context, model_input, params=None)` + `predict_stream()` 둘 다 구현 — 서빙 런타임 호출 방식 차이 대비
 - `nAPC/mini_upload.py` / `mini_call.py` — 가장 단순한 최소 재현 (숫자 배열 in/out, 50줄·15줄)
   - config·artifact·load_context·predict_stream 없이 predict() 하나
-  - **`input_example`을 `log_model`에 넘기지 않음** — 넘기면 signature가 추론돼 스키마가 강제되고
-    payload가 조금만 달라도 `Failed to enforce schema of data`로 죽는다
+  - **`input_example`을 반드시 `log_model`에 넘김** — 안 넘기면 `serving_input_example.json`이 안 생기고
+    사내 서빙 런타임이 요청을 해석하지 못한다. 대신 호출 payload를 input_example과 똑같이 맞출 것
   - signature 없으면 predict가 dict 원본을 받음(`x["input"][0]["data"]`), 있으면 DataFrame(`x["input"].iloc[0][0]["data"]`)
     → `get_rows()`가 양쪽 처리
   - 계산은 simple_upload.py 와 같은 3단계. 입력 `[a,b,post_thk,pol_time,target]` → 출력 `[offset,...]` 1차원

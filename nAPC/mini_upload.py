@@ -3,14 +3,19 @@
 입력 한 행 = [a, b, post_thk, pol_time, target]   (숫자 5개)
 출력      = [offset, offset, ...]                (행마다 숫자 1개, 1차원)
 
-핵심 두 가지:
+핵심 세 가지:
 
-1. **input_example 을 log_model 에 넘기지 않는다.**
-   넘기면 MLflow 가 거기서 signature 를 추론해 **스키마를 강제**하고,
-   payload 가 조금만 달라도 "Failed to enforce schema of data" 로 죽는다.
-   signature 가 없으면 검사 자체가 없어서 payload 가 predict 로 그냥 들어온다.
+1. **input_example 을 반드시 넘긴다.** 이걸 넘겨야 MLflow 가 모델 안에
+   `serving_input_example.json` 을 만들어 준다. 사내 MLflow 의 다른 모델에는
+   전부 있는 파일이고, 서빙 런타임이 이걸로 요청을 해석하는 것으로 보인다.
+   빼면 파일이 안 생기고 호출이 안 된다.
 
-2. **출력은 1차원.** 사내 예제의 ElasticNet 도 1차원 배열을 돌려준다.
+2. **input_example 과 실제 호출 payload 를 똑같이 맞춘다.** input_example 에서
+   signature 가 추론돼 스키마가 강제되므로, 다르면
+   "Failed to enforce schema of data" 가 난다. 예전에 이 에러가 났던 건
+   문자열(BYTES) 모델에 숫자 배열을 보냈기 때문이다.
+
+3. **출력은 1차원.** 사내 예제의 ElasticNet 도 1차원 배열을 돌려준다.
    2차원으로 돌려주면 런타임이 "setting an array element with a sequence" 로 죽을 수 있다.
 
 equipment_id 는 문자열이라 숫자 배열에 못 넣는다. 행 순서로 구분한다.
@@ -70,7 +75,7 @@ sample_data = [
     [ 7.0,  3.0,  2.0,  4.0,  30.0],
 ]
 
-# 호출할 때 쓰라고 파일로만 남긴다. log_model 에는 넘기지 않는다 (위 1번 참고).
+# log_model 에 넘기고(-> serving_input_example.json 생성), 호출용으로 파일로도 남긴다.
 input_example = {
     "input": [
         {
@@ -88,6 +93,7 @@ with mlflow.start_run() as run:
     info = mlflow.pyfunc.log_model(
         python_model=ModelWrapper(),
         artifact_path="ai_studio",
+        input_example=input_example,          # <- 이게 있어야 serving_input_example.json 이 생긴다
         registered_model_name="MICO_Mini",
         pip_requirements=["mlflow==2.16.2", "pandas==2.2.2"],
     )
