@@ -155,6 +155,37 @@ python3 simple_call.py
 > 나중에 HTTP 로 보내면 `Object of type int64 is not JSON serializable` 이 난다.
 > 그래서 `build_payload()` 로 호출할 때마다 새로 만든다.
 
+#### 이 모델이 받는 요청 본문을 확인하는 가장 확실한 법
+
+MLflow 가 모델 안에 **`serving_input_example.json`** 을 같이 저장한다.
+그 파일이 곧 "이 모델에 POST 해야 하는 본문" 이다. MLflow UI 의 모델 artifact
+에서 열어보고, 형식이 헷갈리면 **그대로 복사해 보내면 된다.**
+
+`simple_upload.py` 로 올린 모델의 경우:
+
+```json
+{
+  "input": [
+    {
+      "name": "mico_setup",
+      "shape": [3, 1],
+      "datatype": "BYTES",
+      "data": [
+        "{\"equipment_id\": \"EQ001\", \"a\": 1, \"b\": 2, \"post_thk\": 0, \"pol_time\": 1, \"target\": 10}",
+        "..."
+      ]
+    }
+  ]
+}
+```
+
+`data` 가 **JSON 문자열의 배열**이고 `datatype` 이 `BYTES` 다. 숫자 배열이 아니다.
+이 모델에 숫자 배열을 보내면 `Failed to enforce schema of data` 가 난다.
+
+`mini_call.py` 가 이 형식으로 보낸다. **모델을 다시 올릴 필요 없다.**
+로컬 검증: `serving_input_example.json` 을 그대로 POST -> `HTTP 200`,
+`{'equipment_id': 'EQ001', 'pre_thk': 3, 'rr': 3.0, 'offset': 7.0, ...}`.
+
 #### `Failed to enforce schema of data` 가 나올 때 — 가장 흔한 원인
 
 ```json

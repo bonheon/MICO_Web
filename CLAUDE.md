@@ -182,6 +182,7 @@ MICO를 HCP → nAPC로 전환하면서 핵심 알고리즘을 MLflow 기반 AI 
   - 이게 되면 문제는 문자열 JSON 입출력 형식, 이것도 안 되면 서빙 런타임 자체 문제
   - `datatype`은 사내 예제와 같은 `"ndarray"` 사용. MLflow는 이 값을 안 따지므로(ndarray/FP64/BYTES 모두 200)
     이 필드를 읽는 건 사내 런타임 — `NOT_IMPLEMENTED`가 모르는 datatype에서 났을 수 있음
+- 모델이 받는 요청 본문은 모델 artifact 의 `serving_input_example.json` 이 정답 — UI 에서 열어 그대로 POST 가능
 - `nAPC/iris_upload.py` / `iris_call.py` — 대조 실험. 사내 예제(ElasticNet+iris) 그대로 재현, `aiu_custom`만 최소 래퍼로 대체
   - 이것도 엔드포인트에서 실패하면 우리 코드 문제가 아님 → 플랫폼/배포 설정 또는 `aiu_custom` 필요
 - `nAPC/simple_probe.py` — 엔드포인트가 받는 payload 형식을 후보 8종 던져 좁히는 탐침
