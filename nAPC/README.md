@@ -165,7 +165,16 @@ python3 mini_call.py       # req_url 채우고 실행
 ```
 
 `mini_upload.py` 는 config·artifact·load_context·predict_stream 없이
-`predict()` 하나뿐이고, `[a, b]` 를 받아 `a + b` 를 돌려준다.
+`predict()` 하나뿐이다. 계산은 `simple_upload.py` 와 같은 3단계 사칙연산이고,
+주고받는 것만 JSON 문자열 대신 숫자 배열이다.
+
+```
+입력 한 행 = [a, b, post_thk, pol_time, target]   숫자 5개
+출력 한 행 = [pre_thk, rr, offset]                숫자 3개
+```
+
+`equipment_id` 는 문자열이라 숫자 배열에 못 넣는다. 행 순서로 구분하고,
+`mini_call.py` 가 `equipment_ids` 리스트와 zip 해서 보여준다.
 `mini_call.py` 는 url 만 채우면 되고 payload 를 코드 안에서 만든다.
 
 **`datatype` 은 `"ndarray"` 로 쓴다.** 사내 예제가 `type(sample_data).__name__`
@@ -192,7 +201,9 @@ payload = {
 - **이것도 안 되면** 모델 복잡도 문제가 아니다. 사내 서빙 런타임이 pyfunc 를
   그대로 부르지 않는 것이므로 담당자 확인이 필요하다 (아래 참고).
 
-로컬 MLflow 서버로 검증한 결과: `HTTP 200`, 본문 `[3.0, 7.0, 15.0]`.
+로컬 MLflow 서버로 검증한 결과: `HTTP 200`, 본문
+`[[3.0, 3.0, 7.0], [10.0, 4.0, 12.0], [10.0, 2.0, 22.0]]`
+— `simple_upload.py` 의 JSON 버전과 값이 같다.
 
 
 ```json

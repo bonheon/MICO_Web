@@ -170,7 +170,9 @@ MICO를 HCP → nAPC로 전환하면서 핵심 알고리즘을 MLflow 기반 AI 
   - [7] 진단 셀: 엔드포인트가 `NOT_IMPLEMENTED`/`Inference Error`를 주면 `aiu_custom.predict.ModelWrapper` 소스로 사내 서빙 계약 확인
 - ModelWrapper는 `predict(context, model_input, params=None)` + `predict_stream()` 둘 다 구현 — 서빙 런타임 호출 방식 차이 대비
 - `nAPC/mini_upload.py` / `mini_call.py` — 가장 단순한 최소 재현 (숫자 배열 in/out, 50줄·15줄)
-  - config·artifact·load_context·predict_stream 없이 predict() 하나. `[a,b]` → `a+b`
+  - config·artifact·load_context·predict_stream 없이 predict() 하나
+  - 계산은 simple_upload.py 와 같은 3단계. 입력 `[a,b,post_thk,pol_time,target]` → 출력 `[pre_thk,rr,offset]`
+  - equipment_id는 문자열이라 숫자 배열에서 제외 — 행 순서로 구분
   - 이게 되면 문제는 문자열 JSON 입출력 형식, 이것도 안 되면 서빙 런타임 자체 문제
   - `datatype`은 사내 예제와 같은 `"ndarray"` 사용. MLflow는 이 값을 안 따지므로(ndarray/FP64/BYTES 모두 200)
     이 필드를 읽는 건 사내 런타임 — `NOT_IMPLEMENTED`가 모르는 datatype에서 났을 수 있음
