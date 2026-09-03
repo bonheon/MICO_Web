@@ -7,6 +7,7 @@ MICO를 HCP → nAPC로 전환하면서, 핵심 알고리즘을 MLflow 기반 AI
 - `simple_example.py` — **여기부터 시작.** 한 파일짜리 최소 예제 (로컬 저장까지)
 - `simple_upload.py` — **사내에서 실제로 올려볼 파일.** 한 파일 + 사칙연산만으로
   tracking 서버에 업로드 + 레지스트리 등록까지
+- `simple_call.py` — 올린 모델을 **불러서 호출하고 반환값 확인**. `simple_upload.py` 다음
 - `mico_deploy/` — 작업지시서 구조를 그대로 구현한 전체 예제
 
 ---
@@ -122,6 +123,32 @@ mlflow_tracking_password = "..."      # 채운 채로 커밋하지 말 것
 MLflow 가 클래스를 cloudpickle 로 **값 자체**로 직렬화하므로 `code_paths` 없이
 이 파일 하나로 업로드가 끝난다.
 (검증: 이 파일이 없는 별도 프로세스에서 `models:/...` 로 로드해도 동작함)
+
+#### 올린 모델 호출해서 반환값 보기 — `simple_call.py`
+
+```bash
+python3 simple_call.py
+```
+
+[1] 의 `{TODO}` 를 채우면 레지스트리(`models:/<name>/<version>`)에서,
+그대로 두면 `simple_upload.py` 가 만든 로컬 폴더에서 불러온다.
+
+| 셀 | 하는 일 |
+|---|---|
+| [1] | 접속 설정 + 어디서 불러올지 (`models:/...` vs 로컬 폴더) |
+| [2] | 모델 로드 + signature 출력 (이 모델이 받는 입력 계약) |
+| [3] | 입력 만들기 — `setups` 값을 바꿔가며 실험 |
+| [4] | 호출 + 반환값 (원본 DataFrame / 풀어서 / 표로) |
+| [5] | 손 검산 (`pre_thk=3, rr=3.0, offset=7.0`) |
+| [6] | HTTP 엔드포인트 호출 (주소 받은 뒤) |
+
+반환은 `result_json` 컬럼 하나짜리 DataFrame이고, 셀 안에 JSON 문자열이 들어 있다.
+`json.loads()` 로 풀면 `{equipment_id, pre_thk, rr, offset, status}` 가 나온다.
+
+> **주의:** `model.predict(payload)` 는 넘긴 dict 를 **제자리에서 고친다.**
+> 스키마를 맞추며 `shape` 의 int 를 `numpy.int64` 로 바꿔놓기 때문에, 같은 dict 를
+> 나중에 HTTP 로 보내면 `Object of type int64 is not JSON serializable` 이 난다.
+> 그래서 `build_payload()` 로 호출할 때마다 새로 만든다.
 
 **(b) 폴더 구조 경로 — `mico_deploy/register_model.py`.** 실제 알고리즘처럼
 코드가 여러 모듈로 나뉘고 artifact(설정 파일)가 붙는 경우.

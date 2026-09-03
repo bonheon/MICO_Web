@@ -165,6 +165,8 @@ MICO를 HCP → nAPC로 전환하면서 핵심 알고리즘을 MLflow 기반 AI 
   - input_example 형식이 서빙 계약을 결정함 — 엔벨로프를 주면 MLflow가 그 스키마를 강제하고,
     predict에는 `input` 컬럼 1개짜리 DataFrame(셀=블록 리스트)으로 넘어옴
   - 래퍼를 파일 안에 두면 cloudpickle이 값으로 직렬화 → `code_paths` 불필요
+- `nAPC/simple_call.py` — 올린 모델을 불러서 호출하고 반환값 확인 (레지스트리/로컬/HTTP 3경로)
+  - `model.predict(payload)` 는 payload를 제자리에서 변형(int→np.int64)하므로 호출마다 새로 만들 것
 - `nAPC/mico_deploy/` — 작업지시서 구조 전체 예제 (save/register/test)
 - 핵심: MLflow pyfunc는 ML 모델이 아니어도 됨. `predict()` 메서드만 있으면 임의 파이썬 코드 서빙 가능
 - 구조: 매시간 학습 = 스케줄 실행(타임아웃 없음) / 시뮬레이션 = 엔드포인트(60초 제한) 로 분리
