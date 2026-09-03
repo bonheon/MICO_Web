@@ -139,3 +139,37 @@ else:
     print("endpoint_url 이 비어 있어 건너뜁니다.")
     print("로컬에서 서빙해 보려면:")
     print(f"  mlflow models serve -m {model_uri} -p 5001 --env-manager local")
+
+
+# %% [7] 엔드포인트가 에러를 돌려줄 때 진단 ────────────────────────────────
+# 사내 엔드포인트가 HTTP 200 을 주면서 본문에 이런 걸 담아 보내면 에러다.
+#   {"error_code": "15001", "error_type": "NotImplementedError",
+#    "hcp_error_type": "NOT_IMPLEMENTED", "error_message": "Inference Error"}
+#
+# 이건 MLflow 표준 서버 응답이 아니라 사내 게이트웨이가 감싼 것이다.
+# [4] 의 model.predict() 가 잘 되는데 엔드포인트만 실패한다면,
+# 모델 자체는 멀쩡하고 **서빙 런타임이 부르는 메서드가 다른 것**이다.
+#
+# 사내 예제가 쓰는 aiu_custom.predict.ModelWrapper 를 열어보면 그 계약이 나온다.
+# (AI Studio 노트북에서 실행할 것 — 그쪽에만 설치돼 있다)
+try:
+    import inspect
+
+    import aiu_custom.predict as ac
+
+    print("=== aiu_custom.predict 전체 소스 ===")
+    print(inspect.getsource(ac))
+    print("\n=== ModelWrapper 가 가진 메서드 ===")
+    print([m for m in dir(ac.ModelWrapper) if not m.startswith("__")])
+except ImportError as exc:
+    print(f"aiu_custom 을 불러올 수 없습니다: {exc}")
+    print("AI Studio 노트북에서 실행하면 사내 래퍼의 계약을 확인할 수 있습니다.")
+
+# 지금 올린 모델이 어떤 메서드를 갖고 있는지 (비교용)
+print("\n=== 지금 모델의 python_model 메서드 ===")
+try:
+    python_model = model._model_impl.python_model
+    print(type(python_model).__name__,
+          [m for m in dir(python_model) if not m.startswith("_")])
+except Exception as exc:
+    print(f"확인 불가: {exc}")

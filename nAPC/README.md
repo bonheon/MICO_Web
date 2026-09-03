@@ -150,6 +150,30 @@ python3 simple_call.py
 > 나중에 HTTP 로 보내면 `Object of type int64 is not JSON serializable` 이 난다.
 > 그래서 `build_payload()` 로 호출할 때마다 새로 만든다.
 
+#### 엔드포인트가 `NOT_IMPLEMENTED` 를 돌려줄 때
+
+```json
+{"error_code": "15001", "error_type": "NotImplementedError",
+ "hcp_error_type": "NOT_IMPLEMENTED", "error_message": "Inference Error"}
+```
+
+HTTP 200 이어도 이건 **에러**다. `hcp_error_type` 은 MLflow 가 쓰는 필드가 아니라
+사내 게이트웨이가 붙인 것이므로, MLflow 표준 서버가 아니라 사내 서빙 런타임이
+낸 오류다. 아래 순서로 좁힌다.
+
+1. `simple_call.py` [4] 의 `model.predict()` 가 되는지 본다.
+   **되면 모델 자체는 멀쩡하고 서빙 런타임 문제다** (레지스트리 로드까지 성공한 것).
+2. `simple_call.py` [7] 진단 셀을 AI Studio 노트북에서 돌려
+   `aiu_custom.predict.ModelWrapper` 소스를 확인한다. 사내 런타임이 부르는
+   메서드가 거기 있다. 그게 `predict` 가 아니면 그 이름으로 맞춰줘야 한다.
+
+미리 맞춰둔 것 두 가지 (`simple_upload.py` 의 `ModelWrapper`):
+
+- `predict(self, context, model_input, params=None)` — MLflow 정식 시그니처.
+  런타임이 3인자로 부르면 `params` 를 안 받는 쪽은 `TypeError` 가 난다.
+- `predict_stream()` 구현 — 스트리밍으로 부르는 런타임 대비.
+  구현이 없으면 MLflow 기본 구현이 `NotImplementedError` 를 낸다.
+
 **(b) 폴더 구조 경로 — `mico_deploy/register_model.py`.** 실제 알고리즘처럼
 코드가 여러 모듈로 나뉘고 artifact(설정 파일)가 붙는 경우.
 `TRACKING_URI` 를 채우고 실행한다.

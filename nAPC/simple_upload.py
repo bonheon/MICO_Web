@@ -184,7 +184,8 @@ class ModelWrapper(mlflow.pyfunc.PythonModel):
         with open(context.artifacts["config"], encoding="utf-8") as f:
             self.config = json.load(f)
 
-    def predict(self, context, model_input) -> pd.DataFrame:
+    def _run(self, model_input) -> list:
+        """입력을 풀어 한 건씩 돌리고 JSON 문자열 리스트로 돌려준다."""
         gain = float(self.config.get("gain", 1.0))
         results = []
         for setup in extract_setups(model_input):
@@ -193,7 +194,19 @@ class ModelWrapper(mlflow.pyfunc.PythonModel):
             except Exception as exc:  # 한 건이 실패해도 나머지는 계속 처리
                 out = {"status": "error", "message": f"{type(exc).__name__}: {exc}"}
             results.append(json.dumps(out, ensure_ascii=False))
-        return pd.DataFrame({"result_json": results})
+        return results
+
+    # params 를 받아둔다. MLflow 의 정식 시그니처는
+    # predict(self, context, model_input, params=None) 이고, 서빙 런타임이
+    # 3인자로 부르는 경우가 있다. 안 받으면 거기서 TypeError 가 난다.
+    def predict(self, context, model_input, params=None) -> pd.DataFrame:
+        return pd.DataFrame({"result_json": self._run(model_input)})
+
+    # 스트리밍으로 부르는 런타임 대비. 구현해 두지 않으면 MLflow 기본 구현이
+    # NotImplementedError 를 낸다 (사내 게이트웨이에서 NOT_IMPLEMENTED 로 보일 수 있음).
+    def predict_stream(self, context, model_input, params=None):
+        for row in self._run(model_input):
+            yield {"result_json": row}
 
 
 # %% [6] config 저장 ───────────────────────────────────────────────────────
