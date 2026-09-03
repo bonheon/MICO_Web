@@ -3,7 +3,7 @@
 payload 는 사내 예제와 같은 형식. datatype 이 "ndarray" 인 게 핵심.
 
 한 행 = [a, b, post_thk, pol_time, target]
-반환   = [pre_thk, rr, offset]
+반환   = [offset, offset, ...]   (행마다 숫자 1개, 1차원)
 """
 
 import json
@@ -43,5 +43,5 @@ print("HTTP", resp.status_code)
 print(resp.text)
 
 if resp.status_code == 200:
-    for eq, row in zip(equipment_ids, resp.json()):
-        print(f"  {eq}: pre_thk={row[0]}, rr={row[1]}, offset={row[2]}")
+    for eq, offset in zip(equipment_ids, resp.json()):
+        print(f"  {eq}: offset={offset}")

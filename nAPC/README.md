@@ -170,8 +170,16 @@ python3 mini_call.py       # req_url 채우고 실행
 
 ```
 입력 한 행 = [a, b, post_thk, pol_time, target]   숫자 5개
-출력 한 행 = [pre_thk, rr, offset]                숫자 3개
+출력      = [offset, offset, ...]                행마다 숫자 1개 (1차원)
 ```
+
+**출력을 1차원으로 두는 게 중요하다.** 사내 예제의 ElasticNet 도 1차원 배열을
+돌려준다. 2차원(`[[pre_thk, rr, offset], ...]`)으로 돌려주면 서빙 런타임이
+결과를 배열에 담다가 `setting an array element with a sequence` 로 죽을 수 있다.
+(MLflow 표준 서버는 2차원도 200 을 주므로 이 제약은 사내 런타임 쪽이다 —
+2.14.3 / 2.16.2 양쪽에서 확인)
+
+pre_thk·rr 까지 받고 싶으면 1차원이 통하는 걸 확인한 뒤에 늘린다.
 
 `equipment_id` 는 문자열이라 숫자 배열에 못 넣는다. 행 순서로 구분하고,
 `mini_call.py` 가 `equipment_ids` 리스트와 zip 해서 보여준다.
@@ -201,9 +209,8 @@ payload = {
 - **이것도 안 되면** 모델 복잡도 문제가 아니다. 사내 서빙 런타임이 pyfunc 를
   그대로 부르지 않는 것이므로 담당자 확인이 필요하다 (아래 참고).
 
-로컬 MLflow 서버로 검증한 결과: `HTTP 200`, 본문
-`[[3.0, 3.0, 7.0], [10.0, 4.0, 12.0], [10.0, 2.0, 22.0]]`
-— `simple_upload.py` 의 JSON 버전과 값이 같다.
+로컬 MLflow 서버로 검증한 결과: `HTTP 200`, 본문 `[7.0, 12.0, 22.0]`
+— `simple_upload.py` 의 JSON 버전 offset 값과 같다.
 
 
 ```json

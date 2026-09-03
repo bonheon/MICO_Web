@@ -171,7 +171,9 @@ MICO를 HCP → nAPC로 전환하면서 핵심 알고리즘을 MLflow 기반 AI 
 - ModelWrapper는 `predict(context, model_input, params=None)` + `predict_stream()` 둘 다 구현 — 서빙 런타임 호출 방식 차이 대비
 - `nAPC/mini_upload.py` / `mini_call.py` — 가장 단순한 최소 재현 (숫자 배열 in/out, 50줄·15줄)
   - config·artifact·load_context·predict_stream 없이 predict() 하나
-  - 계산은 simple_upload.py 와 같은 3단계. 입력 `[a,b,post_thk,pol_time,target]` → 출력 `[pre_thk,rr,offset]`
+  - 계산은 simple_upload.py 와 같은 3단계. 입력 `[a,b,post_thk,pol_time,target]` → 출력 `[offset,...]` 1차원
+  - 출력 1차원이 중요 — 2차원이면 사내 런타임이 `setting an array element with a sequence`로 죽음
+    (MLflow 표준 서버는 2차원도 200. 이 제약은 사내 런타임 쪽)
   - equipment_id는 문자열이라 숫자 배열에서 제외 — 행 순서로 구분
   - 이게 되면 문제는 문자열 JSON 입출력 형식, 이것도 안 되면 서빙 런타임 자체 문제
   - `datatype`은 사내 예제와 같은 `"ndarray"` 사용. MLflow는 이 값을 안 따지므로(ndarray/FP64/BYTES 모두 200)

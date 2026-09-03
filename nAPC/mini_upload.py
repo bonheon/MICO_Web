@@ -3,7 +3,11 @@
 사내 예제처럼 숫자 배열 in / 숫자 배열 out. datatype 도 "ndarray" 로 동일.
 
 입력 한 행 = [a, b, post_thk, pol_time, target]   (숫자 5개)
-출력 한 행 = [pre_thk, rr, offset]                (숫자 3개)
+출력      = [offset, offset, ...]                (행마다 숫자 1개, 1차원)
+
+출력을 1차원으로 두는 게 중요하다. 사내 예제의 ElasticNet 도 1차원 배열을
+돌려주는데, 2차원으로 돌려주면 서빙 런타임이 결과를 배열에 담다가
+"setting an array element with a sequence" 로 죽을 수 있다.
 
 equipment_id 는 문자열이라 숫자 배열에 못 넣는다. 행 순서로 구분한다.
 """
@@ -34,7 +38,7 @@ class ModelWrapper(mlflow.pyfunc.PythonModel):
             pre_thk = a + b                              # 1단계
             rr = (pre_thk - post_thk) / pol_time         # 2단계
             offset = target - rr * pol_time              # 3단계
-            out.append([pre_thk, rr, offset])
+            out.append(offset)                           # 1차원으로 반환
         return out
 
 
