@@ -169,6 +169,9 @@ MICO를 HCP → nAPC로 전환하면서 핵심 알고리즘을 MLflow 기반 AI 
   - `model.predict(payload)` 는 payload를 제자리에서 변형(int→np.int64)하므로 호출마다 새로 만들 것
   - [7] 진단 셀: 엔드포인트가 `NOT_IMPLEMENTED`/`Inference Error`를 주면 `aiu_custom.predict.ModelWrapper` 소스로 사내 서빙 계약 확인
 - ModelWrapper는 `predict(context, model_input, params=None)` + `predict_stream()` 둘 다 구현 — 서빙 런타임 호출 방식 차이 대비
+- `nAPC/simple_probe.py` — 엔드포인트가 받는 payload 형식을 후보 8종 던져 좁히는 탐침
+  - MLflow 표준 서버 기준 `{'input':...}` / `{'inputs':{'input':...}}` / dataframe_split / dataframe_records 4종 통과
+  - 전부 실패하면 payload가 아니라 서빙 런타임 호출 방식 문제 → `aiu_custom` 패키지 출처를 담당자에게 확인
 - `nAPC/mico_deploy/` — 작업지시서 구조 전체 예제 (save/register/test)
 - 핵심: MLflow pyfunc는 ML 모델이 아니어도 됨. `predict()` 메서드만 있으면 임의 파이썬 코드 서빙 가능
 - 구조: 매시간 학습 = 스케줄 실행(타임아웃 없음) / 시뮬레이션 = 엔드포인트(60초 제한) 로 분리

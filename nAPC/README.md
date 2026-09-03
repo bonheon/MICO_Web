@@ -8,6 +8,7 @@ MICO를 HCP → nAPC로 전환하면서, 핵심 알고리즘을 MLflow 기반 AI
 - `simple_upload.py` — **사내에서 실제로 올려볼 파일.** 한 파일 + 사칙연산만으로
   tracking 서버에 업로드 + 레지스트리 등록까지
 - `simple_call.py` — 올린 모델을 **불러서 호출하고 반환값 확인**. `simple_upload.py` 다음
+- `simple_probe.py` — 엔드포인트가 **어떤 payload 를 받는지** 후보를 던져 알아내는 탐침
 - `mico_deploy/` — 작업지시서 구조를 그대로 구현한 전체 예제
 
 ---
@@ -173,6 +174,33 @@ HTTP 200 이어도 이건 **에러**다. `hcp_error_type` 은 MLflow 가 쓰는 
   런타임이 3인자로 부르면 `params` 를 안 받는 쪽은 `TypeError` 가 난다.
 - `predict_stream()` 구현 — 스트리밍으로 부르는 런타임 대비.
   구현이 없으면 MLflow 기본 구현이 `NotImplementedError` 를 낸다.
+
+그래도 안 되면 `simple_probe.py` 로 payload 형식을 좁힌다.
+
+```bash
+python3 simple_probe.py     # endpoint_url 만 채우고 실행
+```
+
+후보 8종(사내 엔벨로프 / `inputs` / `dataframe_split` / `dataframe_records` /
+`instances` / KServe v2 형 등)을 순서대로 POST 하고, 어느 게 통하는지 요약해 준다.
+`/ping` `/health` `/version` 도 찔러 서버 정체를 확인한다.
+
+MLflow 표준 서버로 검증했을 때는 아래 4종이 통했다.
+
+| payload | 결과 |
+|---|---|
+| `{"input": [{...}]}` (사내 예제 그대로) | 200 |
+| `{"inputs": {"input": [{...}]}}` | 200 |
+| `{"dataframe_split": {"columns":["input"], ...}}` | 200 |
+| `{"dataframe_records": [{"input": [{...}]}]}` | 200 |
+
+전부 실패하면 payload 문제가 아니라 서빙 런타임이 모델을 부르는 방식이 다른 것이다.
+그때 담당자에게 확인할 것:
+
+- **`aiu_custom` 패키지를 어디서 받는지.** 사내 예제가 `code_paths=["aiu_custom"]`
+  으로 올리는 로컬 폴더인데, 노트북에 없으면 그 예제도 그대로는 안 돈다.
+- 서빙 런타임이 pyfunc 의 `predict()` 를 부르는지, 다른 메서드를 부르는지
+- 엔드포인트가 기대하는 요청 본문 예시
 
 **(b) 폴더 구조 경로 — `mico_deploy/register_model.py`.** 실제 알고리즘처럼
 코드가 여러 모듈로 나뉘고 artifact(설정 파일)가 붙는 경우.
