@@ -59,7 +59,7 @@ class ModelWrapper(mlflow.pyfunc.PythonModel):
             pre_thk = a + b                              # 1단계
             rr = (pre_thk - post_thk) / pol_time         # 2단계
             offset = target - rr * pol_time              # 3단계
-            out.append(offset)                           # 1차원으로 반환
+            out.append(float(offset))                    # 순수 float, 1차원
         return out
 
 

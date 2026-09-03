@@ -155,6 +155,30 @@ python3 simple_call.py
 > 나중에 HTTP 로 보내면 `Object of type int64 is not JSON serializable` 이 난다.
 > 그래서 `build_payload()` 로 호출할 때마다 새로 만든다.
 
+#### 업로드 파일과 호출 파일은 짝이다
+
+형식이 어긋나면 바로 에러가 나므로 섞어 쓰지 않는다.
+
+| 업로드 | 입출력 | 호출 |
+|---|---|---|
+| `simple_upload.py` | JSON 문자열 in / 문자열 out | `simple_call.py` |
+| `mini_upload.py` | 숫자 배열 in / 1차원 숫자 out | `mini_call.py` |
+| `iris_upload.py` | 숫자 배열 in / 1차원 숫자 out | `iris_call.py` |
+
+#### 에러 메시지로 어디까지 갔는지 읽는 법
+
+| 메시지 | 뜻 | 다음 할 일 |
+|---|---|---|
+| `NOT_IMPLEMENTED` | 입력조차 처리 못 함 | payload 형식 (`datatype` 등) 확인 |
+| `Failed to enforce schema of data` | payload 가 모델 signature 와 불일치 | `serving_input_example.json` 형식으로 보내거나, signature 없이 재업로드 |
+| `Inference Error` | **입력은 통과.** `predict` 안 또는 그 결과 처리에서 실패 | 출력 타입을 의심 — 1차원 숫자 배열로 |
+
+`Inference Error` 까지 왔으면 입력 형식은 해결된 것이다. 남은 건 출력이다.
+사내 예제의 ElasticNet 은 **1차원 숫자 배열**을 돌려준다. 문자열 DataFrame 이나
+2차원 배열을 돌려주면 런타임이 결과를 담다가 실패할 수 있다.
+`mini_upload.py` 는 `float()` 로 캐스팅한 1차원 리스트를 돌려준다
+(numpy 타입이 남으면 직렬화에서 걸릴 수 있다).
+
 #### 이 모델이 받는 요청 본문을 확인하는 가장 확실한 법
 
 MLflow 가 모델 안에 **`serving_input_example.json`** 을 같이 저장한다.
