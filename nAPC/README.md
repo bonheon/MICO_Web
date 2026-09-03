@@ -155,6 +155,50 @@ python3 simple_call.py
 > 나중에 HTTP 로 보내면 `Object of type int64 is not JSON serializable` 이 난다.
 > 그래서 `build_payload()` 로 호출할 때마다 새로 만든다.
 
+#### `Failed to enforce schema of data` 가 나올 때 — 가장 흔한 원인
+
+```json
+{"error_code": "15001", "error_type": "MlflowException",
+ "hcp_error_type": "NOT_IMPLEMENTED",
+ "error_message": "Failed to enforce schema of data"}
+```
+
+이건 MLflow 가 낸 것이다. **배포된 모델의 signature 와 보내는 payload 가
+안 맞는다는 뜻**이다. signature 는 `log_model(input_example=...)` 을 넘기는
+순간 MLflow 가 거기서 추론해 만들고, 이후 모든 호출에 강제된다.
+
+**해결: `input_example` 을 `log_model` 에 넘기지 않는다.**
+
+```python
+mlflow.pyfunc.log_model(
+    python_model=ModelWrapper(),
+    artifact_path="ai_studio",
+    registered_model_name="MICO_Mini",
+    pip_requirements=[...],
+    # input_example=...  <- 넘기지 않는다. 넘기면 스키마가 강제된다
+)
+```
+
+signature 가 없으면 검사 자체가 없고, payload 가 `predict` 로 **원본 dict 그대로**
+들어온다. 확인한 차이:
+
+| | `predict` 가 받는 것 | 꺼내는 법 |
+|---|---|---|
+| signature 있음 | DataFrame (`input` 컬럼, 셀 = 블록 리스트) | `x["input"].iloc[0][0]["data"]` |
+| signature 없음 | dict 원본 | `x["input"][0]["data"]` |
+
+`mini_upload.py` 의 `get_rows()` 가 양쪽을 다 받는다.
+
+signature 를 없앤 뒤 payload 를 흔들어 본 결과 — `datatype` 을 바꾸거나 빼도,
+`shape` 를 틀리게 줘도 모두 `HTTP 200`:
+
+| payload | 결과 |
+|---|---|
+| `{"input":[blk]}` | 200 |
+| `datatype` 을 `FP64` 로 | 200 |
+| `datatype` 자체를 뺌 | 200 |
+| `shape` 를 `[99,99]` 로 | 200 |
+
 #### 엔드포인트가 `NOT_IMPLEMENTED` 를 돌려줄 때
 
 **먼저 대조 실험으로 우리 코드 문제인지부터 가른다 — `iris_upload.py`.**
