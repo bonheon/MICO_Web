@@ -10,6 +10,8 @@ MICO를 HCP → nAPC로 전환하면서, 핵심 알고리즘을 MLflow 기반 AI
 - `simple_upload.py` — **사내에서 실제로 올려볼 파일.** 한 파일 + 사칙연산만으로
   tracking 서버에 업로드 + 레지스트리 등록까지
 - `simple_call.py` — 올린 모델을 **불러서 호출하고 반환값 확인**. `simple_upload.py` 다음
+- `iris_upload.py` / `iris_call.py` — **대조 실험.** 사내 예제(ElasticNet+iris) 그대로 재현.
+  이것도 실패하면 우리 코드 문제가 아니다
 - `simple_probe.py` — 엔드포인트가 **어떤 payload 를 받는지** 후보를 던져 알아내는 탐침
 - `mico_deploy/` — 작업지시서 구조를 그대로 구현한 전체 예제
 
@@ -155,7 +157,26 @@ python3 simple_call.py
 
 #### 엔드포인트가 `NOT_IMPLEMENTED` 를 돌려줄 때
 
-**먼저 `mini_upload.py` / `mini_call.py` 로 좁힌다.** 우리 모델이 문자열(JSON)을
+**먼저 대조 실험으로 우리 코드 문제인지부터 가른다 — `iris_upload.py`.**
+
+사내 예제(ElasticNet + iris)를 그대로 재현하되, 없는 `aiu_custom` 만 같은 파일
+안의 최소 래퍼로 대체한 것이다. 데이터·모델·`input_example` 형식·`log_model`
+인자 모두 사내 예제와 같다.
+
+```bash
+pip install mlflow==2.16.2 pandas scikit-learn
+python3 iris_upload.py     # {TODO} 2개 채우고 실행 -> IRIS_Control 등록
+python3 iris_call.py       # url 채우고 실행
+```
+
+| 결과 | 뜻 |
+|---|---|
+| **이것도 실패** | 우리 코드 문제가 아니다. 플랫폼/배포 설정 문제이므로 `aiu_custom` 을 받거나 담당자 확인이 필요하다 |
+| **이건 성공** | 차이가 우리 모델 쪽에 있다. 두 파일을 비교해 좁힌다 |
+
+로컬 검증: `HTTP 200`, iris 예측값 10개 (1차원 배열).
+
+**그다음 `mini_upload.py` / `mini_call.py` 로 좁힌다.** 우리 모델이 문자열(JSON)을
 주고받는 게 사내 런타임과 안 맞을 수 있다. 사내 예제(ElasticNet/iris)는
 **숫자 배열 in / 숫자 배열 out** 이었으므로, 그 모양으로 최소 재현을 만들었다.
 
