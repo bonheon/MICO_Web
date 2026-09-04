@@ -7,6 +7,7 @@
   - 출력: 숫자 1차원 배열만
   - artifacts (model.pkl + config.json) 를 함께 올려 artifacts 폴더가 생기게 한다
   - input_example 을 넘겨 serving_input_example.json 이 생기게 한다
+  - predict 와 predict_stream 을 둘 다 구현한다 (런타임이 어느 쪽을 부르든)
 
     pip install mlflow==2.16.2 pandas
 
@@ -100,6 +101,19 @@ class ModelWrapper(mlflow.pyfunc.PythonModel):
             self.config = json.load(f)
 
     def predict(self, context, model_input, params=None):
+        return self._run(model_input)
+
+    # 서빙 런타임이 스트리밍으로 부를 때 대비. 구현하지 않으면 MLflow 기본 구현이
+    # NotImplementedError 를 내고, 사내 게이트웨이는 그걸
+    #   {"error_type": "NotImplementedError", "hcp_error_type": "NOT_IMPLEMENTED",
+    #    "error_message": "Inference Error"}
+    # 로 감싸서 돌려준다. pyfunc 에서 NotImplementedError 를 직접 던지는 곳은
+    # PythonModel.predict_stream 기본 구현 하나뿐이다.
+    def predict_stream(self, context, model_input, params=None):
+        for v in self._run(model_input):
+            yield v
+
+    def _run(self, model_input):
         gain = float(getattr(self, "params", {}).get("gain", 1.0))
         rows = _get_rows(model_input)
         return [float(v) for v in compute_offset(rows, gain)]   # 1차원 순수 float

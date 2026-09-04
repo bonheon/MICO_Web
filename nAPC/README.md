@@ -128,7 +128,20 @@ artifact 에는 **순수 데이터(dict/json)만** 넣고, 계산은 함수로 �
 `Failed to enforce schema of data` 가 난다.
 `mico_call.py` 는 `input_example.json` 을 그대로 읽어 보내므로 어긋날 일이 없다.
 
-**4. 출력은 1차원 순수 `float`.**
+**4. `predict` 와 `predict_stream` 을 둘 다 구현할 것.**
+`predict_stream` 을 안 만들면 MLflow 기본 구현이 `NotImplementedError` 를 내고,
+사내 게이트웨이가 그걸 이렇게 감싸서 돌려준다.
+
+```json
+{"error_code": "15001", "error_type": "NotImplementedError",
+ "hcp_error_type": "NOT_IMPLEMENTED", "error_message": "Inference Error"}
+```
+
+pyfunc 안에서 `NotImplementedError` 를 **직접 던지는 곳은
+`PythonModel.predict_stream` 기본 구현 하나뿐**이다(`predict` 는 본문이 비어 있다).
+실제로 `predict()` 는 되는데 `predict_stream()` 만 이 예외를 내는 것을 확인했다.
+
+**5. 출력은 1차원 순수 `float`.**
 2차원이면 런타임이 결과를 배열에 담다가
 `setting an array element with a sequence` 로 죽을 수 있다.
 

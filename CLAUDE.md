@@ -167,6 +167,8 @@ MICO를 HCP → nAPC로 전환하면서 핵심 알고리즘을 MLflow 기반 AI 
     서빙 컨테이너(`__main__`=gunicorn)에서 못 찾고 워커가 못 뜬다. artifact는 순수 dict/json만
   - `input_example`을 안 넘기면 `serving_input_example.json`이 안 생겨 호출이 안 됨
   - `input_example`과 호출 payload가 다르면 `Failed to enforce schema of data`
+  - `predict_stream`을 구현 안 하면 MLflow 기본 구현이 `NotImplementedError` → 게이트웨이가 `NOT_IMPLEMENTED`로 감쌈
+    (pyfunc에서 이 예외를 직접 던지는 곳은 `PythonModel.predict_stream` 하나뿐. `predict`는 본문이 비어 있음)
   - 출력이 2차원이면 `setting an array element with a sequence`
 - 에러 단계 읽기: `NOT_IMPLEMENTED`(입력 처리 실패) → `Failed to enforce schema`(payload/signature 불일치)
   → `Inference Error`(입력 통과, predict 안/출력 처리에서 실패)
