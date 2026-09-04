@@ -157,40 +157,21 @@ ADMIN (superuser만 노출)
 MICO를 HCP → nAPC로 전환하면서 핵심 알고리즘을 MLflow 기반 AI Studio에 올리는 작업.
 상세 내용·실행 순서·미해결 항목은 **`nAPC/README.md`** 참고.
 
-- `nAPC/simple_example.py` — 한 파일 최소 예제. pre_thk_vm → removal_rate → offset 3단계 체인을 사칙연산으로 구현 (로컬 저장까지)
-- `nAPC/simple_upload.py` — 위 예제 + tracking 서버 업로드/레지스트리 등록. 사내에서 실제로 올려볼 파일
-  - 사내 MLflow 예제(ElasticNet/iris)와 같은 순서·구조. `# %%` 셀 8개 선형 흐름, 노트북에 붙여넣기 가능
-  - 상단 `{TODO}` 2개(uri, password)만 채우면 업로드. 그대로 두면 로컬 저장만
-  - 인증 필수: `MLFLOW_TRACKING_USERNAME/PASSWORD` + `MLFLOW_TRACKING_INSECURE_TLS=true` (없으면 401)
-  - input_example 형식이 서빙 계약을 결정함 — 엔벨로프를 주면 MLflow가 그 스키마를 강제하고,
-    predict에는 `input` 컬럼 1개짜리 DataFrame(셀=블록 리스트)으로 넘어옴
-  - 래퍼를 파일 안에 두면 cloudpickle이 값으로 직렬화 → `code_paths` 불필요
-- `nAPC/simple_call.py` — 올린 모델을 불러서 호출하고 반환값 확인 (레지스트리/로컬/HTTP 3경로)
-  - `model.predict(payload)` 는 payload를 제자리에서 변형(int→np.int64)하므로 호출마다 새로 만들 것
-  - [7] 진단 셀: 엔드포인트가 `NOT_IMPLEMENTED`/`Inference Error`를 주면 `aiu_custom.predict.ModelWrapper` 소스로 사내 서빙 계약 확인
-- ModelWrapper는 `predict(context, model_input, params=None)` + `predict_stream()` 둘 다 구현 — 서빙 런타임 호출 방식 차이 대비
-- `nAPC/mini_upload.py` / `mini_call.py` — 가장 단순한 최소 재현 (숫자 배열 in/out, 50줄·15줄)
-  - config·artifact·load_context·predict_stream 없이 predict() 하나
-  - **`input_example`을 반드시 `log_model`에 넘김** — 안 넘기면 `serving_input_example.json`이 안 생기고
-    사내 서빙 런타임이 요청을 해석하지 못한다. 대신 호출 payload를 input_example과 똑같이 맞출 것
-  - signature 없으면 predict가 dict 원본을 받음(`x["input"][0]["data"]`), 있으면 DataFrame(`x["input"].iloc[0][0]["data"]`)
-    → `get_rows()`가 양쪽 처리
-  - 계산은 simple_upload.py 와 같은 3단계. 입력 `[a,b,post_thk,pol_time,target]` → 출력 `[offset,...]` 1차원
-  - 출력 1차원이 중요 — 2차원이면 사내 런타임이 `setting an array element with a sequence`로 죽음
-    (MLflow 표준 서버는 2차원도 200. 이 제약은 사내 런타임 쪽)
+- `nAPC/mico_upload.py` / `mico_call.py` — **현재 기준 파일.** 숫자 배열만 주고받는 업로드/호출 한 쌍
+  - 사내 예제(ElasticNet+iris)와 서빙 관련 부분을 전부 동일하게 맞춤
+  - 입력 `[a,b,post_thk,pol_time,target]` (datatype `ndarray`) → 출력 `[offset,...]` 1차원 순수 float
+  - `input_example`을 `log_model`에 넘겨 `serving_input_example.json` 생성, `artifacts`(model.pkl+config.json)도 함께
   - equipment_id는 문자열이라 숫자 배열에서 제외 — 행 순서로 구분
-  - 이게 되면 문제는 문자열 JSON 입출력 형식, 이것도 안 되면 서빙 런타임 자체 문제
-  - `datatype`은 사내 예제와 같은 `"ndarray"` 사용. MLflow는 이 값을 안 따지므로(ndarray/FP64/BYTES 모두 200)
-    이 필드를 읽는 건 사내 런타임 — `NOT_IMPLEMENTED`가 모르는 datatype에서 났을 수 있음
-- 모델이 받는 요청 본문은 모델 artifact 의 `serving_input_example.json` 이 정답 — UI 에서 열어 그대로 POST 가능
-- 업로드/호출 파일은 짝: simple_upload↔simple_call(문자열), mini_upload↔mini_call(숫자), iris_upload↔iris_call
-- 에러 단계 읽기: `NOT_IMPLEMENTED`(입력 처리 실패) → `Failed to enforce schema`(payload가 signature와 불일치)
-  → `Inference Error`(입력 통과, predict 안/출력 처리에서 실패 — 출력을 1차원 순수 float 배열로)
-- `nAPC/iris_upload.py` / `iris_call.py` — 대조 실험. 사내 예제(ElasticNet+iris) 그대로 재현, `aiu_custom`만 최소 래퍼로 대체
-  - 이것도 엔드포인트에서 실패하면 우리 코드 문제가 아님 → 플랫폼/배포 설정 또는 `aiu_custom` 필요
-- `nAPC/simple_probe.py` — 엔드포인트가 받는 payload 형식을 후보 8종 던져 좁히는 탐침
-  - MLflow 표준 서버 기준 `{'input':...}` / `{'inputs':{'input':...}}` / dataframe_split / dataframe_records 4종 통과
-  - 전부 실패하면 payload가 아니라 서빙 런타임 호출 방식 문제 → `aiu_custom` 패키지 출처를 담당자에게 확인
+- 서빙에서 실제로 깨졌던 것들 (mico_upload.py에 전부 반영):
+  - **artifact에 직접 만든 클래스를 넣지 말 것** — joblib(pickle)은 클래스를 이름(`__main__.XXX`)으로만 저장해서
+    서빙 컨테이너(`__main__`=gunicorn)에서 못 찾고 워커가 못 뜬다. artifact는 순수 dict/json만
+  - `input_example`을 안 넘기면 `serving_input_example.json`이 안 생겨 호출이 안 됨
+  - `input_example`과 호출 payload가 다르면 `Failed to enforce schema of data`
+  - 출력이 2차원이면 `setting an array element with a sequence`
+- 에러 단계 읽기: `NOT_IMPLEMENTED`(입력 처리 실패) → `Failed to enforce schema`(payload/signature 불일치)
+  → `Inference Error`(입력 통과, predict 안/출력 처리에서 실패)
+- 모델이 받는 요청 본문은 artifact의 `serving_input_example.json`이 정답 — UI에서 열어 그대로 POST 가능
+- `nAPC/simple_example.py` — MLflow pyfunc 개념 확인용 (로컬 저장까지)
 - `nAPC/mico_deploy/` — 작업지시서 구조 전체 예제 (save/register/test)
 - 핵심: MLflow pyfunc는 ML 모델이 아니어도 됨. `predict()` 메서드만 있으면 임의 파이썬 코드 서빙 가능
 - 구조: 매시간 학습 = 스케줄 실행(타임아웃 없음) / 시뮬레이션 = 엔드포인트(60초 제한) 로 분리

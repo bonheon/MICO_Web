@@ -4,15 +4,8 @@ MICO를 HCP → nAPC로 전환하면서, 핵심 알고리즘을 MLflow 기반 AI
 올리기 위한 검토·예제 폴더.
 
 - `MICO MLflow 작업지시서.md` — 원본 작업지시서
-- `mini_upload.py` / `mini_call.py` — **가장 단순한 최소 재현.** 숫자 배열 in/out,
-  각각 50줄·15줄. 엔드포인트가 안 될 때 여기부터 좁힌다
-- `simple_example.py` — 한 파일짜리 최소 예제 (로컬 저장까지)
-- `simple_upload.py` — **사내에서 실제로 올려볼 파일.** 한 파일 + 사칙연산만으로
-  tracking 서버에 업로드 + 레지스트리 등록까지
-- `simple_call.py` — 올린 모델을 **불러서 호출하고 반환값 확인**. `simple_upload.py` 다음
-- `iris_upload.py` / `iris_call.py` — **대조 실험.** 사내 예제(ElasticNet+iris) 그대로 재현.
-  이것도 실패하면 우리 코드 문제가 아니다
-- `simple_probe.py` — 엔드포인트가 **어떤 payload 를 받는지** 후보를 던져 알아내는 탐침
+- `mico_upload.py` / `mico_call.py` — **여기부터 시작.** 숫자 배열만 주고받는 업로드/호출 한 쌍
+- `simple_example.py` — MLflow pyfunc 개념 확인용 (로컬 저장까지)
 - `mico_deploy/` — 작업지시서 구조를 그대로 구현한 전체 예제
 
 ---
@@ -86,302 +79,77 @@ python3 test_local.py --serve
 `--env-manager local` 을 빼면 conda 환경을 새로 만들려다 사내망에서 막힌다.
 `gunicorn: not found` (return code 127) 가 나오면 gunicorn 이 PATH에 없는 것.
 
-### 5단계 — tracking 서버 업로드
-주소를 받은 뒤 실행한다. 받기 전에는 건너뛴다. 두 가지 경로가 있다.
-
-**(a) 가장 간단한 경로 — `simple_upload.py` 파일 하나.** 사칙연산만 든 모델을
-코드만으로 올린다. 폴더 구조도, zip 도, 별도 패키지도 필요 없다.
-
-**사내 예제(ElasticNet/iris)와 같은 순서·구조**로 써 뒀다. 위에서 아래로 한 번
-훑으면 되고, Jupyter 셀에 그대로 붙여넣어도 된다 (`# %%` 가 셀 구분자).
-
-| 셀 | 하는 일 | 사내 예제의 대응 |
-|---|---|---|
-| [1] | 접속 설정 (`{TODO}` 두 개) | tracking uri / 계정 / experiment |
-| [2] | 데이터 준비 (set-up 3건) | `load_iris` + `train_test_split` |
-| [3] | 알고리즘 정의 (사칙연산 3단계) | `ElasticNet` + `compute_metrics` |
-| [4] | `input_example` 엔벨로프 + json 저장 | 동일 |
-| [5] | 래퍼 `ModelWrapper` | `aiu_custom/predict.py` |
-| [6] | `config/config.json` 저장 | 동일 |
-| [7] | `with mlflow.start_run():` 로깅 + 등록 | 동일 |
-| [8] | 되불러서 검증 | (추가) |
+### 5단계 — tracking 서버 업로드 + 호출
 
 ```bash
-pip install mlflow==2.16.2 pandas
 cd nAPC
-python3 simple_upload.py        # {TODO} 그대로면 로컬 저장만 (연습)
+python3 mico_upload.py     # 상단 {TODO} 2개(uri, password) 채우고 실행
+python3 mico_call.py       # url 채우고 실행
 ```
 
-업로드하려면 [1] 의 `{TODO}` 두 곳만 채우고 다시 실행한다.
+사내 예제(ElasticNet + iris)와 **서빙에 관계되는 부분을 전부 같게** 맞췄다.
+다른 건 계산 내용뿐이다.
 
-```python
-mlflow_tracking_uri = "https://<ai-studio-mlflow-host>"
-mlflow_tracking_password = "..."      # 채운 채로 커밋하지 말 것
-```
-
-노트북에서는 파일 내용을 셀에 붙여넣어도 되고 `%run simple_upload.py` 도 된다.
-
-`version = 1` 과 `models_uri` 가 찍히면 **사칙연산만으로 업로드 + 레지스트리
-등록이 된다**는 게 확인된 것이다.
-
-사내 예제와 다른 점은 하나 — 래퍼를 별도 모듈이 아니라 파일 안에 뒀다.
-MLflow 가 클래스를 cloudpickle 로 **값 자체**로 직렬화하므로 `code_paths` 없이
-이 파일 하나로 업로드가 끝난다.
-(검증: 이 파일이 없는 별도 프로세스에서 `models:/...` 로 로드해도 동작함)
-
-#### 올린 모델 호출해서 반환값 보기 — `simple_call.py`
-
-```bash
-python3 simple_call.py
-```
-
-[1] 의 `{TODO}` 를 채우면 레지스트리(`models:/<name>/<version>`)에서,
-그대로 두면 `simple_upload.py` 가 만든 로컬 폴더에서 불러온다.
-
-| 셀 | 하는 일 |
+| 항목 | 값 |
 |---|---|
-| [1] | 접속 설정 + 어디서 불러올지 (`models:/...` vs 로컬 폴더) |
-| [2] | 모델 로드 + signature 출력 (이 모델이 받는 입력 계약) |
-| [3] | 입력 만들기 — `setups` 값을 바꿔가며 실험 |
-| [4] | 호출 + 반환값 (원본 DataFrame / 풀어서 / 표로) |
-| [5] | 손 검산 (`pre_thk=3, rr=3.0, offset=7.0`) |
-| [6] | HTTP 엔드포인트 호출 (주소 받은 뒤) |
+| 입력 | 숫자 2차원 배열만, `datatype: "ndarray"` |
+| 출력 | 숫자 1차원 배열만 (순수 `float`) |
+| `input_example` | `log_model` 에 넘긴다 -> `serving_input_example.json` 생성 |
+| `artifacts` | `model.pkl` + `config.json` -> `artifacts` 폴더 생성 |
+| 입력 한 행 | `[a, b, post_thk, pol_time, target]` |
+| 출력 | `[offset, ...]` |
 
-반환은 `result_json` 컬럼 하나짜리 DataFrame이고, 셀 안에 JSON 문자열이 들어 있다.
-`json.loads()` 로 풀면 `{equipment_id, pre_thk, rr, offset, status}` 가 나온다.
+`equipment_id` 는 문자열이라 숫자 배열에 넣지 않는다. 행 순서로 구분하고,
+`mico_call.py` 가 `equipment_ids` 리스트와 zip 해서 보여준다.
 
-> **주의:** `model.predict(payload)` 는 넘긴 dict 를 **제자리에서 고친다.**
-> 스키마를 맞추며 `shape` 의 int 를 `numpy.int64` 로 바꿔놓기 때문에, 같은 dict 를
-> 나중에 HTTP 로 보내면 `Object of type int64 is not JSON serializable` 이 난다.
-> 그래서 `build_payload()` 로 호출할 때마다 새로 만든다.
+#### 반드시 지킬 것 (전부 실제로 깨졌던 것들)
 
-#### 업로드 파일과 호출 파일은 짝이다
+**1. `artifact` 에 직접 만든 클래스를 넣지 말 것.**
+`joblib.dump` 는 클래스를 **이름으로만** 저장한다(`__main__.XXX`). 서빙
+컨테이너에서는 `__main__` 이 gunicorn 이라 그 클래스를 못 찾고 워커가 아예
+못 뜬다.
 
-형식이 어긋나면 바로 에러가 나므로 섞어 쓰지 않는다.
-
-| 업로드 | 입출력 | 호출 |
-|---|---|---|
-| `simple_upload.py` | JSON 문자열 in / 문자열 out | `simple_call.py` |
-| `mini_upload.py` | 숫자 배열 in / 1차원 숫자 out | `mini_call.py` |
-| `iris_upload.py` | 숫자 배열 in / 1차원 숫자 out | `iris_call.py` |
-
-#### 에러 메시지로 어디까지 갔는지 읽는 법
-
-| 메시지 | 뜻 | 다음 할 일 |
-|---|---|---|
-| `NOT_IMPLEMENTED` | 입력조차 처리 못 함 | payload 형식 (`datatype` 등) 확인 |
-| `Failed to enforce schema of data` | payload 가 모델 signature 와 불일치 | `serving_input_example.json` 형식으로 보내거나, signature 없이 재업로드 |
-| `Inference Error` | **입력은 통과.** `predict` 안 또는 그 결과 처리에서 실패 | 출력 타입을 의심 — 1차원 숫자 배열로 |
-
-`Inference Error` 까지 왔으면 입력 형식은 해결된 것이다. 남은 건 출력이다.
-사내 예제의 ElasticNet 은 **1차원 숫자 배열**을 돌려준다. 문자열 DataFrame 이나
-2차원 배열을 돌려주면 런타임이 결과를 담다가 실패할 수 있다.
-`mini_upload.py` 는 `float()` 로 캐스팅한 1차원 리스트를 돌려준다
-(numpy 타입이 남으면 직렬화에서 걸릴 수 있다).
-
-#### 이 모델이 받는 요청 본문을 확인하는 가장 확실한 법
-
-MLflow 가 모델 안에 **`serving_input_example.json`** 을 같이 저장한다.
-그 파일이 곧 "이 모델에 POST 해야 하는 본문" 이다. MLflow UI 의 모델 artifact
-에서 열어보고, 형식이 헷갈리면 **그대로 복사해 보내면 된다.**
-
-`simple_upload.py` 로 올린 모델의 경우:
-
-```json
-{
-  "input": [
-    {
-      "name": "mico_setup",
-      "shape": [3, 1],
-      "datatype": "BYTES",
-      "data": [
-        "{\"equipment_id\": \"EQ001\", \"a\": 1, \"b\": 2, \"post_thk\": 0, \"pol_time\": 1, \"target\": 10}",
-        "..."
-      ]
-    }
-  ]
-}
+```
+AttributeError: Can't get attribute 'ArithModel' on <module '__main__' ... gunicorn>
 ```
 
-`data` 가 **JSON 문자열의 배열**이고 `datatype` 이 `BYTES` 다. 숫자 배열이 아니다.
-이 모델에 숫자 배열을 보내면 `Failed to enforce schema of data` 가 난다.
+사내 예제가 `joblib.dump(model, ...)` 를 써도 되는 건 `ElasticNet` 이 설치된
+sklearn 모듈의 클래스이기 때문이다. 우리가 만든 클래스는 그렇지 않다.
+artifact 에는 **순수 데이터(dict/json)만** 넣고, 계산은 함수로 두고
+`ModelWrapper` 안에서 부른다. `ModelWrapper` 는 MLflow 가 cloudpickle 로
+'값 자체'를 저장하므로 안전하다.
 
-`mini_call.py` 가 이 형식으로 보낸다. **모델을 다시 올릴 필요 없다.**
-로컬 검증: `serving_input_example.json` 을 그대로 POST -> `HTTP 200`,
-`{'equipment_id': 'EQ001', 'pre_thk': 3, 'rr': 3.0, 'offset': 7.0, ...}`.
+**2. `input_example` 을 `log_model` 에 반드시 넘길 것.**
+안 넘기면 `serving_input_example.json` 이 안 생긴다. 사내 MLflow 의 다른
+모델에는 전부 있는 파일이다.
 
-#### `Failed to enforce schema of data` 가 나올 때 — 가장 흔한 원인
+**3. `input_example` 과 호출 payload 를 똑같이 맞출 것.**
+`input_example` 에서 signature 가 추론돼 강제된다. 다르면
+`Failed to enforce schema of data` 가 난다.
+`mico_call.py` 는 `input_example.json` 을 그대로 읽어 보내므로 어긋날 일이 없다.
 
-```json
-{"error_code": "15001", "error_type": "MlflowException",
- "hcp_error_type": "NOT_IMPLEMENTED",
- "error_message": "Failed to enforce schema of data"}
-```
+**4. 출력은 1차원 순수 `float`.**
+2차원이면 런타임이 결과를 배열에 담다가
+`setting an array element with a sequence` 로 죽을 수 있다.
 
-이건 MLflow 가 낸 것이다. **배포된 모델의 signature 와 보내는 payload 가
-안 맞는다는 뜻**이다. signature 는 `log_model(input_example=...)` 을 넘기는
-순간 MLflow 가 거기서 추론해 만들고, 이후 모든 호출에 강제된다.
+#### 올린 뒤 확인할 것
 
-**해결은 signature 를 없애는 게 아니라, `input_example` 과 호출 payload 를
-똑같이 맞추는 것이다.**
+MLflow UI 에서 그 모델 artifact 에 아래 두 가지가 보여야 한다.
 
-> `input_example` 을 빼면 signature 가 없어져 스키마 검사도 사라지지만,
-> **`serving_input_example.json` 도 같이 안 생긴다.** 사내 MLflow 의 다른
-> 모델에는 전부 있는 파일이고 서빙 런타임이 이걸로 요청을 해석하는 것으로
-> 보이므로, 빼면 호출이 안 된다. 반드시 넘길 것.
+- `serving_input_example.json` — 이게 곧 POST 할 본문이다. 그대로 복사해 보내도 된다
+- `artifacts/` 폴더 (`model.pkl`, `config.json`)
 
-```python
-mlflow.pyfunc.log_model(
-    python_model=ModelWrapper(),
-    artifact_path="ai_studio",
-    input_example=input_example,   # <- 있어야 serving_input_example.json 이 생긴다
-    registered_model_name="MICO_Mini",
-    pip_requirements=[...],
-)
-```
+#### 에러 메시지로 어디까지 갔는지 읽기
 
-예전에 이 에러가 났던 건 문자열(`BYTES`) 모델에 숫자 배열을 보냈기 때문이다.
-`input_example` 을 숫자 배열로 올리고 같은 모양으로 호출하면 통과한다.
-
-signature 가 있으면 payload 가 `predict` 에 DataFrame 으로 도착한다(없으면 dict).
-`mini_upload.py` 의 `get_rows()` 가 양쪽을 다 벗긴다.
-
-| | `predict` 가 받는 것 | 꺼내는 법 |
-|---|---|---|
-| signature 있음 | DataFrame (`input` 컬럼, 셀 = 블록 리스트) | `x["input"].iloc[0][0]["data"]` |
-| signature 없음 | dict 원본 | `x["input"][0]["data"]` |
-
-#### 엔드포인트가 `NOT_IMPLEMENTED` 를 돌려줄 때
-
-**먼저 대조 실험으로 우리 코드 문제인지부터 가른다 — `iris_upload.py`.**
-
-사내 예제(ElasticNet + iris)를 그대로 재현하되, 없는 `aiu_custom` 만 같은 파일
-안의 최소 래퍼로 대체한 것이다. 데이터·모델·`input_example` 형식·`log_model`
-인자 모두 사내 예제와 같다.
-
-```bash
-pip install mlflow==2.16.2 pandas scikit-learn
-python3 iris_upload.py     # {TODO} 2개 채우고 실행 -> IRIS_Control 등록
-python3 iris_call.py       # url 채우고 실행
-```
-
-| 결과 | 뜻 |
+| 메시지 | 뜻 |
 |---|---|
-| **이것도 실패** | 우리 코드 문제가 아니다. 플랫폼/배포 설정 문제이므로 `aiu_custom` 을 받거나 담당자 확인이 필요하다 |
-| **이건 성공** | 차이가 우리 모델 쪽에 있다. 두 파일을 비교해 좁힌다 |
+| `NOT_IMPLEMENTED` | 입력조차 처리 못 함 |
+| `Failed to enforce schema of data` | payload 가 모델 signature 와 불일치 |
+| `Inference Error` | 입력은 통과. `predict` 안 또는 결과 처리에서 실패 |
 
-로컬 검증: `HTTP 200`, iris 예측값 10개 (1차원 배열).
+로컬 검증 결과: 서버 기동 `ping 200`, `serving_input_example.json` 을 그대로
+POST -> `[7.0, 12.0, 22.0]`, `mico_call.py` 로도 동일.
 
-**그다음 `mini_upload.py` / `mini_call.py` 로 좁힌다.** 우리 모델이 문자열(JSON)을
-주고받는 게 사내 런타임과 안 맞을 수 있다. 사내 예제(ElasticNet/iris)는
-**숫자 배열 in / 숫자 배열 out** 이었으므로, 그 모양으로 최소 재현을 만들었다.
-
-```bash
-python3 mini_upload.py     # {TODO} 2개 채우고 실행 -> MICO_Mini 등록
-python3 mini_call.py       # req_url 채우고 실행
-```
-
-`mini_upload.py` 는 config·artifact·load_context·predict_stream 없이
-`predict()` 하나뿐이다. 계산은 `simple_upload.py` 와 같은 3단계 사칙연산이고,
-주고받는 것만 JSON 문자열 대신 숫자 배열이다.
-
-```
-입력 한 행 = [a, b, post_thk, pol_time, target]   숫자 5개
-출력      = [offset, offset, ...]                행마다 숫자 1개 (1차원)
-```
-
-**출력을 1차원으로 두는 게 중요하다.** 사내 예제의 ElasticNet 도 1차원 배열을
-돌려준다. 2차원(`[[pre_thk, rr, offset], ...]`)으로 돌려주면 서빙 런타임이
-결과를 배열에 담다가 `setting an array element with a sequence` 로 죽을 수 있다.
-(MLflow 표준 서버는 2차원도 200 을 주므로 이 제약은 사내 런타임 쪽이다 —
-2.14.3 / 2.16.2 양쪽에서 확인)
-
-pre_thk·rr 까지 받고 싶으면 1차원이 통하는 걸 확인한 뒤에 늘린다.
-
-`equipment_id` 는 문자열이라 숫자 배열에 못 넣는다. 행 순서로 구분하고,
-`mini_call.py` 가 `equipment_ids` 리스트와 zip 해서 보여준다.
-`mini_call.py` 는 url 만 채우면 되고 payload 를 코드 안에서 만든다.
-
-**`datatype` 은 `"ndarray"` 로 쓴다.** 사내 예제가 `type(sample_data).__name__`
-으로 만들어 낸 값이 그것이고, 사내 런타임이 이 값으로 분기할 가능성이 높다.
-(MLflow 자체는 이 값을 따지지 않는다 — `ndarray`/`FP64`/`BYTES` 셋 다 200 이 나온다.
-즉 이 필드를 읽는 쪽은 사내 서빙 런타임이다. `NOT_IMPLEMENTED` 가
-"모르는 datatype" 에서 나왔을 수 있다.)
-
-```python
-payload = {
-    "input": [
-        {
-            "name": "mico_example",
-            "shape": [3, 2],          # [행, 열]
-            "datatype": "ndarray",    # 여기가 핵심
-            "data": [[1.0, 2.0], [3.0, 4.0], [10.0, 5.0]],
-        }
-    ]
-}
-```
-
-- **이게 되면** 문제는 우리 모델의 입출력 형식(문자열 JSON)이다. 그 모양을
-  숫자 배열로 바꾸면 된다.
-- **이것도 안 되면** 모델 복잡도 문제가 아니다. 사내 서빙 런타임이 pyfunc 를
-  그대로 부르지 않는 것이므로 담당자 확인이 필요하다 (아래 참고).
-
-로컬 MLflow 서버로 검증한 결과: `HTTP 200`, 본문 `[7.0, 12.0, 22.0]`
-— `simple_upload.py` 의 JSON 버전 offset 값과 같다.
-
-
-```json
-{"error_code": "15001", "error_type": "NotImplementedError",
- "hcp_error_type": "NOT_IMPLEMENTED", "error_message": "Inference Error"}
-```
-
-HTTP 200 이어도 이건 **에러**다. `hcp_error_type` 은 MLflow 가 쓰는 필드가 아니라
-사내 게이트웨이가 붙인 것이므로, MLflow 표준 서버가 아니라 사내 서빙 런타임이
-낸 오류다. 아래 순서로 좁힌다.
-
-1. `simple_call.py` [4] 의 `model.predict()` 가 되는지 본다.
-   **되면 모델 자체는 멀쩡하고 서빙 런타임 문제다** (레지스트리 로드까지 성공한 것).
-2. `simple_call.py` [7] 진단 셀을 AI Studio 노트북에서 돌려
-   `aiu_custom.predict.ModelWrapper` 소스를 확인한다. 사내 런타임이 부르는
-   메서드가 거기 있다. 그게 `predict` 가 아니면 그 이름으로 맞춰줘야 한다.
-
-미리 맞춰둔 것 두 가지 (`simple_upload.py` 의 `ModelWrapper`):
-
-- `predict(self, context, model_input, params=None)` — MLflow 정식 시그니처.
-  런타임이 3인자로 부르면 `params` 를 안 받는 쪽은 `TypeError` 가 난다.
-- `predict_stream()` 구현 — 스트리밍으로 부르는 런타임 대비.
-  구현이 없으면 MLflow 기본 구현이 `NotImplementedError` 를 낸다.
-
-그래도 안 되면 `simple_probe.py` 로 payload 형식을 좁힌다.
-
-```bash
-python3 simple_probe.py     # endpoint_url 만 채우고 실행
-```
-
-후보 8종(사내 엔벨로프 / `inputs` / `dataframe_split` / `dataframe_records` /
-`instances` / KServe v2 형 등)을 순서대로 POST 하고, 어느 게 통하는지 요약해 준다.
-`/ping` `/health` `/version` 도 찔러 서버 정체를 확인한다.
-
-MLflow 표준 서버로 검증했을 때는 아래 4종이 통했다.
-
-| payload | 결과 |
-|---|---|
-| `{"input": [{...}]}` (사내 예제 그대로) | 200 |
-| `{"inputs": {"input": [{...}]}}` | 200 |
-| `{"dataframe_split": {"columns":["input"], ...}}` | 200 |
-| `{"dataframe_records": [{"input": [{...}]}]}` | 200 |
-
-전부 실패하면 payload 문제가 아니라 서빙 런타임이 모델을 부르는 방식이 다른 것이다.
-그때 담당자에게 확인할 것:
-
-- **`aiu_custom` 패키지를 어디서 받는지.** 사내 예제가 `code_paths=["aiu_custom"]`
-  으로 올리는 로컬 폴더인데, 노트북에 없으면 그 예제도 그대로는 안 돈다.
-- 서빙 런타임이 pyfunc 의 `predict()` 를 부르는지, 다른 메서드를 부르는지
-- 엔드포인트가 기대하는 요청 본문 예시
-
-**(b) 폴더 구조 경로 — `mico_deploy/register_model.py`.** 실제 알고리즘처럼
-코드가 여러 모듈로 나뉘고 artifact(설정 파일)가 붙는 경우.
-`TRACKING_URI` 를 채우고 실행한다.
 
 ---
 
