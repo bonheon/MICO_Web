@@ -1,0 +1,986 @@
+{% extends 'setup_mico/base.html' %}
+
+{% block title %}| 핵심 알고리즘 · PRESSURE{% endblock %}
+{% block nav_guide_animation %}active{% endblock %}
+
+{% block breadcrumb %}
+  <li class="breadcrumb-item"><a href="{% url 'dashboard' %}">Home</a></li>
+  <li class="breadcrumb-item"><a href="{% url 'guide_animation' %}">핵심 알고리즘</a></li>
+  <li class="breadcrumb-item active">PRESSURE</li>
+{% endblock %}
+
+{% block content %}
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=IBM+Plex+Sans+KR:wght@300;400;500;600;700&family=IBM+Plex+Mono:wght@400;500;600&display=swap">
+
+<style>
+.az {
+  --az-ink:#16202b; --az-body:#46586a; --az-muted:#7b8b9a;
+  --az-rule:#dde4ea; --az-surface:#fff; --az-sunken:#f1f5f8;
+  --az-learn:#0e7c86; --az-learn-w:rgba(14,124,134,0.09);
+  --az-dim:#9aa8b4; --az-trend:#33454f;
+  --c1:#1552d4; --c2:#e07a00; --c3:#8e2fce; --c4:#d11a4f;
+  font-family:'IBM Plex Sans KR','Segoe UI',system-ui,sans-serif;
+  color:var(--az-body); -webkit-font-smoothing:antialiased;
+}
+[data-theme="dark"] .az {
+  --az-ink:#eef3f7; --az-body:#b9c6d2; --az-muted:#8497a6;
+  --az-rule:#33404f; --az-surface:#1f2937; --az-sunken:#18222f;
+  --az-learn:#3fb8c2; --az-learn-w:rgba(63,184,194,0.13);
+  --az-dim:#5c6b78; --az-trend:#b9c9d6;
+  --c1:#6ea8ff; --c2:#ffa645; --c3:#c98bff; --c4:#ff5f86;
+}
+
+.az-wrap { max-width:1120px; margin:0 auto; padding-bottom:3rem; }
+
+.az-head { display:flex; align-items:flex-end; gap:1.2rem; flex-wrap:wrap;
+           padding-bottom:1rem; margin-bottom:1.2rem; border-bottom:1px solid var(--az-rule); }
+.az-head h1 { font-size:1.55rem; font-weight:700; letter-spacing:-0.025em;
+              color:var(--az-ink); margin:0; }
+.az-head .sub { font-size:0.85rem; color:var(--az-muted); margin:0.3rem 0 0; }
+.az-head .doclink { margin-left:auto; font-size:0.8rem; color:var(--az-learn);
+                    text-decoration:none; white-space:nowrap; }
+.az-head .doclink:hover { text-decoration:underline; }
+
+.az-tabs { display:flex; gap:0.4rem; flex-wrap:wrap; margin-bottom:1.4rem; }
+.az-tab {
+  font-family:'IBM Plex Mono',monospace; font-size:0.775rem; font-weight:500;
+  padding:0.45rem 0.85rem; border-radius:6px; border:1px solid var(--az-rule);
+  background:var(--az-surface); color:var(--az-body); text-decoration:none;
+}
+.az-tab:hover { border-color:var(--az-learn); color:var(--az-learn); }
+.az-tab.on { border-color:var(--az-learn); background:var(--az-learn-w);
+             color:var(--az-learn); font-weight:600; }
+
+.az-stage { border:1px solid var(--az-rule); border-radius:10px; overflow:hidden;
+            background:var(--az-surface); }
+
+.az-caption { padding:1.1rem 1.35rem 1rem; border-bottom:1px solid var(--az-rule);
+              background:var(--az-sunken); min-height:126px; }
+.az-caption .step {
+  font-family:'IBM Plex Mono',monospace; font-size:0.7rem; font-weight:600;
+  letter-spacing:0.14em; text-transform:uppercase; color:var(--az-learn);
+  margin-bottom:0.45rem;
+}
+.az-caption h2 { font-size:1.12rem; font-weight:650; letter-spacing:-0.018em;
+                 color:var(--az-ink); margin:0 0 0.4rem; }
+.az-caption p { font-size:0.875rem; line-height:1.7; margin:0; max-width:88ch; }
+.az-caption .eq {
+  display:inline-block; margin-top:0.6rem; font-family:'IBM Plex Mono',monospace;
+  font-size:0.815rem; color:var(--az-ink); background:var(--az-surface);
+  border:1px solid var(--az-rule); border-radius:5px; padding:0.34rem 0.65rem;
+  max-width:100%; overflow-x:auto; white-space:nowrap;
+}
+.az-caption .eq .hl  { color:var(--az-learn); font-weight:600; }
+.az-caption .eq .hl2 { color:var(--c2); font-weight:600; }
+.az-caption .eq .hl4 { color:var(--c4); font-weight:600; }
+
+.az-canvas { padding:0.5rem 0.4rem 0.35rem; }
+.az-canvas svg { display:block; width:100%; height:auto; color:var(--az-body); }
+
+.az-apply {
+  display:flex; align-items:center; gap:1.5rem; flex-wrap:wrap;
+  padding:0.8rem 1.35rem; border-top:1px solid var(--az-rule);
+  background:var(--az-sunken);
+}
+.az-apply .lbl {
+  font-family:'IBM Plex Mono',monospace; font-size:0.7rem; font-weight:600;
+  letter-spacing:0.1em; text-transform:uppercase; color:var(--az-learn);
+}
+.az-apply label { display:flex; align-items:center; gap:0.55rem;
+                  font-size:0.79rem; color:var(--az-body); margin:0; }
+.az-apply input[type=range] { width:190px; cursor:pointer; }
+#az-w-13p { accent-color:var(--c2); }
+#az-w-shape { accent-color:var(--c4); }
+.az-apply .num { font-family:'IBM Plex Mono',monospace; font-variant-numeric:tabular-nums;
+                 font-weight:600; color:var(--az-ink); min-width:4.2rem; }
+
+.az-ctrl { display:flex; align-items:center; gap:0.75rem; flex-wrap:wrap;
+           padding:0.85rem 1.35rem; border-top:1px solid var(--az-rule); }
+.az-btn {
+  display:inline-flex; align-items:center; gap:0.4rem;
+  font-family:'IBM Plex Sans KR',sans-serif; font-size:0.82rem; font-weight:500;
+  padding:0.42rem 0.85rem; border-radius:6px; cursor:pointer;
+  border:1px solid var(--az-rule); background:var(--az-surface); color:var(--az-body);
+  transition:border-color .15s, color .15s, background .15s;
+}
+.az-btn:hover:not(:disabled) { border-color:var(--az-learn); color:var(--az-learn); }
+.az-btn:disabled { opacity:0.38; cursor:default; }
+.az-btn.primary { background:var(--az-learn); border-color:var(--az-learn); color:#fff;
+                  min-width:96px; justify-content:center; }
+.az-btn.primary:hover { filter:brightness(1.08); color:#fff; }
+.az-btn:focus-visible { outline:2px solid var(--az-learn); outline-offset:2px; }
+
+.az-dots { display:flex; gap:0.34rem; margin-left:0.4rem; }
+.az-dot {
+  width:26px; height:26px; border-radius:50%; border:1px solid var(--az-rule);
+  background:var(--az-surface); color:var(--az-muted); cursor:pointer;
+  font-family:'IBM Plex Mono',monospace; font-size:0.7rem; font-weight:600;
+  display:flex; align-items:center; justify-content:center; padding:0;
+  transition:all .15s;
+}
+.az-dot:hover { border-color:var(--az-learn); color:var(--az-learn); }
+.az-dot.on { background:var(--az-learn); border-color:var(--az-learn); color:#fff; }
+.az-dot.done { border-color:var(--az-learn); color:var(--az-learn); }
+.az-speed { margin-left:auto; display:flex; align-items:center; gap:0.5rem;
+            font-size:0.76rem; color:var(--az-muted); }
+.az-speed select { font-size:0.76rem; padding:0.24rem 0.4rem; border-radius:5px;
+                   border:1px solid var(--az-rule); background:var(--az-surface); color:var(--az-ink); }
+
+.az-foot { font-size:0.78rem; color:var(--az-muted); line-height:1.7;
+           margin-top:1.1rem; max-width:86ch; }
+.az-foot code { font-family:'IBM Plex Mono',monospace; font-size:0.94em;
+                background:var(--az-sunken); padding:0.08em 0.35em; border-radius:3px; color:var(--az-ink); }
+
+@media (prefers-reduced-motion:reduce) { .az * { transition:none !important; } }
+</style>
+
+<div class="az">
+<div class="az-wrap">
+
+  <div class="az-head">
+    <div>
+      <h1>PRESSURE — 웨이퍼 안의 두께 차이를 어떻게 잡는가</h1>
+      <p class="sub">웨이퍼 한 장으로 BIAS 를 이해하고, 대표 zone 하나를 뽑아 200장의 트렌드로 Removal Rate 까지 이어갑니다.</p>
+    </div>
+    <a class="doclink" href="{% url 'algorithm_guide' %}">상세 문서 →</a>
+  </div>
+
+  <div class="az-tabs">
+    <a class="az-tab" href="{% url 'guide_animation' %}">① Pre_Thk_VM</a>
+    <a class="az-tab" href="{% url 'guide_animation_rr' %}">② Removal Rate</a>
+    <a class="az-tab" href="{% url 'guide_animation_offset' %}">③ OFFSET</a>
+    <a class="az-tab on" href="#">④ PRESSURE</a>
+  </div>
+
+  <div class="az-stage">
+    <div class="az-caption">
+      <div class="step" id="az-step">STEP 0 / 9</div>
+      <h2 id="az-title">—</h2>
+      <p id="az-desc">—</p>
+      <div class="eq" id="az-eq" hidden></div>
+    </div>
+
+    <div class="az-canvas">
+      <svg id="az-svg" viewBox="0 0 900 470" role="img"
+           aria-label="PRESSURE 모드 설명: 웨이퍼 평면도와 반경별 두께 프로파일로 BIAS 를 정의하고, Post_Target + BIAS 를 후처리 두께로 써서 Pre_Thk 와 Removal Rate 를 계산하는 과정">
+        <g id="az-wafer"></g>
+        <g id="az-chart"></g>
+        <g id="az-table"></g>
+        <g id="az-trend"></g>
+        <g id="az-tpts"></g>
+      </svg>
+    </div>
+
+    <div class="az-apply" id="az-apply">
+      <span class="lbl">이 웨이퍼</span>
+      <label for="az-w-13p">13P 실측 (웨이퍼 평균)
+        <input type="range" id="az-w-13p" min="3950" max="4060" step="1" value="4026">
+        <span class="num" id="az-w-13pv">4026 Å</span>
+      </label>
+      <label for="az-w-shape">엣지 처짐
+        <input type="range" id="az-w-shape" min="-45" max="45" step="1" value="-26">
+        <span class="num" id="az-w-shapev">−26 Å</span>
+      </label>
+    </div>
+
+    <div class="az-ctrl">
+      <button class="az-btn" id="az-prev" type="button">◀ 이전</button>
+      <button class="az-btn primary" id="az-play" type="button">▶ 재생</button>
+      <button class="az-btn" id="az-next" type="button">다음 ▶</button>
+      <div class="az-dots" id="az-dots"></div>
+      <div class="az-speed">
+        <label for="az-spd">속도</label>
+        <select id="az-spd">
+          <option value="1.6">느리게</option>
+          <option value="1" selected>보통</option>
+          <option value="0.6">빠르게</option>
+        </select>
+      </div>
+    </div>
+  </div>
+
+  <p class="az-foot">
+    <code>Module.compute_removal_rate()</code> 의
+    <code>BIAS = Thk_Para − Thk_Para_13P − (Target − Target_13P)</code> 와
+    <code>REMOVAL_RATE._process_models()</code> 의
+    <code>post_thk = Post_Target + BIAS</code> 를 그대로 계산합니다.
+    <code>FB_Type = PRESSURE</code> 인 Detail 행에만 적용되며, 같은 레시피의
+    <code>FB_Type = TIME</code> 행(13P)이 기준이 됩니다.
+    이 값이 <a href="{% url 'guide_animation' %}" style="color:var(--az-learn)">① Pre_Thk_VM</a> 의 detrend 와
+    <a href="{% url 'guide_animation_rr' %}" style="color:var(--az-learn)">② Removal Rate</a> 에 그대로 들어갑니다.
+  </p>
+
+</div>
+</div>
+
+<script>
+(function () {
+  'use strict';
+
+  // ══════════════════════════════════════════════════════════
+  //  1. 웨이퍼 한 장의 계측값
+  // ══════════════════════════════════════════════════════════
+  var TARGET_13P = 4000;                       // FB_Type=TIME 행의 Target
+  var PRE_TARGET = 5500, VM = 24.0;            // ① 이 만든 입고 두께
+  var POL_TIME   = 70.0;
+
+  //  zone : 반경 위치와 각 zone 의 Target (평균이 정확히 TARGET_13P 가 되도록)
+  var Z = [
+    { id: 'Z1', name: '중심',   r:   8, r0: 0.00, r1: 0.18, target: 4008 },
+    { id: 'Z2', name: '',       r:  42, r0: 0.18, r1: 0.42, target: 4004 },
+    { id: 'Z3', name: '',       r:  75, r0: 0.42, r1: 0.62, target: 4001 },
+    { id: 'Z4', name: '',       r: 105, r0: 0.62, r1: 0.79, target: 3999 },
+    { id: 'Z5', name: '',       r: 130, r0: 0.79, r1: 0.92, target: 3996 },
+    { id: 'ED', name: '엣지',   r: 146, r0: 0.92, r1: 1.00, target: 3992 }
+  ];
+  var R_MAX = 150;
+
+  // 컨트롤 상태
+  var thk13p = 4026;      // 13P 실측 (TIME 루프가 만든 결과)
+  var edgeSag = -26;      // 엣지 처짐 — 프로파일 휨 정도
+
+  // 프로파일 모양 : 평균이 0 이 되도록 반경 제곱항을 0-centering
+  var SHAPE_BASE = (function () {
+    var f = Z.map(function (z) { return Math.pow(z.r / R_MAX, 2); });
+    var m = f.reduce(function (a, b) { return a + b; }, 0) / f.length;
+    return f.map(function (v) { return v - m; });     // 평균 0
+  })();
+  var JITTER = [1.4, -0.9, 0.6, -1.1, 1.0, -1.0];      // 계측 잔여 편차
+
+  function calc() {
+    return Z.map(function (z, i) {
+      var meas = thk13p + SHAPE_BASE[i] * edgeSag / 0.42 + JITTER[i];   // zone 실측
+      var bias = (meas - thk13p) - (z.target - TARGET_13P);            // BIAS
+      var post = z.target + bias;                                       // 후처리 두께 대용값
+      var pre  = PRE_TARGET + VM;                                       // ① 이 만든 입고 두께
+      return {
+        z: z, meas: meas, bias: bias, post: post, pre: pre,
+        rr: (pre - post) / POL_TIME
+      };
+    });
+  }
+
+  // ══════════════════════════════════════════════════════════
+  //  1-b. 대표 zone(ED) 을 여러 장에 걸쳐 본다
+  //       13P 는 TIME 루프가 따로 제어하므로 제 나름대로 출렁인다.
+  //       ED 절대 두께는 그 출렁임을 그대로 따라가고, BIAS 만 zone 고유 변동을 남긴다.
+  // ══════════════════════════════════════════════════════════
+  var NW = 200, ED_I = 5;                       // 대표 zone = ED
+  var ED_TGT = Z[ED_I].target;                  // 3992
+  var PRE_THK = PRE_TARGET + VM;                // 5524
+  var PAD_MAX_W = 950, CYC_W = 50;              // 패드 주기 50장
+
+  function mulberry32(a) {
+    return function () {
+      a |= 0; a = a + 0x6D2B79F5 | 0;
+      var t = Math.imul(a ^ a >>> 15, 1 | a);
+      t = t + Math.imul(t ^ t >>> 7, 61 | t) ^ t;
+      return ((t ^ t >>> 14) >>> 0) / 4294967296;
+    };
+  }
+  var rndW = mulberry32(20260907);
+  function gaussW(sd) {
+    var u = 1 - rndW(), v = rndW();
+    return Math.sqrt(-2 * Math.log(u)) * Math.cos(2 * Math.PI * v) * sd;
+  }
+
+  var WT = (function () {
+    var out = [], drift = 0;
+    for (var i = 0; i < NW; i++) {
+      var pad = (i % CYC_W) / (CYC_W - 1) * PAD_MAX_W;
+      var cyc = Math.floor(i / CYC_W) + 1;
+      // 13P : TIME 루프의 잔여 오차 — 느리게 떠돈다
+      drift += gaussW(2.2);
+      drift *= 0.94;
+      var t13 = TARGET_13P + drift + gaussW(3.0);
+      // 이 zone 의 실제 제거율 — 패드가 닳을수록 조금씩 떨어진다
+      var rr   = 21.89 - 0.20 * (pad / PAD_MAX_W) + gaussW(0.035);
+      var polt = 70 + gaussW(0.5);
+      var post = PRE_THK - rr * polt;            // 후처리 두께 대용값
+      var bias = post - ED_TGT;                  // BIAS = post − zone 목표
+      var meas = t13 + (ED_TGT - TARGET_13P) + bias;   // ED 절대 실측
+      out.push({ i: i, pad: pad, cyc: cyc, t13: t13, meas: meas,
+                 bias: bias, post: post, polt: polt, rr: (PRE_THK - post) / polt });
+    }
+    return out;
+  })();
+
+  // ══════════════════════════════════════════════════════════
+  //  2. 좌표계
+  // ══════════════════════════════════════════════════════════
+  var WA = { cx: 158, cy: 152, R: 102 };                     // 웨이퍼 평면도
+  var PL = { x0: 372, x1: 862, y0: 52, y1: 268 };            // 반경 프로파일
+  var D_THK = [3930, 4085];                                  // 두께 축 고정
+  function yThk(v) { return PL.y1 - (v - D_THK[0]) / (D_THK[1] - D_THK[0]) * (PL.y1 - PL.y0); }
+  function xR(r)   { return PL.x0 + r / R_MAX * (PL.x1 - PL.x0); }
+
+  var NS = 'http://www.w3.org/2000/svg';
+  var gWafer = document.getElementById('az-wafer');
+  var gChart = document.getElementById('az-chart');
+  var gTable = document.getElementById('az-table');
+  var svgEl  = document.getElementById('az-svg');
+
+  function el(tag, attrs, text) {
+    var n = document.createElementNS(NS, tag);
+    for (var a in attrs) { if (attrs[a] !== null) { n.setAttribute(a, attrs[a]); } }
+    if (text !== undefined) { n.textContent = text; }
+    return n;
+  }
+  function clear(g) { while (g.firstChild) { g.removeChild(g.firstChild); } }
+  function txt(g, x, y, t, o) {
+    o = o || {};
+    g.appendChild(el('text', { x: x, y: y, 'font-size': o.size || 11,
+      'text-anchor': o.anchor || 'start', 'font-family': 'IBM Plex Mono, monospace',
+      fill: o.fill || 'currentColor', 'font-weight': o.weight || 400,
+      opacity: o.op === undefined ? 1 : o.op }, t));
+  }
+  function sgn(v, d) {
+    d = (d === undefined) ? 1 : d;
+    return (v >= 0 ? '+' : '−') + Math.abs(v).toFixed(d);
+  }
+  // BIAS 부호별 색 : + 두꺼움 = 진홍 / − 얇음 = 파랑
+  function biasCol(v) { return v >= 0 ? 'var(--c4)' : 'var(--c1)'; }
+
+  // ══════════════════════════════════════════════════════════
+  //  3. 웨이퍼 평면도
+  // ══════════════════════════════════════════════════════════
+  function drawWafer(D, st) {
+    clear(gWafer);
+    var maxAbs = Math.max(6, Math.max.apply(null, D.map(function (d) { return Math.abs(d.bias); })));
+
+    txt(gWafer, WA.cx, 28, st.waferTitle || '웨이퍼 평면도 — 반경별 계측 zone',
+      { size: 11, anchor: 'middle', op: 0.6 });
+
+    // 바깥에서 안쪽으로 그려야 안쪽 링이 위에 온다
+    for (var i = D.length - 1; i >= 0; i--) {
+      var d = D[i];
+      var showBias = !!st.waferBias;
+      var op = showBias ? 0.14 + 0.55 * Math.min(1, Math.abs(d.bias) / maxAbs) : 0.07;
+      gWafer.appendChild(el('circle', {
+        cx: WA.cx, cy: WA.cy, r: WA.R * d.z.r1,
+        fill: showBias ? biasCol(d.bias) : 'currentColor', opacity: op,
+        stroke: 'currentColor', 'stroke-width': 0.8, 'stroke-opacity': 0.25 }));
+    }
+    gWafer.appendChild(el('circle', { cx: WA.cx, cy: WA.cy, r: WA.R,
+      fill: 'none', stroke: 'currentColor', 'stroke-width': 1.6, opacity: 0.55 }));
+    // 노치
+    gWafer.appendChild(el('path', {
+      d: 'M ' + (WA.cx - 7) + ' ' + (WA.cy + WA.R) + ' L ' + WA.cx + ' ' + (WA.cy + WA.R - 9) +
+         ' L ' + (WA.cx + 7) + ' ' + (WA.cy + WA.R) + ' Z',
+      fill: 'var(--az-surface)', stroke: 'currentColor', 'stroke-width': 1.2, opacity: 0.75 }));
+
+    // 오른쪽 반경선 위에 zone 라벨 + 값
+    D.forEach(function (d) {
+      var rx = WA.cx + WA.R * (d.z.r0 + d.z.r1) / 2;
+      gWafer.appendChild(el('circle', { cx: rx, cy: WA.cy, r: 2.6,
+        fill: 'currentColor', opacity: 0.7 }));
+    });
+    gWafer.appendChild(el('line', { x1: WA.cx, x2: WA.cx + WA.R, y1: WA.cy, y2: WA.cy,
+      stroke: 'currentColor', 'stroke-width': 1, opacity: 0.3, 'stroke-dasharray': '3 3' }));
+
+    // 반경선 위 계측점에 zone 이름 (숫자는 아래 표가 담당)
+    D.forEach(function (d, i) {
+      var rx = WA.cx + WA.R * (d.z.r0 + d.z.r1) / 2;
+      // 색 채운 링 위에서도 읽히도록 배경색 외곽선을 두른다
+      var t = el('text', { x: rx, y: WA.cy - 9 - (i % 2) * 12, 'text-anchor': 'middle',
+        'font-size': 9.5, 'font-family': 'IBM Plex Mono, monospace', 'font-weight': 600,
+        fill: 'currentColor', opacity: st.waferBias ? 0.95 : 0.55,
+        stroke: 'var(--az-surface)', 'stroke-width': 2.6, 'stroke-linejoin': 'round',
+        'paint-order': 'stroke fill' }, d.z.id);
+      gWafer.appendChild(t);
+    });
+    txt(gWafer, WA.cx, WA.cy + WA.R + 24,
+      st.waferBias ? '색 = BIAS 부호 ( 진홍 두꺼움 · 파랑 얇음 ) · 진하기 = 크기'
+                   : '반경 위치별 계측 zone — 중심(Z1) 부터 엣지(ED) 까지',
+      { size: 9.5, anchor: 'middle', op: 0.5 });
+  }
+
+  // ══════════════════════════════════════════════════════════
+  //  4. 반경 프로파일
+  // ══════════════════════════════════════════════════════════
+  function drawChart(D, st) {
+    clear(gChart);
+
+    // 격자
+    for (var t = 0; t < 5; t++) {
+      var v = D_THK[0] + (D_THK[1] - D_THK[0]) * t / 4, yy = yThk(v);
+      gChart.appendChild(el('line', { x1: PL.x0, x2: PL.x1, y1: yy, y2: yy,
+        stroke: 'currentColor', 'stroke-width': 1, opacity: 0.09 }));
+      txt(gChart, PL.x0 - 8, yy + 3.5, Math.round(v) + ' Å',
+        { size: 10, anchor: 'end', op: 0.55 });
+    }
+    [0, 50, 100, 150].forEach(function (r) {
+      txt(gChart, xR(r), PL.y1 + 15, r + ' mm', { size: 9.5, anchor: 'middle', op: 0.45 });
+    });
+    txt(gChart, PL.x0, PL.y1 + 32, '웨이퍼 중심 → 엣지', { size: 10.5, op: 0.55 });
+
+    function poly(vals, col, w, dash, op) {
+      return el('polyline', {
+        points: D.map(function (d, i) { return xR(d.z.r) + ',' + yThk(vals[i]); }).join(' '),
+        fill: 'none', stroke: col, 'stroke-width': w,
+        'stroke-dasharray': dash || null, opacity: op === undefined ? 1 : op });
+    }
+
+    // 목표 프로파일은 항상 기준선으로
+    gChart.appendChild(poly(D.map(function (d) { return d.z.target; }),
+      'var(--az-learn)', 2, '6 4'));
+
+    gChart.appendChild(el('line', { x1: PL.x0, x2: PL.x1, y1: yThk(TARGET_13P), y2: yThk(TARGET_13P),
+      stroke: 'var(--az-learn)', 'stroke-width': 1, opacity: 0.45 }));
+    txt(gChart, PL.x0 + 4, yThk(TARGET_13P) + 15, '13P 목표 ' + TARGET_13P,
+      { size: 9.5, fill: 'var(--az-learn)', op: 0.9 });
+
+    if (st.showMeas) {
+      gChart.appendChild(poly(D.map(function (d) { return d.meas; }), 'var(--c2)', 2.6));
+      D.forEach(function (d) {
+        gChart.appendChild(el('circle', { cx: xR(d.z.r), cy: yThk(d.meas), r: 4,
+          fill: 'var(--c2)' }));
+      });
+      gChart.appendChild(el('line', { x1: PL.x0, x2: PL.x1, y1: yThk(thk13p), y2: yThk(thk13p),
+        stroke: 'var(--c2)', 'stroke-width': 1.4, 'stroke-dasharray': '4 3', opacity: 0.85 }));
+      txt(gChart, PL.x1 - 4, yThk(thk13p) - 6, '13P 실측 ' + thk13p.toFixed(0),
+        { size: 10, anchor: 'end', fill: 'var(--c2)', weight: 600 });
+
+    }
+
+    // 13P 실측 → 13P 목표 로 평행이동한 프로파일 = Post_Target + BIAS
+    if (st.showPost) {
+      gChart.appendChild(poly(D.map(function (d) { return d.post; }), 'var(--c4)', 2.8));
+      D.forEach(function (d) {
+        gChart.appendChild(el('circle', { cx: xR(d.z.r), cy: yThk(d.post), r: 4.4,
+          fill: 'var(--c4)' }));
+      });
+
+    }
+
+    // 실측 → post 로 내려오는 평행이동 화살표
+    if (st.showShift) {
+      D.forEach(function (d) {
+        gChart.appendChild(el('line', {
+          x1: xR(d.z.r), x2: xR(d.z.r), y1: yThk(d.meas), y2: yThk(d.post),
+          stroke: 'currentColor', 'stroke-width': 1, opacity: 0.35, 'stroke-dasharray': '2 3' }));
+      });
+      var midR = xR(D[2].z.r);
+      txt(gChart, midR + 8, (yThk(D[2].meas) + yThk(D[2].post)) / 2,
+        '통째로 ' + sgn(TARGET_13P - thk13p, 0) + ' Å 평행이동', { size: 10, op: 0.6 });
+    }
+
+    // BIAS 를 세로 화살표로
+    if (st.showBiasArrow) {
+      D.forEach(function (d) {
+        var x = xR(d.z.r);
+        gChart.appendChild(el('line', { x1: x, x2: x,
+          y1: yThk(d.z.target), y2: yThk(d.z.target + d.bias),
+          stroke: biasCol(d.bias), 'stroke-width': 3 }));
+        gChart.appendChild(el('circle', { cx: x, cy: yThk(d.z.target + d.bias), r: 3.4,
+          fill: biasCol(d.bias) }));
+        txt(gChart, x, yThk(d.z.target + d.bias) + (d.bias >= 0 ? -9 : 15), sgn(d.bias, 0),
+          { size: 10.5, anchor: 'middle', weight: 600, fill: biasCol(d.bias) });
+      });
+    }
+
+    // 계열 범례 — 차트 안쪽 상단 (선 위에 떠다니지 않게)
+    (function () {
+      var lx = PL.x0 + 10, ly = PL.y0 + 15;
+      function item(col, label, dash) {
+        gChart.appendChild(el('line', { x1: lx, x2: lx + 16, y1: ly - 3.5, y2: ly - 3.5,
+          stroke: col, 'stroke-width': 2.4, 'stroke-dasharray': dash || null }));
+        gChart.appendChild(el('text', { x: lx + 22, y: ly, 'font-size': 10.5,
+          'font-family': 'IBM Plex Mono, monospace', fill: col, 'font-weight': 600 }, label));
+        var w = 0;                       // 한글은 폭이 넓어 따로 센다
+        for (var ci = 0; ci < label.length; ci++) {
+          w += (label.charCodeAt(ci) > 0x2000) ? 10.4 : 6.3;
+        }
+        lx += 34 + w;
+      }
+      item('var(--az-learn)', '목표 프로파일', '6 4');
+      if (st.showMeas) { item('var(--c2)', '실측 프로파일'); }
+      if (st.showPost) { item('var(--c4)', 'Post_Target + BIAS'); }
+    })();
+
+    // 입고 두께 표시 (스케일 밖이라 화면 위쪽에 별도 표기)
+    if (st.showPre) {
+      gChart.appendChild(el('rect', { x: PL.x0, y: PL.y0 - 34, width: PL.x1 - PL.x0, height: 24,
+        rx: 4, fill: 'var(--az-learn)', opacity: 0.10 }));
+      txt(gChart, PL.x0 + 10, PL.y0 - 18,
+        'Pre_Thk = Pre_Target ' + PRE_TARGET + ' + VM ' + sgn(VM) + '  =  ' +
+        (PRE_TARGET + VM).toFixed(1) + ' Å   (① 이 학습한 값 — zone 공통)',
+        { size: 10.5, fill: 'var(--az-learn)', weight: 600 });
+    }
+  }
+
+  // ══════════════════════════════════════════════════════════
+  //  5. zone 별 계산 표
+  // ══════════════════════════════════════════════════════════
+  function drawTable(D, st) {
+    clear(gTable);
+    if (!st.rows) { return; }
+
+    var TY = st.tableY || 322;
+    var LX = 40, CW = (862 - 190) / D.length, C0 = 190;
+
+    D.forEach(function (d, i) {
+      txt(gTable, C0 + (i + 0.5) * CW, TY, d.z.id,
+        { size: 11.5, anchor: 'middle', weight: 600,
+          fill: st.waferBias ? biasCol(d.bias) : 'currentColor' });
+    });
+    gTable.appendChild(el('line', { x1: LX, x2: 862, y1: TY + 7, y2: TY + 7,
+      stroke: 'currentColor', 'stroke-width': 1, opacity: 0.2 }));
+
+    st.rows.forEach(function (row, ri) {
+      var ry = TY + 26 + ri * 22;
+      txt(gTable, LX, ry, row.label,
+        { size: 10.5, fill: row.col || 'currentColor', weight: row.bold ? 600 : 400,
+          op: row.dim ? 0.55 : 1 });
+      D.forEach(function (d, i) {
+        txt(gTable, C0 + (i + 0.5) * CW, ry, row.val(d),
+          { size: 11, anchor: 'middle', weight: row.bold ? 600 : 400,
+            fill: row.cellCol ? row.cellCol(d) : (row.col || 'currentColor'),
+            op: row.dim ? 0.6 : 1 });
+      });
+      if (row.rule) {
+        gTable.appendChild(el('line', { x1: LX, x2: 862, y1: ry + 8, y2: ry + 8,
+          stroke: 'currentColor', 'stroke-width': 1, opacity: 0.18 }));
+      }
+    });
+    if (st.tableNote) {
+      txt(gTable, LX, TY + 26 + st.rows.length * 22 + 10, st.tableNote,
+        { size: 11, fill: 'var(--az-learn)', weight: 600 });
+    }
+  }
+
+  // ══════════════════════════════════════════════════════════
+  //  5-b. 대표 zone 트렌드 (13P 타점 + ED 한 zone)
+  // ══════════════════════════════════════════════════════════
+  var TL = { x0: 82, x1: 862, y0: 58, y1: 300 };
+  var gTrend = document.getElementById('az-trend');
+  var gTpts  = document.getElementById('az-tpts');
+
+  function ext(vals, pad) {
+    var lo = Math.min.apply(null, vals), hi = Math.max.apply(null, vals);
+    var p = (hi - lo) * (pad === undefined ? 0.14 : pad);
+    return [lo - p, hi + p];
+  }
+  var D_ABS  = ext(WT.map(function (w) { return w.meas; })
+                   .concat(WT.map(function (w) { return w.t13; })));
+  var D_BIAS = ext(WT.map(function (w) { return w.bias; }), 0.25);
+  var D_PST  = ext(WT.map(function (w) { return w.post; }), 0.25);
+  var D_RRW  = ext(WT.map(function (w) { return w.rr; }), 0.22);
+
+  function mkY2(dom) {
+    return function (v) { return TL.y1 - (v - dom[0]) / (dom[1] - dom[0]) * (TL.y1 - TL.y0); };
+  }
+  function xTw(i)  { return TL.x0 + i / (NW - 1) * (TL.x1 - TL.x0); }
+  function xPw(p)  { return TL.x0 + p / PAD_MAX_W * (TL.x1 - TL.x0); }
+
+  // ED 점 (한 zone) — 애니메이션 대상
+  var tDots = WT.map(function () {
+    var c = el('circle', { r: 2.6, fill: 'var(--c4)', opacity: 0 });
+    gTpts.appendChild(c);
+    return c;
+  });
+  var tCur = { x: WT.map(function (w) { return xTw(w.i); }),
+               y: WT.map(function () { return TL.y1; }), o: WT.map(function () { return 0; }) };
+  var tRaf = null;
+
+  function trendTargets(st) {
+    var y = mkY2(st.dom2);
+    return {
+      x: WT.map(function (w) { return st.xPad ? xPw(w.pad) : xTw(w.i); }),
+      y: WT.map(function (w) { return y(st.val(w)); }),
+      o: WT.map(function () { return 1; })
+    };
+  }
+
+  function drawTrendFrame(st) {
+    clear(gTrend);
+    var y = mkY2(st.dom2), dom = st.dom2;
+
+    for (var t = 0; t < 5; t++) {
+      var v = dom[0] + (dom[1] - dom[0]) * t / 4, yy = y(v);
+      gTrend.appendChild(el('line', { x1: TL.x0, x2: TL.x1, y1: yy, y2: yy,
+        stroke: 'currentColor', 'stroke-width': 1, opacity: 0.09 }));
+      txt(gTrend, TL.x0 - 8, yy + 3.5,
+        (Math.abs(dom[1] - dom[0]) < 12 ? v.toFixed(2) : Math.round(v)) + ' ' + st.unit2,
+        { size: 10, anchor: 'end', op: 0.55 });
+    }
+    txt(gTrend, TL.x0, TL.y1 + 30, st.xlab2, { size: 10.5, op: 0.55 });
+    if (st.note2) {
+      txt(gTrend, TL.x1, TL.y1 + 30, '↳ ' + st.note2,
+        { size: 10.5, anchor: 'end', fill: 'var(--az-learn)', op: 0.95 });
+    }
+
+    // 패드 교체 눈금 (시간축일 때)
+    if (!st.xPad) {
+      for (var c = 1; c * CYC_W < NW; c++) {
+        var px = xTw(c * CYC_W);
+        gTrend.appendChild(el('line', { x1: px, x2: px, y1: TL.y0, y2: TL.y1,
+          stroke: 'var(--c4)', 'stroke-width': 1, opacity: 0.16, 'stroke-dasharray': '3 4' }));
+      }
+    }
+
+    // 기준선
+    if (st.ref !== undefined && st.ref !== null) {
+      gTrend.appendChild(el('line', { x1: TL.x0, x2: TL.x1, y1: y(st.ref), y2: y(st.ref),
+        stroke: 'var(--az-learn)', 'stroke-width': 1.6, 'stroke-dasharray': '6 4' }));
+      txt(gTrend, TL.x1 - 4, y(st.ref) - 7, st.refLabel,
+        { size: 10.5, anchor: 'end', fill: 'var(--az-learn)', weight: 600 });
+    }
+
+    // 13P 타점 (절대 두께 화면에서만)
+    if (st.show13P) {
+      gTrend.appendChild(el('polyline', {
+        points: WT.map(function (w) { return xTw(w.i) + ',' + y(w.t13); }).join(' '),
+        fill: 'none', stroke: 'var(--c2)', 'stroke-width': 1.8, opacity: 0.9 }));
+      // 범례는 데이터 위에 겹치지 않게 플롯 안쪽 상단에
+      gTrend.appendChild(el('line', { x1: TL.x0 + 10, x2: TL.x0 + 26,
+        y1: TL.y0 + 11, y2: TL.y0 + 11, stroke: 'var(--c2)', 'stroke-width': 2.4 }));
+      txt(gTrend, TL.x0 + 32, TL.y0 + 15, '13P 실측 (웨이퍼 평균)',
+        { size: 10.5, fill: 'var(--c2)', weight: 600 });
+      gTrend.appendChild(el('circle', { cx: TL.x0 + 206, cy: TL.y0 + 11, r: 3.2,
+        fill: 'var(--c4)' }));
+      txt(gTrend, TL.x0 + 216, TL.y0 + 15, 'ED zone 실측',
+        { size: 10.5, fill: 'var(--c4)', weight: 600 });
+    }
+
+    // 소모품 축일 때 회귀선
+    if (st.xPad && st.fit) {
+      var mx = 0, my = 0;
+      WT.forEach(function (w) { mx += w.pad; my += w.rr; });
+      mx /= NW; my /= NW;
+      var sxy = 0, sxx = 0;
+      WT.forEach(function (w) { sxy += (w.pad - mx) * (w.rr - my); sxx += (w.pad - mx) * (w.pad - mx); });
+      var b1 = sxy / sxx, b0 = my - b1 * mx;
+      gTrend.appendChild(el('line', { x1: xPw(0), x2: xPw(PAD_MAX_W),
+        y1: y(b0), y2: y(b1 * PAD_MAX_W + b0),
+        stroke: 'var(--az-learn)', 'stroke-width': 3 }));
+      // 라벨은 회귀선 끝(점이 몰리는 곳)이 아니라 플롯 안쪽 우상단에 — 우하향 추세라 이 구석이 비어 있다
+      var fitLab = 'RR = ' + b1.toFixed(5) + ' × 소모품 + ' + b0.toFixed(3);
+      var fitW = 0;
+      for (var li = 0; li < fitLab.length; li++) {
+        fitW += (fitLab.charCodeAt(li) > 0x2000) ? 11.5 : 6.9;
+      }
+      var fitX = TL.x1 - 8, fitY = TL.y0 + 16;
+      gTrend.appendChild(el('rect', { x: fitX - fitW - 8, y: fitY - 13,
+        width: fitW + 16, height: 20, rx: 4,
+        fill: 'var(--az-surface)', opacity: 0.92 }));
+      txt(gTrend, fitX, fitY, fitLab,
+        { size: 11.5, anchor: 'end', fill: 'var(--az-learn)', weight: 600 });
+    }
+
+    if (st.showPre) {
+      gTrend.appendChild(el('rect', { x: TL.x0, y: TL.y0 - 36, width: TL.x1 - TL.x0, height: 24,
+        rx: 4, fill: 'var(--az-learn)', opacity: 0.10 }));
+      txt(gTrend, TL.x0 + 10, TL.y0 - 20,
+        'Pre_Thk = Pre_Target ' + PRE_TARGET + ' + VM ' + sgn(VM) + '  =  ' + PRE_THK.toFixed(1) +
+        ' Å   (① 이 학습한 값 — zone 과 무관하게 공통)',
+        { size: 10.5, fill: 'var(--az-learn)', weight: 600 });
+    }
+
+    if (st.trendNote) {
+      txt(gTrend, TL.x0, TL.y1 + 56, st.trendNote,
+        { size: 11.5, fill: 'var(--az-learn)', weight: 600 });
+    }
+  }
+
+  function animTrend(st) {
+    var tg = trendTargets(st);
+    var fx = tCur.x.slice(), fy = tCur.y.slice(), fo = tCur.o.slice();
+    var t0 = performance.now(), dur = 900;
+    if (tRaf) { cancelAnimationFrame(tRaf); }
+    function ease(t) { return t < 0.5 ? 4 * t * t * t : 1 - Math.pow(-2 * t + 2, 3) / 2; }
+    function frame(now) {
+      var pr = Math.min(1, (now - t0) / dur), e = ease(pr);
+      for (var i = 0; i < NW; i++) {
+        tDots[i].setAttribute('cx', (fx[i] + (tg.x[i] - fx[i]) * e).toFixed(1));
+        tDots[i].setAttribute('cy', (fy[i] + (tg.y[i] - fy[i]) * e).toFixed(1));
+        tDots[i].setAttribute('opacity', (fo[i] + (tg.o[i] - fo[i]) * e).toFixed(3));
+      }
+      if (pr < 1) { tRaf = requestAnimationFrame(frame); }
+      else { tCur = tg; tRaf = null; }
+    }
+    tRaf = requestAnimationFrame(frame);
+  }
+
+  // ══════════════════════════════════════════════════════════
+  //  6. 단계
+  // ══════════════════════════════════════════════════════════
+  var R_MEAS  = { label: 'zone 실측 두께', col: 'var(--c2)', bold: true,
+                  val: function (d) { return d.meas.toFixed(0); } };
+  var R_TGT   = { label: 'zone 목표 (Target)', col: 'var(--az-learn)',
+                  val: function (d) { return d.z.target.toFixed(0); }, rule: true };
+
+  var STAGES = [
+    {
+      title: '웨이퍼 한 장을 놓고 시작한다',
+      desc: 'CMP 후 웨이퍼는 반경 위치마다 두께가 다릅니다. 중심부터 엣지까지 zone 을 나눠 재고, ' +
+            '그 전체 평균이 13P 입니다. 목표도 하나가 아니라 zone 마다 다릅니다 — ' +
+            '보통 엣지를 조금 얇게 관리합니다. 아래 슬라이더로 이 웨이퍼를 바꿔 볼 수 있습니다.',
+      eq: '<span class="hl2">zone 실측</span> vs <span class="hl">zone 목표</span>' +
+          ' &nbsp;·&nbsp; 13P = 웨이퍼 전체 평균 (FB_Type = TIME 이 맞추는 값)',
+      view: 'wafer', showMeas: true, rows: [R_MEAS, R_TGT], h: 400
+    },
+    {
+      title: 'STEP 1 — 절대 두께로 학습하면 두 제어가 서로 싸운다',
+      desc: '13P 실측 슬라이더를 움직여 보세요. TIME 루프가 연마 시간을 바꾸면 웨이퍼 전체가 통째로 위아래로 움직이고, ' +
+            'zone 절대 두께도 같이 따라갑니다. 이 값으로 압력을 학습하면 TIME 이 한 일을 PRESSURE 가 다시 되돌리려 듭니다.',
+      eq: '<span class="hl2">zone 실측</span> = 13P 실측 + 프로파일 모양' +
+          ' &nbsp;→&nbsp; 13P 가 움직이면 zone 값도 같이 움직인다',
+      view: 'wafer', showMeas: true,
+      rows: [
+        R_MEAS,
+        { label: '13P 실측과의 차이', col: 'currentColor',
+          val: function (d) { return sgn(d.meas - thk13p, 0); }, bold: true, rule: true },
+        { label: '↑ 13P 를 움직여도 이 줄은 변하지 않는다', dim: true,
+          val: function () { return ''; } }
+      ],
+      h: 412
+    },
+    {
+      title: 'STEP 2 — BIAS : 목표 프로파일에서 얼마나 벗어났나',
+      desc: '평균 성분을 빼면 웨이퍼 안의 모양만 남습니다. 실측에서 13P 실측을 빼고, 목표에서 13P 목표를 뺀 뒤 ' +
+            '그 둘의 차이를 구한 값이 BIAS 입니다. 목표 프로파일과 똑같으면 0 이 됩니다. ' +
+            '13P 슬라이더를 움직여도 BIAS 는 꿈쩍하지 않습니다.',
+      eq: '<span class="hl4">BIAS</span> = ( zone 실측 − 13P 실측 ) − ( zone 목표 − 13P 목표 )',
+      view: 'wafer', showMeas: true, showBiasArrow: true, waferBias: true,
+      rows: [
+        { label: 'zone 실측 − 13P 실측', col: 'var(--c2)',
+          val: function (d) { return sgn(d.meas - thk13p, 0); } },
+        { label: 'zone 목표 − 13P 목표', col: 'var(--az-learn)',
+          val: function (d) { return sgn(d.z.target - TARGET_13P, 0); }, rule: true },
+        { label: 'BIAS', bold: true, val: function (d) { return sgn(d.bias, 1); },
+          cellCol: function (d) { return biasCol(d.bias); } }
+      ],
+      tableNote: 'BIAS 가 0 이면 목표 프로파일과 일치 — 압력을 그대로 두면 된다',
+      h: 442
+    },
+    {
+      title: 'STEP 3 — 후처리 두께 자리에 Post_Target + BIAS 를 넣는다',
+      desc: '학습 코드는 두께를 하나만 받습니다. PRESSURE 에서는 실측 절대 두께 대신 ' +
+            'Post_Target + BIAS 를 넣습니다. 정리하면 "실측 프로파일을 13P 목표 높이로 통째로 평행이동한 값" 입니다 — ' +
+            'TIME 루프가 한 일이 지워지고 웨이퍼 안의 모양만 남습니다.',
+      eq: '<span class="hl4">Post_Target + BIAS</span> = zone 실측 − 13P 실측 + 13P 목표' +
+          ' &nbsp;<span style="opacity:.55">← 13P 실측이 상쇄되어 사라진다</span>',
+      view: 'wafer', showMeas: true, showPost: true, showShift: true, waferBias: true,
+      rows: [
+        R_MEAS,
+        { label: 'BIAS', val: function (d) { return sgn(d.bias, 1); },
+          cellCol: function (d) { return biasCol(d.bias); }, rule: true },
+        { label: 'Post_Target + BIAS', col: 'var(--c4)', bold: true,
+          val: function (d) { return d.post.toFixed(1); } }
+      ],
+      tableNote: '이 줄이 앞으로 "후처리 두께" 자리에 들어간다 — 13P 를 움직여도 값이 바뀌지 않는다',
+      h: 442
+    },
+    {
+      title: 'STEP 4 — 한 장이 아니라 여러 장을 이어서 본다',
+      desc: '지금까지는 웨이퍼 한 장이었습니다. 이제 대표로 ED zone 하나만 뽑아 200장을 시간순으로 늘어놓습니다. ' +
+            '주황선은 13P(웨이퍼 평균), 분홍점은 그 웨이퍼의 ED 실측 두께입니다. ' +
+            'ED 가 13P 를 그대로 따라 출렁이는 게 보입니다 — 절대 두께로는 zone 고유의 변화를 읽을 수 없습니다.',
+      eq: '<span class="hl2">13P 실측</span> 과 <span class="hl4">ED 실측</span> — 같이 움직인다',
+      view: 'trend', show13P: true,
+      dom2: D_ABS, unit2: 'Å', xlab2: '웨이퍼 처리 순서 →',
+      val: function (w) { return w.meas; },
+      note2: '13P 가 움직이면 ED 절대 두께도 통째로 따라간다',
+      h: 400
+    },
+    {
+      title: 'STEP 5 — BIAS 로 바꾸면 13P 출렁임이 사라진다',
+      desc: '각 점에서 13P 실측을 빼고 목표 차이를 보정하면 BIAS 가 됩니다. ' +
+            '주황선(13P)이 만들던 출렁임이 통째로 지워지고, ED zone 고유의 변동만 0 근처에 남습니다. ' +
+            '이 값이 웨이퍼 안의 프로파일이 목표에서 얼마나 벗어났는지를 그대로 나타냅니다.',
+      eq: '<span class="hl4">BIAS</span> = ( ED 실측 − 13P 실측 ) − ( ED 목표 − 13P 목표 )',
+      view: 'trend',
+      dom2: D_BIAS, unit2: 'Å', xlab2: '웨이퍼 처리 순서 →',
+      val: function (w) { return w.bias; }, ref: 0, refLabel: 'BIAS = 0 (목표 프로파일과 일치)',
+      note2: '13P 성분이 빠지고 zone 고유 변동만 남았다',
+      trendNote: '→ TIME 루프가 무엇을 하든 이 트렌드는 영향을 받지 않는다',
+      h: 428
+    },
+    {
+      title: 'STEP 6 — Post_Target + BIAS 가 후처리 두께 자리에 들어간다',
+      desc: 'BIAS 에 그 zone 의 목표를 더하면 학습 코드가 받을 후처리 두께가 됩니다. ' +
+            '입고 두께는 TIME 과 똑같이 Pre_Target + VM 을 씁니다 — zone 과 무관한 값입니다. ' +
+            '이제 두께 두 개가 모두 준비됐습니다.',
+      eq: '<span class="hl">Pre_Thk</span> = Pre_Target + VM' +
+          ' &nbsp;·&nbsp; post_thk = <span class="hl4">Post_Target + BIAS</span>',
+      view: 'trend', showPre: true,
+      dom2: D_PST, unit2: 'Å', xlab2: '웨이퍼 처리 순서 →',
+      val: function (w) { return w.post; }, ref: ED_TGT, refLabel: 'ED 목표 ' + ED_TGT,
+      note2: 'BIAS 트렌드가 ED 목표 높이로 올라온 것 — 모양은 같다',
+      h: 400
+    },
+    {
+      title: 'STEP 7 — 두 두께를 나누면 zone 별 제거율이 나온다',
+      desc: '깎아낸 두께를 연마 시간으로 나눕니다. TIME 과 완전히 같은 식이고, ' +
+            '후처리 두께 자리에 Post_Target + BIAS 가 들어간 것만 다릅니다. ' +
+            '시간순으로 보면 패드를 갈 때마다 회복됐다 떨어지는 톱니가 보입니다.',
+      eq: '<span class="hl">RR</span> = ( Pre_Thk − ( <span class="hl4">Post_Target + BIAS</span> ) ) / Pol_Time',
+      view: 'trend',
+      dom2: D_RRW, unit2: 'Å/s', xlab2: '웨이퍼 처리 순서 →  (세로 점선 = 패드 교체)',
+      val: function (w) { return w.rr; },
+      note2: '패드를 갈 때마다 제거율이 회복됐다가 다시 떨어진다',
+      h: 400
+    },
+    {
+      title: 'STEP 8 — 소모품 축으로 옮기면 ② 와 같은 그림이 된다',
+      desc: '같은 점을 "패드가 얼마나 닳았을 때 깎았나"로 다시 세우면 하나의 직선 구름으로 겹칩니다. ' +
+            '여기서부터는 ② Removal Rate 와 글자 그대로 같은 코드입니다 — ' +
+            '4분면 게이트, 네 종류의 직선, 우선순위 선택까지 그대로 돕니다. zone 마다 이 과정을 따로 돌립니다.',
+      eq: 'x축 : <span class="hl2">소모품 사용량</span> &nbsp;→&nbsp; ' +
+          '<span class="hl">RR = b1 · 소모품 + b0</span>  (zone 별로 따로 학습·저장)',
+      view: 'trend', xPad: true, fit: true,
+      dom2: D_RRW, unit2: 'Å/s', xlab2: '소모품 사용량 →  마모',
+      val: function (w) { return w.rr; },
+      note2: '패드 주기 4개가 같은 자리에 겹친다',
+      trendNote: '→ 이 뒤는 ② Removal Rate 와 동일 : 게이트 확인 → 4모델 학습 → 우선순위로 선택',
+      h: 428
+    },
+    {
+      title: '정리 — TIME 과 PRESSURE 는 딱 한 자리만 다르다',
+      desc: '학습 파이프라인은 하나입니다. detrend · 이동평균 · 회귀 · 소모품 회귀 · OFFSET 모두 같은 코드를 탑니다. ' +
+            '갈라지는 곳은 "후처리 두께 자리에 무엇을 넣는가" 한 군데뿐입니다.',
+      eq: 'post_thk = ( FB_Type == PRESSURE ) ? <span class="hl4">Post_Target + BIAS</span> : <span class="hl2">Thk_Para 실측</span>',
+      view: 'summary', showPost: true, waferBias: true, summary: true, h: 495
+    }
+  ];
+
+  // ══════════════════════════════════════════════════════════
+  //  7. 렌더 / 컨트롤
+  // ══════════════════════════════════════════════════════════
+  function drawSummary(D, st) {
+    if (!st.summary) { return; }
+    var TY = 322, LX = 40, C1 = 300, C2 = 600;
+    txt(gTable, C1, TY, 'FB_Type = TIME  (13P)',
+      { size: 11.5, weight: 600, fill: 'var(--c2)' });
+    txt(gTable, C2, TY, 'FB_Type = PRESSURE  (zone)',
+      { size: 11.5, weight: 600, fill: 'var(--c4)' });
+    gTable.appendChild(el('line', { x1: LX, x2: 862, y1: TY + 8, y2: TY + 8,
+      stroke: 'currentColor', 'stroke-width': 1, opacity: 0.2 }));
+
+    [
+      ['맞추는 대상',   '웨이퍼 평균 두께',            '평균 대비 zone 프로파일'],
+      ['후처리 두께 자리', 'Thk_Para 실측값',           'Post_Target + BIAS'],
+      ['제어 변수',     'Pol_Time (연마 시간)',        'Pressure (존별 압력)'],
+      ['입고 두께',     'Pre_Target + VM',            'Pre_Target + VM  (같다)'],
+      ['그 뒤 과정',    '소모품 회귀 · 4모델 · OFFSET', '완전히 같은 코드']
+    ].forEach(function (r, i) {
+      var ry = TY + 28 + i * 22;
+      txt(gTable, LX, ry, r[0], { size: 10.5, op: 0.7 });
+      txt(gTable, C1, ry, r[1], { size: 11, fill: 'var(--c2)' });
+      txt(gTable, C2, ry, r[2], { size: 11, fill: 'var(--c4)',
+        weight: (i === 1) ? 600 : 400 });
+    });
+    txt(gTable, LX, TY + 28 + 5 * 22 + 12,
+      '→ PRESSURE 를 이해한다는 것은 결국 BIAS 한 줄을 이해하는 것이다',
+      { size: 11.5, weight: 600, fill: 'var(--az-learn)' });
+  }
+
+  var idx = -1, timer = null, playing = false, speed = 1;
+  var elStep = document.getElementById('az-step');
+  var elTitle = document.getElementById('az-title');
+  var elDesc = document.getElementById('az-desc');
+  var elEq = document.getElementById('az-eq');
+  var btnPrev = document.getElementById('az-prev');
+  var btnNext = document.getElementById('az-next');
+  var btnPlay = document.getElementById('az-play');
+  var dotsBox = document.getElementById('az-dots');
+
+  var dotEls = STAGES.map(function (s, i) {
+    var b = document.createElement('button');
+    b.type = 'button'; b.className = 'az-dot'; b.textContent = i; b.title = s.title;
+    b.addEventListener('click', function () { stop(); go(i); });
+    dotsBox.appendChild(b);
+    return b;
+  });
+
+  function render(animate) {
+    var st = STAGES[idx], D = calc();
+    svgEl.setAttribute('viewBox', '0 0 900 ' + (st.h || 470));
+    clear(gWafer); clear(gChart); clear(gTable); clear(gTrend);
+
+    var isTrend = (st.view === 'trend');
+    gTpts.setAttribute('opacity', isTrend ? '1' : '0');
+    document.getElementById('az-apply').hidden = isTrend;
+
+    if (isTrend) {
+      drawTrendFrame(st);
+      if (animate === false) {
+        var tg = trendTargets(st);
+        tDots.forEach(function (c, i) {
+          c.setAttribute('cx', tg.x[i].toFixed(1));
+          c.setAttribute('cy', tg.y[i].toFixed(1));
+          c.setAttribute('opacity', 1);
+        });
+        tCur = tg;
+      } else {
+        animTrend(st);
+      }
+    } else {
+      drawWafer(D, st);
+      drawChart(D, st);
+      drawTable(D, st);
+      drawSummary(D, st);
+    }
+  }
+
+  function go(n) {
+    if (n < 0 || n >= STAGES.length) { return; }
+    idx = n;
+    var st = STAGES[idx];
+    elStep.textContent = 'STEP ' + idx + ' / ' + (STAGES.length - 1);
+    elTitle.textContent = st.title;
+    elDesc.textContent = st.desc;
+    if (st.eq) { elEq.hidden = false; elEq.innerHTML = st.eq; } else { elEq.hidden = true; }
+    dotEls.forEach(function (d, i) {
+      d.className = 'az-dot' + (i === idx ? ' on' : (i < idx ? ' done' : ''));
+    });
+    btnPrev.disabled = (idx === 0);
+    btnNext.disabled = (idx === STAGES.length - 1);
+    render();
+  }
+
+  function stop() {
+    playing = false;
+    if (timer) { clearTimeout(timer); timer = null; }
+    btnPlay.textContent = '▶ 재생';
+  }
+  function tick() {
+    if (!playing) { return; }
+    if (idx >= STAGES.length - 1) { stop(); return; }
+    go(idx + 1);
+    timer = setTimeout(tick, 4200 * speed);
+  }
+  btnPlay.addEventListener('click', function () {
+    if (playing) { stop(); return; }
+    if (idx >= STAGES.length - 1) { go(0); }
+    playing = true;
+    btnPlay.textContent = '❚❚ 정지';
+    timer = setTimeout(tick, 2800 * speed);
+  });
+  btnPrev.addEventListener('click', function () { stop(); go(idx - 1); });
+  btnNext.addEventListener('click', function () { stop(); go(idx + 1); });
+  document.getElementById('az-spd').addEventListener('change', function (e) {
+    speed = parseFloat(e.target.value);
+  });
+  document.addEventListener('keydown', function (e) {
+    if (e.target.tagName === 'SELECT' || e.target.tagName === 'INPUT') { return; }
+    if (e.key === 'ArrowRight') { stop(); go(idx + 1); }
+    if (e.key === 'ArrowLeft')  { stop(); go(idx - 1); }
+  });
+
+  document.getElementById('az-w-13p').addEventListener('input', function (e) {
+    thk13p = parseFloat(e.target.value);
+    document.getElementById('az-w-13pv').textContent = thk13p.toFixed(0) + ' Å';
+    render(false);
+  });
+  document.getElementById('az-w-shape').addEventListener('input', function (e) {
+    edgeSag = parseFloat(e.target.value);
+    document.getElementById('az-w-shapev').textContent = sgn(edgeSag, 0) + ' Å';
+    render(false);
+  });
+
+  go(0);
+})();
+</script>
+{% endblock %}

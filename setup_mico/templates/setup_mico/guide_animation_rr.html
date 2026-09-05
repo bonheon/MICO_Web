@@ -1,0 +1,1257 @@
+{% extends 'setup_mico/base.html' %}
+
+{% block title %}| 핵심 알고리즘 · Removal Rate{% endblock %}
+{% block nav_guide_animation %}active{% endblock %}
+
+{% block breadcrumb %}
+  <li class="breadcrumb-item"><a href="{% url 'dashboard' %}">Home</a></li>
+  <li class="breadcrumb-item"><a href="{% url 'guide_animation' %}">핵심 알고리즘</a></li>
+  <li class="breadcrumb-item active">Removal Rate</li>
+{% endblock %}
+
+{% block content %}
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=IBM+Plex+Sans+KR:wght@300;400;500;600;700&family=IBM+Plex+Mono:wght@400;500;600&display=swap">
+
+<style>
+.az {
+  --az-ink:#16202b; --az-body:#46586a; --az-muted:#7b8b9a;
+  --az-rule:#dde4ea; --az-surface:#fff; --az-sunken:#f1f5f8;
+  --az-learn:#0e7c86; --az-learn-w:rgba(14,124,134,0.09);
+  --az-dim:#9aa8b4; --az-trend:#33454f;
+  --c1:#1552d4; --c2:#e07a00; --c3:#8e2fce; --c4:#d11a4f;
+  font-family:'IBM Plex Sans KR','Segoe UI',system-ui,sans-serif;
+  color:var(--az-body); -webkit-font-smoothing:antialiased;
+}
+[data-theme="dark"] .az {
+  --az-ink:#eef3f7; --az-body:#b9c6d2; --az-muted:#8497a6;
+  --az-rule:#33404f; --az-surface:#1f2937; --az-sunken:#18222f;
+  --az-learn:#3fb8c2; --az-learn-w:rgba(63,184,194,0.13);
+  --az-dim:#5c6b78; --az-trend:#b9c9d6;
+  --c1:#6ea8ff; --c2:#ffa645; --c3:#c98bff; --c4:#ff5f86;
+}
+
+.az-wrap { max-width:1120px; margin:0 auto; padding-bottom:3rem; }
+
+.az-head { display:flex; align-items:flex-end; gap:1.2rem; flex-wrap:wrap;
+           padding-bottom:1rem; margin-bottom:1.2rem; border-bottom:1px solid var(--az-rule); }
+.az-head h1 { font-size:1.55rem; font-weight:700; letter-spacing:-0.025em;
+              color:var(--az-ink); margin:0; }
+.az-head .sub { font-size:0.85rem; color:var(--az-muted); margin:0.3rem 0 0; }
+.az-head .doclink { margin-left:auto; font-size:0.8rem; color:var(--az-learn);
+                    text-decoration:none; white-space:nowrap; }
+.az-head .doclink:hover { text-decoration:underline; }
+
+.az-tabs { display:flex; gap:0.4rem; flex-wrap:wrap; margin-bottom:1.4rem; }
+.az-tab {
+  font-family:'IBM Plex Mono',monospace; font-size:0.775rem; font-weight:500;
+  padding:0.45rem 0.85rem; border-radius:6px; border:1px solid var(--az-rule);
+  background:var(--az-surface); color:var(--az-body); text-decoration:none;
+}
+.az-tab:hover { border-color:var(--az-learn); color:var(--az-learn); }
+.az-tab.on { border-color:var(--az-learn); background:var(--az-learn-w);
+             color:var(--az-learn); font-weight:600; }
+.az-tab.off { opacity:0.5; cursor:default; }
+.az-tab.off:hover { border-color:var(--az-rule); color:var(--az-body); }
+
+.az-stage { border:1px solid var(--az-rule); border-radius:10px; overflow:hidden;
+            background:var(--az-surface); }
+
+.az-caption { padding:1.1rem 1.35rem 1rem; border-bottom:1px solid var(--az-rule);
+              background:var(--az-sunken); min-height:118px; }
+.az-caption .step {
+  font-family:'IBM Plex Mono',monospace; font-size:0.7rem; font-weight:600;
+  letter-spacing:0.14em; text-transform:uppercase; color:var(--az-learn);
+  margin-bottom:0.45rem;
+}
+.az-caption h2 { font-size:1.12rem; font-weight:650; letter-spacing:-0.018em;
+                 color:var(--az-ink); margin:0 0 0.4rem; }
+.az-caption p { font-size:0.875rem; line-height:1.7; margin:0; max-width:84ch; }
+.az-caption .eq {
+  display:inline-block; margin-top:0.6rem; font-family:'IBM Plex Mono',monospace;
+  font-size:0.815rem; color:var(--az-ink); background:var(--az-surface);
+  border:1px solid var(--az-rule); border-radius:5px; padding:0.34rem 0.65rem;
+  max-width:100%; overflow-x:auto; white-space:nowrap;
+}
+.az-caption .eq .hl  { color:var(--az-learn); font-weight:600; }
+.az-caption .eq .hl2 { color:var(--c2); font-weight:600; }
+.az-caption .eq .hl3 { color:var(--c3); font-weight:600; }
+.az-caption .eq .hl4 { color:var(--c4); font-weight:600; }
+
+.az-canvas { padding:0.5rem 0.4rem 0.35rem; }
+.az-canvas svg { display:block; width:100%; height:auto; color:var(--az-body); }
+
+.az-ctrl { display:flex; align-items:center; gap:0.75rem; flex-wrap:wrap;
+           padding:0.85rem 1.35rem; border-top:1px solid var(--az-rule); }
+.az-btn {
+  display:inline-flex; align-items:center; gap:0.4rem;
+  font-family:'IBM Plex Sans KR',sans-serif; font-size:0.82rem; font-weight:500;
+  padding:0.42rem 0.85rem; border-radius:6px; cursor:pointer;
+  border:1px solid var(--az-rule); background:var(--az-surface); color:var(--az-body);
+  transition:border-color .15s, color .15s, background .15s;
+}
+.az-btn:hover:not(:disabled) { border-color:var(--az-learn); color:var(--az-learn); }
+.az-btn:disabled { opacity:0.38; cursor:default; }
+.az-btn.primary { background:var(--az-learn); border-color:var(--az-learn); color:#fff;
+                  min-width:96px; justify-content:center; }
+.az-btn.primary:hover { filter:brightness(1.08); color:#fff; }
+.az-btn:focus-visible { outline:2px solid var(--az-learn); outline-offset:2px; }
+
+.az-dots { display:flex; gap:0.34rem; margin-left:0.4rem; }
+.az-dot {
+  width:26px; height:26px; border-radius:50%; border:1px solid var(--az-rule);
+  background:var(--az-surface); color:var(--az-muted); cursor:pointer;
+  font-family:'IBM Plex Mono',monospace; font-size:0.7rem; font-weight:600;
+  display:flex; align-items:center; justify-content:center; padding:0;
+  transition:all .15s;
+}
+.az-dot:hover { border-color:var(--az-learn); color:var(--az-learn); }
+.az-dot.on { background:var(--az-learn); border-color:var(--az-learn); color:#fff; }
+.az-dot.done { border-color:var(--az-learn); color:var(--az-learn); }
+.az-speed { margin-left:auto; display:flex; align-items:center; gap:0.5rem;
+            font-size:0.76rem; color:var(--az-muted); }
+.az-speed select { font-size:0.76rem; padding:0.24rem 0.4rem; border-radius:5px;
+                   border:1px solid var(--az-rule); background:var(--az-surface); color:var(--az-ink); }
+
+/* STEP 8 : 진행 중인 웨이퍼 컨트롤 */
+.az-apply {
+  display:flex; align-items:center; gap:1.4rem; flex-wrap:wrap;
+  padding:0.8rem 1.35rem; border-top:1px solid var(--az-rule);
+  background:var(--az-sunken);
+}
+.az-apply .lbl {
+  font-family:'IBM Plex Mono',monospace; font-size:0.7rem; font-weight:600;
+  letter-spacing:0.1em; text-transform:uppercase; color:var(--az-learn);
+}
+.az-apply label { display:flex; align-items:center; gap:0.55rem;
+                  font-size:0.79rem; color:var(--az-body); margin:0; cursor:pointer; }
+.az-apply input[type=range] { width:210px; accent-color:var(--az-trend); cursor:pointer; }
+.az-apply input[type=checkbox] { accent-color:var(--c4); width:15px; height:15px; cursor:pointer; }
+.az-apply .num { font-family:'IBM Plex Mono',monospace; font-variant-numeric:tabular-nums;
+                 font-weight:600; color:var(--az-ink); min-width:3.2rem; }
+
+.az-panels { display:grid; grid-template-columns:repeat(auto-fit,minmax(235px,1fr));
+             gap:1px; background:var(--az-rule); border-top:1px solid var(--az-rule); }
+.az-panel { background:var(--az-surface); padding:0.95rem 1.15rem; }
+.az-panel .h { font-family:'IBM Plex Mono',monospace; font-size:0.68rem; font-weight:600;
+               letter-spacing:0.1em; text-transform:uppercase; color:var(--az-muted);
+               margin-bottom:0.55rem; }
+.az-kv { display:flex; justify-content:space-between; gap:0.8rem; font-size:0.8rem;
+         padding:0.2rem 0; }
+.az-kv .k { color:var(--az-body); font-family:'IBM Plex Mono',monospace; font-size:0.755rem; }
+.az-kv .v { font-family:'IBM Plex Mono',monospace; font-variant-numeric:tabular-nums;
+            font-weight:600; color:var(--az-ink); white-space:nowrap; }
+.az-kv .v.ok   { color:var(--az-learn); }
+.az-kv .v.dim  { color:var(--az-muted); font-weight:400; }
+.az-kv .v.no   { color:var(--az-muted); font-weight:400; }
+.az-swatch { display:inline-block; width:10px; height:3px; margin-right:0.45rem;
+             vertical-align:middle; border-radius:1px; }
+
+.az-foot { font-size:0.78rem; color:var(--az-muted); line-height:1.7;
+           margin-top:1.1rem; max-width:84ch; }
+.az-foot code { font-family:'IBM Plex Mono',monospace; font-size:0.94em;
+                background:var(--az-sunken); padding:0.08em 0.35em; border-radius:3px; color:var(--az-ink); }
+
+@media (prefers-reduced-motion:reduce) { .az * { transition:none !important; } }
+</style>
+
+<div class="az">
+<div class="az-wrap">
+
+  <div class="az-head">
+    <div>
+      <h1>Removal Rate — 지금 이 패드가 얼마나 깎는가</h1>
+      <p class="sub">웨이퍼 720장이 어떻게 네 개의 직선이 되고, 그중 하나가 선택되는지 따라가 보세요.</p>
+    </div>
+    <a class="doclink" href="{% url 'algorithm_guide' %}">상세 문서 →</a>
+  </div>
+
+  <div class="az-tabs">
+    <a class="az-tab" href="{% url 'guide_animation' %}">① Pre_Thk_VM</a>
+    <a class="az-tab on" href="#">② Removal Rate</a>
+    <a class="az-tab" href="{% url 'guide_animation_offset' %}">③ OFFSET</a>
+    <a class="az-tab" href="{% url 'guide_animation_pressure' %}">④ PRESSURE</a>
+  </div>
+
+  <div class="az-stage">
+    <div class="az-caption">
+      <div class="step" id="az-step">STEP 0 / 8</div>
+      <h2 id="az-title">—</h2>
+      <p id="az-desc">—</p>
+      <div class="eq" id="az-eq" hidden></div>
+    </div>
+
+    <div class="az-canvas">
+      <svg id="az-svg" viewBox="0 0 900 545" role="img"
+           aria-label="Removal Rate 학습 과정 애니메이션: 웨이퍼별 제거율에서 정상 구간만 남기고, 패드 사이클을 나눈 뒤 소모품 사용량 축으로 옮겨 네 종류의 회귀직선을 학습하고, 적용 시점에 우선순위로 하나를 고른다">
+        <g id="az-grid"></g>
+        <g id="az-seps"></g>
+        <g id="az-lines"></g>
+        <g id="az-pts"></g>
+        <g id="az-apply-g"></g>
+      </svg>
+    </div>
+
+    <div class="az-apply" id="az-apply" hidden>
+      <span class="lbl">진행 중인 웨이퍼</span>
+      <label for="az-w-pad">패드 사용 시간
+        <input type="range" id="az-w-pad" min="0" max="20" step="0.5" value="3">
+        <span class="num" id="az-w-padv">3.0 h</span>
+      </label>
+      <label for="az-w-cur">
+        <input type="checkbox" id="az-w-cur" checked>
+        current 모델 조건 충족
+      </label>
+    </div>
+
+    <div class="az-ctrl">
+      <button class="az-btn" id="az-prev" type="button">◀ 이전</button>
+      <button class="az-btn primary" id="az-play" type="button">▶ 재생</button>
+      <button class="az-btn" id="az-next" type="button">다음 ▶</button>
+      <div class="az-dots" id="az-dots"></div>
+      <div class="az-speed">
+        <label for="az-spd">속도</label>
+        <select id="az-spd">
+          <option value="1.6">느리게</option>
+          <option value="1" selected>보통</option>
+          <option value="0.6">빠르게</option>
+        </select>
+      </div>
+    </div>
+
+    <div class="az-panels">
+      <div class="az-panel">
+        <div class="h">학습 단위</div>
+        <div class="az-kv"><span class="k">장비 // 레시피</span><span class="v">CMP02 // RCP_A</span></div>
+        <div class="az-kv"><span class="k">전체 웨이퍼</span><span class="v" id="az-n-all">—</span></div>
+        <div class="az-kv"><span class="k">학습에 쓰는 수</span><span class="v" id="az-n-use">—</span></div>
+        <div class="az-kv"><span class="k">패드 사이클</span><span class="v">12 · 1주기 20 h</span></div>
+      </div>
+      <div class="az-panel">
+        <div class="h">게이트 통과 여부</div>
+        <div class="az-kv"><span class="k">4분면 각 &gt; 25</span><span class="v dim" id="az-g-quart">—</span></div>
+        <div class="az-kv"><span class="k">최근 7일 4분면</span><span class="v dim" id="az-g-recent">—</span></div>
+        <div class="az-kv"><span class="k">current 3조건</span><span class="v dim" id="az-g-cur">—</span></div>
+        <div class="az-kv"><span class="k">IF 구간 건수</span><span class="v dim" id="az-g-if">—</span></div>
+      </div>
+      <div class="az-panel">
+        <div class="h">학습된 계수 (b1 / b0)</div>
+        <div id="az-coef"></div>
+      </div>
+      <div class="az-panel">
+        <div class="h">적용</div>
+        <div class="az-kv"><span class="k">선택된 모델</span><span class="v dim" id="az-a-model">—</span></div>
+        <div class="az-kv"><span class="k">RR_DB</span><span class="v dim" id="az-a-rr">—</span></div>
+        <div class="az-kv"><span class="k">Δ / RR_DB</span><span class="v dim" id="az-a-pt">—</span></div>
+        <div class="az-kv"><span class="k">Δ (5500 → 4000)</span><span class="v dim">1500 Å</span></div>
+      </div>
+    </div>
+  </div>
+
+  <p class="az-foot">
+    데이터는 <code>_detect_cycles()</code> · <code>_process_models()</code> · <code>_fit_weighted()</code> ·
+    <code>_fit_current()</code> · <code>_fit_if()</code> 의 실제 계산식으로 브라우저에서 생성·처리한 <b>예시</b>입니다.
+    게이트 상수(4분면 <code>&gt;25</code>, 최근 구간 <code>&gt;25</code>, <code>Count &lt; 10</code> 제외,
+    RR <code>6σ</code> 필터, 사이클 판정 <code>diff &lt; −3</code>, current <code>RR_Count</code>·<code>12시간</code>·<code>PM rank ≥ 2</code>(PM 이후 EndLot/JobEnd 누적 수),
+    IF <code>100건 이상</code>·4분할 각 <code>25건 이상</code>)는 코드와 같습니다.
+    Pre_Thk 는 <a href="{% url 'guide_animation' %}" style="color:var(--az-learn)">① Pre_Thk_VM</a> 이 만든 값을 그대로 씁니다.
+  </p>
+
+</div>
+</div>
+
+<script>
+(function () {
+  'use strict';
+
+  // ══════════════════════════════════════════════════════════
+  //  1. 합성 데이터 — 장비 1대 × 레시피 1개 (학습이 도는 단위)
+  // ══════════════════════════════════════════════════════════
+  var PRE_TARGET = 5500, TARGET = 4000, DELTA = PRE_TARGET - TARGET;
+  // 패드 1주기 = 누적 사용 20시간. 학습 창 35일 안에 12주기가 들어간다.
+  //  → 날짜 5등분(1주일)과 패드 주기는 서로 나누어떨어지지 않는다 (의도한 것: 둘은 무관한 축)
+  var N_CYC = 12, PER_CYC = 60, N = N_CYC * PER_CYC;   // 720장
+  var PAD_MAX = 20, PAD_SEP = 6;                       // 패드 사용 시간(h) · Pad_Seperation
+  var RR_WEIGHT = 6, RR_COUNT = 50;
+  var IDLE_LABELS = ['Idle_2H', 'Idle_8H', 'Layer_CHG', 'LC_01'];
+
+  function mulberry32(a) {
+    return function () {
+      a |= 0; a = a + 0x6D2B79F5 | 0;
+      var t = Math.imul(a ^ a >>> 15, 1 | a);
+      t = t + Math.imul(t ^ t >>> 7, 61 | t) ^ t;
+      return ((t ^ t >>> 14) >>> 0) / 4294967296;
+    };
+  }
+  var rnd = mulberry32(20260906);
+  function gauss(sd) {
+    var u = 1 - rnd(), v = rnd();
+    return Math.sqrt(-2 * Math.log(u)) * Math.cos(2 * Math.PI * v) * sd;
+  }
+
+  // 진짜 제거율 곡선 — Pad_Seperation 을 경계로 기울기가 꺾인다 (IF 모델이 존재하는 이유)
+  function rrTrueAt(pad) {
+    return pad <= PAD_SEP ? 23.80 - 0.580 * pad
+                          : 20.32 - 0.155 * (pad - PAD_SEP);
+  }
+  // 사이클별 수준 이동 — 최근 패드일수록 제거율이 조금 낮다 (weighted·current 가 갈리는 이유)
+  // 최근 3주기에서 제거율이 눈에 띄게 내려앉았다고 가정 (슬러리 로트 교체·컨디셔닝 변화 등).
+  // → 전체/weighted 직선은 이 변화를 덜 따라가고, current 만 제대로 따라간다
+  function cycOff(c) {
+    if (c <= 3) { return -(1.60 - (c - 1) * 0.45); }   // c1 −1.60 · c2 −1.15 · c3 −0.70
+    if (c <= 6) { return -0.25 * (7 - c) / 3; }        // c4 −0.25 → c6 −0.08
+    return 0.05;
+  }
+
+  // 학습 창(window) = 35일. 날짜를 5등분하면 한 구간이 정확히 7일(1주일)이 된다.
+  var WINDOW_DAYS = 35, LAST_HOURS = 3.2;
+  var W = [], k = 0;
+  for (var c = N_CYC; c >= 1; c--) {          // 시간 순서 = 오래된 사이클부터
+    for (var j = 0; j < PER_CYC; j++) {
+      var pad = j / (PER_CYC - 1) * PAD_MAX;
+      var frac = k / (N_CYC * PER_CYC - 1);
+      W.push({
+        i: k, cyc: c, pad: pad,
+        daysAgo: (1 - frac) * (WINDOW_DAYS - LAST_HOURS / 24) + LAST_HOURS / 24,
+        rr: rrTrueAt(pad) + cycOff(c) + gauss(0.33),
+        idle: '', out: false
+      });
+      k++;
+    }
+  }
+  // IDLE 웨이퍼 (정상 모델이 맞지 않는 구간 → 학습에서 제외)
+  var nIdle = 0;
+  W.forEach(function (w) {
+    if (rnd() < 0.06) {
+      w.idle = IDLE_LABELS[Math.floor(rnd() * 4)];
+      w.rr  += (rnd() < 0.5 ? 1 : -1) * (0.9 + rnd() * 1.1);
+      nIdle++;
+    }
+  });
+  // 계측 이상치 (6σ 필터가 걷어낸다)
+  [37, 168, 292, 431, 559, 668].forEach(function (ix) {
+    W[ix].idle = ''; W[ix].rr += (ix % 2 ? 1 : -1) * 3.4; W[ix].outSeed = true;
+  });
+
+  // ── 학습 대상 : IDLE == '' 만 ────────────────────────────
+  var normal = W.filter(function (w) { return w.idle === ''; });
+
+  // ── 6σ 필터 ─────────────────────────────────────────────
+  var mR = normal.reduce(function (s, w) { return s + w.rr; }, 0) / normal.length;
+  var sR = Math.sqrt(normal.reduce(function (s, w) { return s + (w.rr - mR) * (w.rr - mR); }, 0) / normal.length);
+  normal.forEach(function (w) { w.out = Math.abs(w.rr - mR) > 6 * sR; });
+  var FIT = normal.filter(function (w) { return !w.out; });
+
+  // ── 회귀 유틸 ───────────────────────────────────────────
+  function ols(rows, wfn) {
+    var sw = 0, sx = 0, sy = 0;
+    rows.forEach(function (r) { var w = wfn ? wfn(r) : 1; sw += w; sx += w * r.pad; sy += w * r.rr; });
+    var mx = sx / sw, my = sy / sw, sxy = 0, sxx = 0;
+    rows.forEach(function (r) {
+      var w = wfn ? wfn(r) : 1;
+      sxy += w * (r.pad - mx) * (r.rr - my); sxx += w * (r.pad - mx) * (r.pad - mx);
+    });
+    var b1 = sxy / sxx;
+    return { b1: b1, b0: my - b1 * mx };
+  }
+
+  // ── 게이트 ① 소모품 4분면 각 25건 초과 ───────────────────
+  var partMin = 0, partMax = PAD_MAX;
+  var q1 = partMin + (partMax - partMin) / 4,
+      q2 = partMin + (partMax - partMin) / 2,
+      q3 = partMin + (partMax - partMin) * 3 / 4;
+  function quartOf(pad) { return pad <= q1 ? 0 : pad <= q2 ? 1 : pad <= q3 ? 2 : 3; }
+  var quartCnt = [0, 0, 0, 0];
+  FIT.forEach(function (w) { quartCnt[quartOf(w.pad)]++; });
+  var gateQuart = quartCnt.every(function (n) { return n > 25; });
+
+  // ── 게이트 ② 최근 날짜 구간에 소모품 4구간이 모두 있고 각 25건 초과 ──
+  //    date bins=5 (시간 순), part bins=4
+  var dSpan = (N - 1) / 5;
+  function dateSeg(i) { return Math.min(4, Math.floor(i / dSpan)); }
+  var recentCnt = [0, 0, 0, 0], recentTotal = 0;
+  FIT.forEach(function (w) {
+    if (dateSeg(w.i) === 4) { recentCnt[quartOf(w.pad)]++; recentTotal++; }
+  });
+  var gateRecent = recentCnt.every(function (n) { return n > 25; });
+  // 날짜 구간별 건수 · 기간 라벨 (한 구간 = 7일)
+  var segCnt = [0, 0, 0, 0, 0];
+  FIT.forEach(function (w) { segCnt[dateSeg(w.i)]++; });
+  var SEG_DAYS = WINDOW_DAYS / 5;
+  function segLabel(si) {
+    var a = Math.round((5 - si) * SEG_DAYS), b = Math.round((4 - si) * SEG_DAYS);
+    return si === 4 ? '최근 ' + Math.round(SEG_DAYS) + '일' : a + '~' + b + '일 전';
+  }
+
+  // ── 모델 ① 전체 회귀 ────────────────────────────────────
+  var M_ALL = gateQuart ? ols(FIT) : null;
+
+  // ── 모델 ② weighted (날짜 5구간 가중치 1,2,3,4,RR_Weight) ─
+  var WEIGHTS = [1, 2, 3, 4, RR_WEIGHT];
+  var M_W = (gateQuart && gateRecent)
+    ? ols(FIT, function (r) { return WEIGHTS[dateSeg(r.i)]; })
+    : null;
+
+  // ── 모델 ③ current (cycle 1 = 지금 붙어 있는 패드) ───────
+  var cur1 = FIT.filter(function (w) { return w.cyc === 1; });
+  // 현재 사이클 안에서 "학습에 쓸 수 있는 몇 번째 웨이퍼인가" — 트렌드 위에 RR_Count 를 표시하려고
+  cur1.forEach(function (w, k) { w.curIdx = k; });
+  var padAt50 = cur1.length > RR_COUNT ? cur1[RR_COUNT - 1].pad : null;
+  var CUR_HOURS = 3.2, CUR_PMRANK = 7;                 // 최신 타점 경과시간 · PM 이후 웨이퍼 수
+  var gateCur = (cur1.length > RR_COUNT) && (CUR_HOURS < 12) && (CUR_PMRANK >= 2);
+  var M_CUR = null, curClipped = false;
+  if (gateQuart && gateCur) {
+    var raw = ols(cur1);
+    var base = M_W || M_ALL;                            // 클리핑 기준 모델
+    var b1 = raw.b1, b0 = raw.b0;
+    if (base) {
+      var rb1 = base.b1, rb0 = base.b0, before = b1;
+      // RR_Period 미설정 → 안전장치 : 기준 기울기의 2배를 못 넘고 부호도 못 뒤집는다
+      b1 = rb1 >= 0 ? Math.min(b1, rb1 * 2) : Math.max(b1, rb1 * 2);
+      b1 = rb1 >= 0 ? Math.max(b1, 0)       : Math.min(b1, 0);
+      var b0before = b0;
+      b0 = Math.max(rb0 * 0.9, Math.min(b0, rb0 * 1.1));
+      curClipped = (Math.abs(before - b1) > 1e-9) || (Math.abs(b0before - b0) > 1e-9);
+    }
+    M_CUR = { b1: b1, b0: b0 };
+  }
+
+  // ── 모델 ④ IF (Pad_Seperation 이하 구간 전용) ────────────
+  var ifRows = FIT.filter(function (w) { return w.pad <= PAD_SEP; });
+  var ifStep = PAD_SEP / 4, ifCnt = [0, 0, 0, 0];
+  ifRows.forEach(function (w) { ifCnt[Math.min(3, Math.floor(w.pad / ifStep))]++; });
+  var gateIf = (ifRows.length >= 100) && ifCnt.every(function (n) { return n >= 25; });
+  var M_IF = (gateQuart && gateIf) ? ols(ifRows) : null;
+
+  var MODELS = [
+    { key: 'if',   name: 'IF',       col: 'var(--c3)',        m: M_IF,  x0: 0, x1: PAD_SEP },
+    { key: 'cur',  name: 'current',  col: 'var(--c4)',        m: M_CUR, x0: 0, x1: PAD_MAX },
+    { key: 'wgt',  name: 'weighted', col: 'var(--c2)',        m: M_W,   x0: 0, x1: PAD_MAX },
+    { key: 'all',  name: '전체 회귀', col: 'var(--az-trend)', m: M_ALL, x0: 0, x1: PAD_MAX }
+  ];
+
+  // ══════════════════════════════════════════════════════════
+  //  2. 좌표계
+  // ══════════════════════════════════════════════════════════
+  var PL = { x0: 78, x1: 862, y0: 44, y1: 280 };
+  var D_RR = (function () {
+    var v = W.map(function (w) { return w.rr; });
+    return [Math.min.apply(null, v) - 0.4, Math.max.apply(null, v) + 0.4];
+  })();
+  function yRR(v) { return PL.y1 - (v - D_RR[0]) / (D_RR[1] - D_RR[0]) * (PL.y1 - PL.y0); }
+  function xTimeAt(i) { return PL.x0 + i / (N - 1) * (PL.x1 - PL.x0); }
+  function xPadAt(p)  { return PL.x0 + p / PAD_MAX * (PL.x1 - PL.x0); }
+
+  // Pad_Seperation 이하 구간만 화면 폭 전체로 확대하는 배치 (IF 게이트 검증용)
+  function xPadZoomAt(p) { return PL.x0 + p / PAD_SEP * (PL.x1 - PL.x0); }
+
+  var xTime    = W.map(function (w) { return xTimeAt(w.i); });
+  var xPad     = W.map(function (w) { return xPadAt(w.pad); });
+  var xPadZoom = W.map(function (w) { return xPadZoomAt(w.pad); });
+
+  // ══════════════════════════════════════════════════════════
+  //  3. 단계
+  // ══════════════════════════════════════════════════════════
+  var C_FIT = 'var(--c1)', C_OUT = 'var(--az-dim)';
+
+  function fillDefault(w) { return w.idle !== '' || w.out ? C_OUT : C_FIT; }
+  function opAll()  { return 1; }
+  function opFit(w) { return (w.idle !== '' || w.out) ? 0.10 : 1; }
+
+  var STAGES = [
+    {
+      title: '웨이퍼마다 제거율을 구한다',
+      desc: '깎인 두께를 걸린 시간으로 나눈 값이 제거율입니다. 입고 두께 Pre_Thk 는 ① Pre_Thk_VM 이 만든 값을 그대로 씁니다 — ' +
+            '①이 있어야 ②를 계산할 수 있는 이유입니다. 시간순으로 늘어놓으면 톱니 모양이 보입니다.',
+      eq: '<span class="hl">RR</span> = ( Pre_Thk − Post_Thk ) / Pol_Time' +
+          ' &nbsp;<span style="opacity:.55">· Pre_Thk = Pre_Target + VM</span>',
+      x: xTime, y: function (w) { return yRR(w.rr); },
+      fill: function () { return C_FIT; }, op: opAll, scale: function () { return 1; },
+      xlab: '웨이퍼 처리 순서 →', ylab: 'Å/s',
+      note: '패드를 갈 때마다 제거율이 회복됐다가 다시 떨어진다'
+    },
+    {
+      title: 'STEP 1 — 학습에 쓸 데이터만 남긴다',
+      desc: '쉬었다 온 첫 장(Idle), 레이어가 바뀐 장(Layer), 패드 교체 직후(LC)는 정상 모델이 맞지 않는 구간이라 빼냅니다. ' +
+            '남은 데이터에서 제거율이 6σ를 벗어나는 계측 이상치도 함께 걷어냅니다.',
+      eq: 'merge_df[ <span class="hl">IDLE == \'\'</span> ] &nbsp;→&nbsp; ' +
+          'RR 이 mean ± <span class="hl">6σ</span> 안에 드는 행만',
+      x: xTime, y: function (w) { return yRR(w.rr); },
+      fill: fillDefault, op: opFit, scale: function () { return 1; },
+      xlab: '웨이퍼 처리 순서 →', ylab: 'Å/s',
+      note: 'IDLE 구간은 버리는 게 아니라 ③ OFFSET 이 따로 학습한다'
+    },
+    {
+      title: 'STEP 2 — 패드 사이클을 나눈다',
+      desc: '소모품 값이 직전 행보다 3 이상 급감하면 패드를 교체한 것으로 보고 사이클 번호를 새로 매깁니다. ' +
+            '번호는 거꾸로 붙습니다 — 지금 붙어 있는 패드가 cycle 1 입니다.',
+      eq: 'raw = ( Pad_Para.diff() &lt; <span class="hl">−3</span> ).cumsum()' +
+          ' &nbsp;→&nbsp; <span class="hl">cycle = raw.max() + 1 − raw</span>',
+      x: xTime, y: function (w) { return yRR(w.rr); },
+      fill: fillDefault, op: opFit, scale: function () { return 1; },
+      xlab: '웨이퍼 처리 순서 →', ylab: 'Å/s',
+      cycles: true
+    },
+    {
+      title: 'STEP 3 — x축을 시간에서 소모품 사용량으로 바꾼다',
+      desc: '여기가 이 알고리즘의 전환점입니다. 같은 점을 "언제 깎았나" 대신 "패드가 얼마나 닳았을 때 깎았나"로 다시 세우면, ' +
+            '12개 사이클이 하나의 직선 구름으로 겹칩니다. ' +
+            '패드 1주기는 누적 사용 20시간이지만 달력으로는 며칠에 걸쳐 쌓이므로, 두 축은 서로 무관합니다.',
+      eq: 'x축 : <span class="hl2">소모품 사용량</span> ' +
+          '( RR_Para = HEAD / PAD / DISK / DRESSER_CUTTING_RATE 중 Set-up 선택 · 이 예시는 PAD 누적 사용 시간 )',
+      x: xPad, y: function (w) { return yRR(w.rr); },
+      fill: fillDefault, op: opFit, scale: function () { return 1; },
+      xlab: '패드 사용 시간 (h) →  마모', ylab: 'Å/s',
+      note: '12개 사이클이 같은 자리에 겹친다 — 이제 기울기를 잴 수 있다'
+    },
+    {
+      title: 'STEP 4 — 게이트를 통과하면 전체 회귀를 돌린다',
+      desc: '데이터가 패드 수명 한쪽에만 몰려 있으면 기울기를 믿을 수 없습니다. 그래서 소모품 범위를 4등분해 ' +
+            '모든 구간에 25건을 넘게 있을 때만 학습합니다. "학습값이 안 나온다"는 문의의 대부분이 이 조건입니다.',
+      eq: 'if ( quartile_counts &gt; <span class="hl">25</span> ).all() : &nbsp;' +
+          '<span class="hl">RR = b1 · 소모품 + b0</span>',
+      x: xPad, y: function (w) { return yRR(w.rr); },
+      fill: fillDefault, op: opFit, scale: function () { return 1; },
+      xlab: '패드 사용 시간 (h) →', ylab: 'Å/s',
+      quarts: true, show: ['all']
+    },
+    {
+      title: 'STEP 5 — 다시 시간축으로 되돌려 날짜를 5등분한다',
+      desc: '가중치는 "언제 깎았나"로 정합니다. 그래서 점들을 소모품 축에서 시간축으로 되돌립니다. ' +
+            '학습 기간 35일을 5등분하면 한 구간이 정확히 1주일이고, 최근 구간일수록 큰 가중치를 받습니다. ' +
+            '점의 크기와 진하기가 그 가중치입니다.',
+      eq: 'date_seg = pd.cut( Date, bins=<span class="hl2">5</span> )' +
+          ' &nbsp;→&nbsp; weight = [ 1, 2, 3, 4, <span class="hl2">RR_Weight</span> ]',
+      x: xTime, y: function (w) { return yRR(w.rr); },
+      fill: function (w) { return (w.idle !== '' || w.out) ? C_OUT : 'var(--c2)'; },
+      op: function (w) { return (w.idle !== '' || w.out) ? 0.05 : 0.28 + dateSeg(w.i) * 0.18; },
+      scale: function (w) { return (w.idle !== '' || w.out) ? 1 : 0.62 + dateSeg(w.i) * 0.19; },
+      xlab: '', ylab: 'Å/s', bands: 'all'
+    },
+    {
+      title: 'STEP 6 — 가장 최근 1주일 구간만 떼어낸다',
+      desc: '가중치를 크게 주는 만큼, 그 구간이 믿을 만한지 먼저 확인해야 합니다. ' +
+            '마지막 구간(최근 7일) 데이터만 남기고 나머지는 잠시 치웁니다.',
+      eq: 'recent = temp_data5[ <span class="hl2">date_seg == 4</span> ]' +
+          ' &nbsp;<span style="opacity:.55">· 최근 ' + '7일' + '</span>',
+      x: xTime, y: function (w) { return yRR(w.rr); },
+      fill: function (w) { return 'var(--c2)'; },
+      op: function (w) { return (w.idle !== '' || w.out) ? 0.03 : (dateSeg(w.i) === 4 ? 1 : 0.06); },
+      scale: function (w) { return dateSeg(w.i) === 4 ? 1.25 : 1; },
+      xlab: '', ylab: 'Å/s', bands: 'last'
+    },
+    {
+      title: 'STEP 7 — 그 구간만 소모품 축으로 옮겨 4등분을 채웠는지 본다',
+      desc: '최근 1주일 데이터만 다시 소모품 사용량 축으로 옮깁니다. ' +
+            '패드 수명 전 구간이 고르게 채워져 있어야 그 구간에 큰 가중치를 줘도 기울기가 흔들리지 않습니다. ' +
+            '네 구간 모두 25건을 넘어야 통과입니다.',
+      eq: 'part_seg = pd.cut( 소모품, bins=<span class="hl2">4</span> )' +
+          ' &nbsp;→&nbsp; 네 구간 모두 <span class="hl2">&gt; 25</span> 이면 include_recent = True',
+      x: xPad, y: function (w) { return yRR(w.rr); },
+      fill: function (w) { return 'var(--c2)'; },
+      op: function (w) { return (w.idle !== '' || w.out) ? 0 : (dateSeg(w.i) === 4 ? 1 : 0); },
+      scale: function (w) { return dateSeg(w.i) === 4 ? 1.25 : 1; },
+      xlab: '패드 사용 시간 (h) →', ylab: 'Å/s', recentQuarts: true
+    },
+    {
+      title: 'STEP 8 — 통과했으니 전체 데이터로 가중 회귀를 돌린다',
+      desc: '검증을 통과하면 치워뒀던 데이터를 모두 되돌리고, 각 점을 자기 가중치만큼 반복시켜 회귀합니다. ' +
+            '최근 구간이 여러 번 세어지므로 직선이 최근 상태 쪽으로 당겨집니다.',
+      eq: 'np.repeat( X, weight ) &nbsp;→&nbsp; <span class="hl2">weighted 회귀</span>' +
+          ' &nbsp;<span style="opacity:.55">· include_recent = False 면 \'-\' 로 저장 안 함</span>',
+      x: xPad, y: function (w) { return yRR(w.rr); },
+      fill: function (w) { return (w.idle !== '' || w.out) ? C_OUT : (dateSeg(w.i) === 4 ? 'var(--c2)' : C_FIT); },
+      op: function (w) { return (w.idle !== '' || w.out) ? 0.06 : 0.3 + dateSeg(w.i) * 0.17; },
+      scale: function (w) { return (w.idle !== '' || w.out) ? 1 : 0.62 + dateSeg(w.i) * 0.19; },
+      xlab: '패드 사용 시간 (h) →', ylab: 'Å/s',
+      show: ['all', 'wgt'], wgtVerdict: true
+    },
+    {
+      title: 'STEP 9 — 지금 붙어 있는 패드 데이터만으로 그린 직선',
+      desc: '이번엔 현재 사이클(cycle 1) 데이터만 남깁니다. 나머지는 화면에서 뺐습니다. ' +
+            '가장 최신 상태를 반영하지만 데이터가 적어 튈 수 있어서, ' +
+            '건수·최근 진행 이력·PM 이후 lot 수 세 가지를 확인하고 계수에는 안전장치를 겁니다.',
+      eq: '<span class="hl4">cycle == 1</span> &nbsp;and&nbsp; count &gt; <span class="hl4">RR_Count</span>' +
+          ' &nbsp;and&nbsp; 최신 타점 &lt; <span class="hl4">12h</span>' +
+          ' &nbsp;and&nbsp; <span class="hl4">PM rank ≥ 2</span>',
+      x: xPad, y: function (w) { return yRR(w.rr); },
+      fill: function () { return 'var(--c4)'; },
+      op: function (w) {
+        if (w.idle !== '' || w.out || w.cyc !== 1) { return 0; }
+        return w.curIdx < RR_COUNT ? 0.40 : 1;        // 앞 RR_Count 개는 흐리게, 넘친 만큼 진하게
+      },
+      scale: function (w) { return (w.cyc === 1 && w.curIdx >= RR_COUNT) ? 1.6 : 1.1; },
+      xlab: '패드 사용 시간 (h) →', ylab: 'Å/s',
+      show: ['all', 'wgt', 'cur'], curCount: true, verify: 'cur'
+    },
+    {
+      title: 'STEP 10 — 패드 초기 구간만 떼어내 다시 4등분한다',
+      desc: '패드를 새로 걸고 얼마 안 된 구간은 기울기 자체가 다릅니다. Pad_Seperation 이하 데이터만 남기고 ' +
+            '화면 가득 확대했습니다. 이 구간이 100건을 넘고, 다시 4등분했을 때 네 칸 모두 25건 이상이어야 ' +
+            '별도 직선(IF 모델)을 학습합니다.',
+      eq: '소모품 ≤ <span class="hl3">Pad_Seperation</span> &nbsp;→&nbsp; 100건 이상' +
+          ' &nbsp;and&nbsp; pd.cut( bins = Pad_Seperation/4 ) 각 칸 <span class="hl3">≥ 25</span>',
+      x: xPadZoom, y: function (w) { return yRR(w.rr); },
+      fill: function () { return 'var(--c3)'; },
+      op: function (w) { return (w.idle === '' && !w.out && w.pad <= PAD_SEP) ? 1 : 0; },
+      scale: function () { return 1.2; },
+      xlab: '패드 사용 시간 (h) — 0 ~ Pad_Seperation 구간만 확대 →', ylab: 'Å/s',
+      zoom: true, ifQuarts: true, show: ['if']
+    },
+    {
+      title: 'STEP 11 — 학습한 IF 직선을 전체 축에 되돌려 놓는다',
+      desc: '통과했으니 IF 직선이 저장됩니다. 축을 원래대로 되돌리면 왜 이 직선이 따로 필요한지가 한눈에 보입니다 — ' +
+            '초기 구간에서 전체·weighted·current 세 직선은 모두 실제 데이터보다 아래를 지나갑니다.',
+      eq: '네 직선이 모두 저장됐다 &nbsp;→&nbsp; ' +
+          '<span style="color:var(--az-trend);font-weight:600">전체</span> · ' +
+          '<span class="hl2">weighted</span> · <span class="hl4">current</span> · <span class="hl3">IF</span>',
+      x: xPad, y: function (w) { return yRR(w.rr); },
+      fill: function (w) { return (w.idle !== '' || w.out) ? C_OUT : (w.pad <= PAD_SEP ? 'var(--c3)' : C_FIT); },
+      op: function (w) { return (w.idle !== '' || w.out) ? 0.06 : (w.pad <= PAD_SEP ? 1 : 0.18); },
+      scale: function (w) { return w.pad <= PAD_SEP ? 1.15 : 1; },
+      xlab: '패드 사용 시간 (h) →', ylab: 'Å/s',
+      sepLine: true, show: ['all', 'wgt', 'cur', 'if']
+    },
+    {
+      title: '진행 중인 웨이퍼에 적용 — 네 직선 중 하나를 고른다',
+      desc: '학습은 네 개를 모두 저장해 둡니다. 실제로 웨이퍼가 들어오면 좁고 최신인 것부터 순서대로 확인해 ' +
+            '조건을 만족하는 첫 번째를 씁니다. 아래 소모품 사용량을 움직이면 선택이 어떻게 바뀌는지 보입니다.',
+      eq: '<span class="hl3">IF</span> → <span class="hl4">current</span> → <span class="hl2">weighted</span>' +
+          ' → <span style="color:var(--az-trend);font-weight:600">전체</span>' +
+          ' &nbsp;→&nbsp; <span class="hl">RR_DB</span> &nbsp;→&nbsp; Pol_Time = Δ / RR_DB',
+      x: xPad, y: function (w) { return yRR(w.rr); },
+      fill: fillDefault, op: function (w) { return (w.idle !== '' || w.out) ? 0.05 : 0.16; },
+      scale: function () { return 1; },
+      xlab: '패드 사용 시간 (h) →', ylab: 'Å/s',
+      sepLine: true, show: ['all', 'wgt', 'cur', 'if'], apply: true
+    }
+  ];
+
+  // 단계별 캔버스 높이 — 아래에 붙는 검증 그림 분량에 맞춘다 (빈 공간 방지)
+  //        0    1    2    3    4    5    6    7    8    9   10   11   12
+  [335, 335, 335, 335, 340, 342, 342, 402, 378, 500, 420, 335, 480]
+    .forEach(function (h, i) { if (STAGES[i]) { STAGES[i].h = h; } });
+
+  // ══════════════════════════════════════════════════════════
+  //  4. 렌더링
+  // ══════════════════════════════════════════════════════════
+  var NS = 'http://www.w3.org/2000/svg';
+  var gGrid  = document.getElementById('az-grid');
+  var gSeps  = document.getElementById('az-seps');
+  var gLines = document.getElementById('az-lines');
+  var gPts   = document.getElementById('az-pts');
+  var gApply = document.getElementById('az-apply-g');
+  var svgEl  = document.getElementById('az-svg');
+
+  function el(tag, attrs, text) {
+    var n = document.createElementNS(NS, tag);
+    for (var a in attrs) { if (attrs[a] !== null) { n.setAttribute(a, attrs[a]); } }
+    if (text !== undefined) { n.textContent = text; }
+    return n;
+  }
+  function clear(g) { while (g.firstChild) { g.removeChild(g.firstChild); } }
+  function txt(g, x, y, t, o) {
+    o = o || {};
+    g.appendChild(el('text', { x: x, y: y, 'font-size': o.size || 11,
+      'text-anchor': o.anchor || 'start', 'font-family': 'IBM Plex Mono, monospace',
+      fill: o.fill || 'currentColor', 'font-weight': o.weight || 400,
+      opacity: o.op === undefined ? 1 : o.op }, t));
+  }
+
+  var dots = W.map(function (w) {
+    var c = el('circle', { r: 1.7, fill: C_FIT, opacity: 0 });
+    c.setAttribute('transform', 'translate(' + xTime[w.i] + ',' + yRR(w.rr) + ')');
+    gPts.appendChild(c);
+    return c;
+  });
+  var cur = { x: xTime.slice(), y: W.map(function (w) { return yRR(w.rr); }),
+              o: W.map(function () { return 0; }), s: W.map(function () { return 1; }) };
+
+  function drawGrid(st) {
+    clear(gGrid);
+    for (var t = 0; t < 5; t++) {
+      var v = D_RR[0] + (D_RR[1] - D_RR[0]) * t / 4, yy = yRR(v);
+      gGrid.appendChild(el('line', { x1: PL.x0, x2: PL.x1, y1: yy, y2: yy,
+        stroke: 'currentColor', 'stroke-width': 1, opacity: 0.09 }));
+      txt(gGrid, PL.x0 - 10, yy + 3.5, v.toFixed(1), { size: 10, anchor: 'end', op: 0.5 });
+    }
+    txt(gGrid, PL.x0 - 10, PL.y0 - 14, st.ylab, { size: 10, anchor: 'end', op: 0.5 });
+    txt(gGrid, PL.x0, PL.y1 + 30, st.xlab, { size: 10.5, op: 0.55 });
+    if (st.note) {
+      txt(gGrid, PL.x1, PL.y1 + 30, '↳ ' + st.note, { size: 10.5, anchor: 'end',
+        fill: 'var(--az-trend)', op: 0.95 });
+    }
+    // x축 눈금
+    if (st.zoom) {
+      [0, ifStep, ifStep * 2, ifStep * 3, PAD_SEP].forEach(function (p) {
+        txt(gGrid, xPadZoomAt(p), PL.y1 + 15, p.toFixed(1) + ' h',
+          { size: 9.5, anchor: 'middle', op: 0.45 });
+      });
+    } else if (st.x === xPad) {
+      [0, 5, 10, 15, 20].forEach(function (p) {
+        txt(gGrid, xPadAt(p), PL.y1 + 15, p + ' h', { size: 9.5, anchor: 'middle', op: 0.45 });
+      });
+    }
+  }
+
+  function drawOverlays(st) {
+    clear(gSeps); clear(gLines); clear(gApply);
+
+    // 패드 사이클 구분 (시간축)
+    if (st.cycles) {
+      var bounds = [];
+      for (var b = 1; b < N_CYC; b++) { bounds.push(b * PER_CYC); }
+      bounds.forEach(function (ix) {
+        gSeps.appendChild(el('line', { x1: xTimeAt(ix), x2: xTimeAt(ix), y1: PL.y0, y2: PL.y1,
+          stroke: 'currentColor', 'stroke-width': 1.2, opacity: 0.35, 'stroke-dasharray': '4 3' }));
+      });
+      for (var s2 = 0; s2 < N_CYC; s2++) {
+        var mid = xTimeAt(s2 * PER_CYC + PER_CYC / 2);
+        var cn  = N_CYC - s2;
+        txt(gSeps, mid, PL.y1 + 15, 'c' + cn, { size: 9.5, anchor: 'middle',
+          op: cn === 1 ? 1 : 0.42, fill: cn === 1 ? 'var(--c4)' : 'currentColor',
+          weight: cn === 1 ? 600 : 400 });
+      }
+      txt(gSeps, PL.x0, PL.y0 - 6, '패드 1주기 = 누적 사용 ' + PAD_MAX + '시간 · 학습 창 안에 ' +
+        N_CYC + '주기', { size: 10.5, op: 0.55 });
+      txt(gSeps, xTimeAt(N - 1), PL.y0 - 6, 'cycle 1 = 지금 붙어 있는 패드 →', { size: 10, anchor: 'end',
+        fill: 'var(--c4)', weight: 600 });
+    }
+
+    // 소모품 4분면
+    if (st.quarts) {
+      [q1, q2, q3].forEach(function (q) {
+        gSeps.appendChild(el('line', { x1: xPadAt(q), x2: xPadAt(q), y1: PL.y0, y2: PL.y1,
+          stroke: 'currentColor', 'stroke-width': 1, opacity: 0.2, 'stroke-dasharray': '3 3' }));
+      });
+      [[0, q1], [q1, q2], [q2, q3], [q3, PAD_MAX]].forEach(function (r, qi) {
+        var mid = (xPadAt(r[0]) + xPadAt(r[1])) / 2;
+        var ok  = quartCnt[qi] > 25;
+        txt(gSeps, mid, PL.y0 - 6, 'Q' + (qi + 1) + '  ' + quartCnt[qi] + '건 ' + (ok ? '✓' : '✗'),
+          { size: 10, anchor: 'middle', fill: ok ? 'var(--az-learn)' : 'var(--c4)', weight: 600 });
+      });
+    }
+
+    // Pad_Seperation 경계
+    if (st.sepLine) {
+      gSeps.appendChild(el('rect', { x: PL.x0, y: PL.y0, width: xPadAt(PAD_SEP) - PL.x0,
+        height: PL.y1 - PL.y0, fill: 'var(--c3)', opacity: 0.06 }));
+      gSeps.appendChild(el('line', { x1: xPadAt(PAD_SEP), x2: xPadAt(PAD_SEP), y1: PL.y0, y2: PL.y1,
+        stroke: 'var(--c3)', 'stroke-width': 1.5, 'stroke-dasharray': '5 3' }));
+      txt(gSeps, xPadAt(PAD_SEP) + 6, PL.y0 + 12, 'Pad_Seperation = ' + PAD_SEP + ' h',
+        { size: 10, fill: 'var(--c3)', weight: 600 });
+    }
+
+    // 회귀 직선
+    if (st.show) {
+      var XF = st.zoom ? xPadZoomAt : xPadAt;
+      st.show.forEach(function (key) {
+        var M = MODELS.filter(function (m) { return m.key === key; })[0];
+        if (!M || !M.m) { return; }
+        var y0 = M.m.b1 * M.x0 + M.m.b0, y1 = M.m.b1 * M.x1 + M.m.b0;
+        var last = st.show[st.show.length - 1] === key;
+        gLines.appendChild(el('line', {
+          x1: XF(M.x0), x2: XF(M.x1), y1: yRR(y0), y2: yRR(y1),
+          stroke: M.col, 'stroke-width': last ? 3 : 1.8, opacity: last ? 1 : 0.45 }));
+        if (last) {
+          txt(gLines, XF(M.x1) - 4, yRR(y1) - 12,
+            M.name + ' :  b1 = ' + M.m.b1.toFixed(4) + ' · b0 = ' + M.m.b0.toFixed(3),
+            { size: 11.5, anchor: 'end', fill: M.col, weight: 600 });
+        }
+      });
+    }
+
+    // 트렌드 위에 RR_Count 를 직접 표시 — 몇 번째 웨이퍼에서 기준을 채웠는지
+    if (st.curCount && padAt50 !== null) {
+      var tx = xPadAt(padAt50);
+      gSeps.appendChild(el('rect', { x: PL.x0, y: PL.y0, width: tx - PL.x0,
+        height: PL.y1 - PL.y0, fill: 'currentColor', opacity: 0.04 }));
+      gSeps.appendChild(el('line', { x1: tx, x2: tx, y1: PL.y0, y2: PL.y1,
+        stroke: 'var(--az-learn)', 'stroke-width': 2, 'stroke-dasharray': '5 3' }));
+      txt(gSeps, tx - 8, PL.y0 + 13,
+        '← 여기까지 ' + RR_COUNT + '건 (RR_Count 충족)',
+        { size: 10.5, anchor: 'end', fill: 'var(--az-learn)', weight: 600 });
+      txt(gSeps, tx + 8, PL.y0 + 13,
+        '남은 ' + (cur1.length - RR_COUNT) + '건 →',
+        { size: 10.5, fill: 'var(--c4)', weight: 600 });
+      txt(gSeps, PL.x0, PL.y0 - 6,
+        'cycle 1 에서 학습에 쓸 수 있는 웨이퍼 ' + cur1.length + '건 — 흐린 점이 앞 ' +
+        RR_COUNT + '건, 진한 점이 기준을 넘긴 ' + (cur1.length - RR_COUNT) + '건',
+        { size: 10.5, op: 0.6 });
+    }
+
+    if (st.bands) { drawDateBands(st.bands); }
+    if (st.recentQuarts) { drawRecentQuartiles(); }
+    if (st.ifQuarts) { drawIfQuarts(); }
+    if (st.wgtVerdict) { drawWeightedVerdict(); }
+    if (st.verify === 'cur') { drawVerifyCurrent(); }
+    if (st.apply) { drawApply(); }
+  }
+
+
+  // ══════════════════════════════════════════════════════════
+  //  게이트 검증 그림 — 조건을 "어떻게" 확인하는지
+  // ══════════════════════════════════════════════════════════
+  function chip(g, x, y, w, h, col, on) {
+    g.appendChild(el('rect', { x: x, y: y, width: w, height: h, rx: 4,
+      fill: on ? col : 'currentColor', opacity: on ? 0.16 : 0.05,
+      stroke: on ? col : 'currentColor', 'stroke-width': on ? 1.4 : 1,
+      'stroke-opacity': on ? 1 : 0.22 }));
+  }
+
+  // 시간축 위의 날짜 5등분 밴드
+  function drawDateBands(mode) {
+    var LAST = 4;
+    for (var si = 0; si < 5; si++) {
+      var bx0 = xTimeAt(si * dSpan);
+      var bx1 = xTimeAt(Math.min(N - 1, (si + 1) * dSpan));
+      var isLast = (si === LAST);
+      gSeps.appendChild(el('rect', {
+        x: bx0, y: PL.y0, width: bx1 - bx0, height: PL.y1 - PL.y0, rx: 3,
+        fill: isLast ? 'var(--c2)' : 'currentColor',
+        opacity: isLast ? (mode === 'last' ? 0.13 : 0.08) : (mode === 'last' ? 0.015 : 0.035) }));
+      if (si > 0) {
+        gSeps.appendChild(el('line', { x1: bx0, x2: bx0, y1: PL.y0, y2: PL.y1,
+          stroke: 'currentColor', 'stroke-width': 1, opacity: 0.22, 'stroke-dasharray': '3 3' }));
+      }
+      var dim = (mode === 'last' && !isLast);
+      var mid = (bx0 + bx1) / 2;
+      txt(gSeps, mid, PL.y1 + 17, segLabel(si), {
+        size: 11, anchor: 'middle', weight: isLast ? 600 : 400,
+        fill: isLast ? 'var(--c2)' : 'currentColor', op: dim ? 0.28 : (isLast ? 1 : 0.7) });
+      txt(gSeps, mid, PL.y1 + 32, 'w = ' + WEIGHTS[si] + '   ·   ' + segCnt[si] + '건', {
+        size: 10.5, anchor: 'middle',
+        fill: isLast ? 'var(--c2)' : 'currentColor', op: dim ? 0.22 : (isLast ? 0.9 : 0.5) });
+    }
+    // 패드 교체 시점을 바닥에 얇은 눈금으로 — 날짜 구간과 안 맞는 게 보여야 한다
+    for (var cb = 1; cb < N_CYC; cb++) {
+      gSeps.appendChild(el('line', {
+        x1: xTimeAt(cb * PER_CYC), x2: xTimeAt(cb * PER_CYC),
+        y1: PL.y1 - 9, y2: PL.y1, stroke: 'var(--c4)', 'stroke-width': 1.3, opacity: 0.6 }));
+    }
+    txt(gSeps, PL.x1, PL.y1 - 14,
+      '↑ 빨간 눈금 = 패드 교체 (1주기 ' + PAD_MAX + 'h) — 날짜 구간과 맞아떨어지지 않는다',
+      { size: 10, anchor: 'end', fill: 'var(--c4)', op: 0.85 });
+
+    if (mode === 'last') {
+      var lx = (xTimeAt(4 * dSpan) + PL.x1) / 2;
+      txt(gSeps, lx, PL.y0 - 6, '이 구간만 검증한다 — ' + recentTotal +
+        '건 ( 패드 주기와 무관하게 기간으로만 자른다 )',
+        { size: 11, anchor: 'middle', fill: 'var(--c2)', weight: 600 });
+    } else {
+      txt(gSeps, PL.x0, PL.y0 - 6, '가중치는 "언제 깎았나"로 정한다 → 패드 주기와 무관하게 시간축에서 5등분',
+        { size: 10.5, op: 0.55 });
+    }
+  }
+
+  // 최근 구간만 소모품 축으로 옮겼을 때의 4등분 검증
+  function drawRecentQuartiles() {
+    var bounds = [0, q1, q2, q3, PAD_MAX];
+    [q1, q2, q3].forEach(function (q) {
+      gSeps.appendChild(el('line', { x1: xPadAt(q), x2: xPadAt(q), y1: PL.y0, y2: PL.y1,
+        stroke: 'var(--c2)', 'stroke-width': 1.2, opacity: 0.5, 'stroke-dasharray': '4 3' }));
+    });
+    txt(gSeps, PL.x0, PL.y0 - 6,
+      '최근 ' + Math.round(SEG_DAYS) + '일 구간 ' + recentTotal + '건만 남긴 상태 — 패드 사용 시간으로 4등분',
+      { size: 10.5, fill: 'var(--c2)', op: 0.9 });
+
+    var GAP = 10, bw = (PL.x1 - PL.x0 - GAP * 3) / 4, Y = PL.y1 + 46, BH = 36;
+    for (var qi = 0; qi < 4; qi++) {
+      var qx = PL.x0 + qi * (bw + GAP), ok = recentCnt[qi] > 25;
+      chip(gApply, qx, Y, bw, BH, ok ? 'var(--az-learn)' : 'var(--c4)', true);
+      txt(gApply, qx + bw / 2, Y + 15,
+        'Q' + (qi + 1) + '   패드 ' + bounds[qi].toFixed(1) + ' ~ ' + bounds[qi + 1].toFixed(1) + ' h',
+        { size: 10, anchor: 'middle', op: 0.7 });
+      txt(gApply, qx + bw / 2, Y + 30, recentCnt[qi] + '건  ' + (ok ? '> 25   ✓' : '≤ 25   ✗'),
+        { size: 11.5, anchor: 'middle', weight: 600,
+          fill: ok ? 'var(--az-learn)' : 'var(--c4)' });
+    }
+    txt(gApply, PL.x0, Y + BH + 24,
+      gateRecent
+        ? '→ 네 구간 모두 통과 : include_recent = True  →  이제 전체 데이터로 가중 회귀를 돌린다'
+        : '→ 한 구간이라도 25건 이하면 include_recent = False  →  weighted 는 \'-\' 로 저장되지 않는다',
+      { size: 12, weight: 600, fill: gateRecent ? 'var(--az-learn)' : 'var(--c4)' });
+  }
+
+  // IF 게이트 — 초기 구간을 다시 4등분해 각 칸이 25건 이상인지
+  function drawIfQuarts() {
+    var bounds = [0, ifStep, ifStep * 2, ifStep * 3, PAD_SEP];
+    for (var d = 1; d <= 3; d++) {
+      gSeps.appendChild(el('line', {
+        x1: xPadZoomAt(bounds[d]), x2: xPadZoomAt(bounds[d]), y1: PL.y0, y2: PL.y1,
+        stroke: 'var(--c3)', 'stroke-width': 1.2, opacity: 0.5, 'stroke-dasharray': '4 3' }));
+    }
+    var okTotal = ifRows.length >= 100;
+    txt(gSeps, PL.x0, PL.y0 - 6,
+      '조건 ①  패드 사용 ≤ Pad_Seperation(' + PAD_SEP + ' h) 구간에 ' + ifRows.length + '건  ' +
+      (okTotal ? '≥ 100  ✓' : '< 100  ✗'),
+      { size: 11, fill: okTotal ? 'var(--az-learn)' : 'var(--c4)', weight: 600 });
+    txt(gSeps, PL.x1, PL.y0 - 6, '한 칸 = ' + ifStep.toFixed(1) + ' h (Pad_Seperation / 4)',
+      { size: 10.5, anchor: 'end', fill: 'var(--c3)', op: 0.85 });
+
+    var GAP = 10, bw = (PL.x1 - PL.x0 - GAP * 3) / 4, Y = PL.y1 + 60, BH = 36;
+    txt(gApply, PL.x0, Y - 10,
+      '조건 ②  그 구간을 다시 4등분 — 네 칸 모두 25건 이상 ' +
+      '( 다른 게이트는 25건 초과, IF 만 25건 이상 )',
+      { size: 10.5, op: 0.6 });
+    for (var qi = 0; qi < 4; qi++) {
+      var qx = PL.x0 + qi * (bw + GAP), ok = ifCnt[qi] >= 25;
+      chip(gApply, qx, Y, bw, BH, ok ? 'var(--az-learn)' : 'var(--c4)', true);
+      txt(gApply, qx + bw / 2, Y + 15,
+        'Q' + (qi + 1) + '   패드 ' + bounds[qi].toFixed(1) + ' ~ ' + bounds[qi + 1].toFixed(1) + ' h',
+        { size: 10, anchor: 'middle', op: 0.7 });
+      txt(gApply, qx + bw / 2, Y + 30, ifCnt[qi] + '건  ' + (ok ? '≥ 25   ✓' : '< 25   ✗'),
+        { size: 11.5, anchor: 'middle', weight: 600,
+          fill: ok ? 'var(--az-learn)' : 'var(--c4)' });
+    }
+    txt(gApply, PL.x0, Y + BH + 24,
+      gateIf
+        ? '→ 두 조건 모두 통과 → IF 회귀를 학습해 저장한다  ( 이 구간에서만 쓰이는 전용 직선 )'
+        : '→ 하나라도 어긋나면 if_b1 · if_b0 는 \'-\' 로 저장되지 않고, 초기 구간도 전체 직선을 쓴다',
+      { size: 12, weight: 600, fill: gateIf ? 'var(--az-learn)' : 'var(--c4)' });
+  }
+
+  // weighted 학습 결과 한 줄
+  function drawWeightedVerdict() {
+    txt(gApply, PL.x0, PL.y1 + 58,
+      '검증을 통과했으므로 각 점을 가중치만큼 반복시켜 회귀 — 최근 구간(w = ' + RR_WEIGHT +
+      ')이 ' + RR_WEIGHT + '번 세어지면서 직선이 최근 상태 쪽으로 당겨진다',
+      { size: 11, op: 0.65 });
+    if (M_W && M_ALL) {
+      txt(gApply, PL.x0, PL.y1 + 80,
+        '전체 b0 = ' + M_ALL.b0.toFixed(2) + '   →   weighted b0 = ' + M_W.b0.toFixed(2) +
+        '   ( 최근 패드의 제거율 하락을 그만큼 더 반영한다 )',
+        { size: 11.5, weight: 600, fill: 'var(--c2)' });
+    }
+  }
+
+  function drawVerifyCurrent() {
+    var Y = 330, RH = 23;
+    txt(gApply, PL.x0, Y - 8,
+      'current 모델은 데이터가 적어 튈 수 있다 → 세 조건을 모두 통과해야만 학습·저장한다',
+      { size: 10.5, op: 0.6 });
+
+    function row(yy, name, detail, ok) {
+      chip(gApply, PL.x0, yy, PL.x1 - PL.x0, RH - 4, ok ? 'var(--c4)' : 'var(--az-dim)', ok);
+      txt(gApply, PL.x0 + 12, yy + 13.5, name, { size: 11, weight: 600 });
+      txt(gApply, PL.x0 + 220, yy + 13.5, detail, { size: 10.5, op: 0.75 });
+      txt(gApply, PL.x1 - 12, yy + 13.5, ok ? '통과 ✓' : '미충족 ✗',
+        { size: 11, anchor: 'end', weight: 600, fill: ok ? 'var(--az-learn)' : 'var(--c4)' });
+    }
+
+    // ── ① 건수 ─────────────────────────────────────────
+    var okCnt = cur1.length > RR_COUNT;
+    row(Y, '① 현재 사이클 데이터 수',
+        'cycle 1 에서 ' + cur1.length + '건  >  RR_Count ' + RR_COUNT, okCnt);
+
+    // ① 은 위 트렌드에서 직접 보인다 (흐린 점 = 앞 RR_Count 개, 진한 점 = 넘긴 개수)
+
+    // ── ② ③ ────────────────────────────────────────────
+    var Y2 = Y + 27;
+    row(Y2, '② 최근 진행 이력',
+        '최신 타점이 ' + CUR_HOURS + '시간 전  <  12시간', CUR_HOURS < 12);
+    row(Y2 + RH, '③ PM 이후 진행 lot 수',
+        'PM rank ' + CUR_PMRANK + '  ≥  2   (PM 직후 첫 lot 은 제외)', CUR_PMRANK >= 2);
+
+    // ③ 을 풀어 그린 PM 타임라인
+    var TY = Y2 + 2 * RH + 16;
+    txt(gApply, PL.x0, TY - 6,
+      '③ 을 풀어 보면 — PM 이벤트에서 rank 가 0 으로 리셋되고, lot 이 끝날 때마다 1씩 오른다',
+      { size: 10.5, op: 0.6 });
+
+    var lots = CUR_PMRANK, tx0 = PL.x0 + 96, step = (PL.x1 - 40 - tx0) / lots;
+    gApply.appendChild(el('line', { x1: PL.x0 + 10, x2: PL.x1 - 20, y1: TY + 22, y2: TY + 22,
+      stroke: 'currentColor', 'stroke-width': 1.2, opacity: 0.3 }));
+    gApply.appendChild(el('rect', { x: PL.x0 + 6, y: TY + 12, width: 74, height: 21, rx: 4,
+      fill: 'var(--az-trend)', opacity: 0.22 }));
+    txt(gApply, PL.x0 + 43, TY + 27, 'PM 이벤트', { size: 10, anchor: 'middle', weight: 600 });
+
+    for (var li = 1; li <= lots; li++) {
+      var cx = tx0 + (li - 0.5) * step;
+      var okLot = li >= 2;
+      gApply.appendChild(el('circle', { cx: cx, cy: TY + 22, r: 9,
+        fill: okLot ? 'var(--c4)' : 'currentColor', opacity: okLot ? 0.85 : 0.16 }));
+      txt(gApply, cx, TY + 26, String(li),
+        { size: 10, anchor: 'middle', weight: 600,
+          fill: okLot ? '#fff' : 'currentColor', op: okLot ? 1 : 0.6 });
+      txt(gApply, cx, TY + 44, li === 1 ? '제외' : (li === lots ? '현재' : ''),
+        { size: 9.5, anchor: 'middle', op: li === 1 ? 0.55 : 0.75,
+          fill: li === 1 ? 'currentColor' : 'var(--c4)' });
+    }
+    gApply.appendChild(el('line', { x1: tx0 + step, x2: tx0 + step, y1: TY + 6, y2: TY + 38,
+      stroke: 'var(--az-learn)', 'stroke-width': 1.6, 'stroke-dasharray': '4 3' }));
+    txt(gApply, tx0 + step + 7, TY + 12, 'rank ≥ 2 — 여기부터 current 모델 적용',
+      { size: 10, fill: 'var(--az-learn)', weight: 600 });
+
+    txt(gApply, PL.x0, TY + 66,
+      gateCur
+        ? '→ 세 조건 모두 통과 → current 회귀를 학습한다.  ' +
+          (curClipped
+            ? '단, 기울기가 기준 모델의 2배를 넘지 못하도록 안전장치가 걸렸다.'
+            : '계수가 기준 모델과 크게 다르지 않아 안전장치는 작동하지 않았다.')
+        : '→ 하나라도 어긋나면 current 는 \'-\' 로 저장되지 않고, 적용 시 weighted 로 내려간다',
+      { size: 11.5, weight: 600, fill: gateCur ? 'var(--az-learn)' : 'var(--c4)' });
+  }
+
+  // ══════════════════════════════════════════════════════════
+  //  5. STEP 8 — 우선순위로 RR_DB 결정
+  // ══════════════════════════════════════════════════════════
+  var applyPad = 3, curEnabled = true;
+
+  function pickModel(pad) {
+    if (M_IF && pad <= PAD_SEP) { return MODELS[0]; }
+    if (M_CUR && curEnabled)    { return MODELS[1]; }
+    if (M_W)                    { return MODELS[2]; }
+    return MODELS[3];
+  }
+
+  function drawApply() {
+    clear(gApply);
+    var sel  = pickModel(applyPad);
+    var rrdb = sel.m.b1 * applyPad + sel.m.b0;
+    var polt = DELTA / rrdb;
+
+    // 현재 소모품 위치
+    gApply.appendChild(el('line', { x1: xPadAt(applyPad), x2: xPadAt(applyPad), y1: PL.y0, y2: PL.y1,
+      stroke: 'var(--az-learn)', 'stroke-width': 1.6, 'stroke-dasharray': '5 3' }));
+    gApply.appendChild(el('circle', { cx: xPadAt(applyPad), cy: yRR(rrdb), r: 6,
+      fill: 'var(--az-learn)' }));
+    gApply.appendChild(el('circle', { cx: xPadAt(applyPad), cy: yRR(rrdb), r: 11,
+      fill: 'none', stroke: 'var(--az-learn)', 'stroke-width': 1.6, opacity: 0.45 }));
+    txt(gApply, xPadAt(applyPad) + (applyPad > PAD_MAX * 0.7 ? -16 : 16), yRR(rrdb) - 14,
+      rrdb.toFixed(3) + ' Å/s', { size: 13, weight: 600, fill: 'var(--az-learn)',
+      anchor: applyPad > PAD_MAX * 0.7 ? 'end' : 'start' });
+
+    // 우선순위 사다리
+    var TOP = 338, RH = 24;
+    txt(gApply, PL.x0, TOP - 10, '적용 우선순위 — 위에서부터 확인해 조건을 만족하는 첫 번째를 쓴다',
+      { size: 10, op: 0.55 });
+    MODELS.forEach(function (M, mi) {
+      var yy = TOP + mi * RH + 12;
+      var usable = !!M.m && (M.key !== 'if' ? true : applyPad <= PAD_SEP)
+                   && (M.key !== 'cur' || curEnabled);
+      var chosen = (M.key === sel.key);
+      var reason;
+      if (!M.m) {
+        reason = M.key === 'cur' ? '조건 미충족 → 저장되지 않음 ( \'-\' )' : '학습되지 않음 ( \'-\' )';
+      } else if (M.key === 'if') {
+        reason = applyPad <= PAD_SEP ? '패드 ' + applyPad.toFixed(1) + ' h ≤ ' + PAD_SEP + ' h → 해당'
+                                     : '패드 ' + applyPad.toFixed(1) + ' h > ' + PAD_SEP + ' h → 해당 없음';
+      } else if (M.key === 'cur') {
+        reason = curEnabled ? 'cycle 1 · ' + cur1.length + '건 · ' + CUR_HOURS + 'h 전 · PM rank ' + CUR_PMRANK
+                            : '조건 미충족 (체크 해제)';
+      } else if (M.key === 'wgt') {
+        reason = gateRecent ? '최근 구간 4분면 모두 25건 초과' : '최근 구간 조건 미충족';
+      } else {
+        reason = '항상 존재하는 기본값';
+      }
+
+      if (chosen) {
+        gApply.appendChild(el('rect', { x: PL.x0 - 10, y: yy - 15, width: 800, height: 22, rx: 4,
+          fill: M.col, opacity: 0.13 }));
+      }
+      gApply.appendChild(el('rect', { x: PL.x0, y: yy - 6, width: 22, height: 3, rx: 1.5,
+        fill: M.col, opacity: usable ? 1 : 0.3 }));
+      txt(gApply, PL.x0 + 32, yy, String(mi + 1) + '. ' + M.name,
+        { size: 11.5, weight: chosen ? 600 : 400, fill: M.col, op: usable ? 1 : 0.4 });
+      txt(gApply, PL.x0 + 150, yy, reason, { size: 10.5, op: usable ? 0.7 : 0.35 });
+      txt(gApply, PL.x0 + 560, yy, chosen ? '◀ 선택' : (usable ? '' : '건너뜀'),
+        { size: 10.5, weight: 600, fill: chosen ? M.col : 'currentColor', op: chosen ? 1 : 0.35 });
+      // IF 는 Pad_Seperation 이하에서만 정의된 직선 → 범위 밖에서는 값을 쓰지 않는다
+      var inRange = (M.key !== 'if') || (applyPad <= PAD_SEP);
+      if (M.m && inRange) {
+        txt(gApply, 790, yy, (M.m.b1 * applyPad + M.m.b0).toFixed(3) + ' Å/s',
+          { size: 11, anchor: 'end', op: chosen ? 1 : 0.4, weight: chosen ? 600 : 400,
+            fill: chosen ? M.col : 'currentColor' });
+      } else if (M.m) {
+        txt(gApply, 790, yy, '범위 밖', { size: 10.5, anchor: 'end', op: 0.3 });
+      }
+    });
+
+    // 결과
+    gApply.appendChild(el('line', { x1: PL.x0 - 10, x2: 862, y1: TOP + 4 * RH + 6,
+      y2: TOP + 4 * RH + 6, stroke: 'currentColor', 'stroke-width': 1, opacity: 0.22 }));
+    var yr = TOP + 4 * RH + 26;
+    txt(gApply, PL.x0, yr, '→ Pol_Time = Δ / RR_DB = 1500 / ' + rrdb.toFixed(3) + ' = ',
+      { size: 12, fill: 'var(--az-learn)', weight: 600 });
+    txt(gApply, PL.x0 + 330, yr, polt.toFixed(2) + ' s',
+      { size: 15, fill: 'var(--az-learn)', weight: 600 });
+    txt(gApply, PL.x0 + 430, yr, '( 여기에 ③ OFFSET 이 더해져 최종 연마 시간이 된다 )',
+      { size: 10.5, op: 0.55 });
+  }
+
+  // ══════════════════════════════════════════════════════════
+  //  6. 애니메이션 / 컨트롤
+  // ══════════════════════════════════════════════════════════
+  var idx = -1, raf = null, timer = null, playing = false, speed = 1;
+  var reduce = window.matchMedia && window.matchMedia('(prefers-reduced-motion: reduce)').matches;
+
+  var elStep = document.getElementById('az-step');
+  var elTitle = document.getElementById('az-title');
+  var elDesc = document.getElementById('az-desc');
+  var elEq = document.getElementById('az-eq');
+  var btnPrev = document.getElementById('az-prev');
+  var btnNext = document.getElementById('az-next');
+  var btnPlay = document.getElementById('az-play');
+  var dotsBox = document.getElementById('az-dots');
+
+  var dotEls = STAGES.map(function (s, i) {
+    var b = document.createElement('button');
+    b.type = 'button'; b.className = 'az-dot'; b.textContent = i; b.title = s.title;
+    b.addEventListener('click', function () { stop(); go(i); });
+    dotsBox.appendChild(b);
+    return b;
+  });
+
+  function easeInOut(t) { return t < 0.5 ? 4 * t * t * t : 1 - Math.pow(-2 * t + 2, 3) / 2; }
+
+  function go(n) {
+    if (n < 0 || n >= STAGES.length) { return; }
+    var prevIdx = idx;
+    idx = n;
+    var st = STAGES[idx];
+
+    elStep.textContent = 'STEP ' + idx + ' / ' + (STAGES.length - 1);
+    elTitle.textContent = st.title;
+    elDesc.textContent = st.desc;
+    if (st.eq) { elEq.hidden = false; elEq.innerHTML = st.eq; } else { elEq.hidden = true; }
+
+    dotEls.forEach(function (d, i) {
+      d.className = 'az-dot' + (i === idx ? ' on' : (i < idx ? ' done' : ''));
+    });
+    btnPrev.disabled = (idx === 0);
+    btnNext.disabled = (idx === STAGES.length - 1);
+    document.getElementById('az-apply').hidden = !st.apply;
+
+    svgEl.setAttribute('viewBox', '0 0 900 ' + (st.h || 340));
+
+    drawGrid(st);
+    gSeps.style.opacity = gLines.style.opacity = gApply.style.opacity = '0';
+
+    var tx = W.map(function (w) { return st.x[w.i]; });
+    var ty = W.map(function (w) { return st.y(w); });
+    var to = W.map(function (w) { return st.op(w); });
+    var ts = W.map(function (w) { return st.scale(w); });
+    W.forEach(function (w, i) { dots[i].setAttribute('fill', st.fill(w)); });
+
+    var fx = cur.x.slice(), fy = cur.y.slice(), fo = cur.o.slice(), fs = cur.s.slice();
+    var dur = reduce ? 0 : (prevIdx < 0 ? 420 : 950) * speed;
+    var t0 = performance.now();
+
+    if (raf) { cancelAnimationFrame(raf); }
+    function frame(now) {
+      var p = dur === 0 ? 1 : Math.min(1, (now - t0) / dur);
+      var e = easeInOut(p);
+      for (var i = 0; i < N; i++) {
+        var x = fx[i] + (tx[i] - fx[i]) * e;
+        var y = fy[i] + (ty[i] - fy[i]) * e;
+        var o = fo[i] + (to[i] - fo[i]) * e;
+        var sc = fs[i] + (ts[i] - fs[i]) * e;
+        dots[i].setAttribute('transform',
+          'translate(' + x.toFixed(1) + ',' + y.toFixed(1) + ') scale(' + sc.toFixed(2) + ')');
+        dots[i].setAttribute('opacity', o.toFixed(3));
+      }
+      if (p < 1) { raf = requestAnimationFrame(frame); }
+      else {
+        cur.x = tx; cur.y = ty; cur.o = to; cur.s = ts;
+        drawOverlays(st);
+        gSeps.style.transition = gLines.style.transition = gApply.style.transition =
+          'opacity ' + (reduce ? 0 : 340) + 'ms ease';
+        gSeps.style.opacity = gLines.style.opacity = gApply.style.opacity = '1';
+        raf = null;
+      }
+    }
+    raf = requestAnimationFrame(frame);
+    updatePanels();
+  }
+
+  function fmtCoef(M) {
+    return M ? M.b1.toFixed(4) + ' / ' + M.b0.toFixed(2) : '– ( 저장 안 됨 )';
+  }
+
+  function updatePanels() {
+    document.getElementById('az-n-all').textContent = N + ' 장';
+    document.getElementById('az-n-use').textContent =
+      idx >= 1 ? FIT.length + ' 장' : '— (아직 안 거름)';
+
+    function set(id, val, ok, shown) {
+      var e = document.getElementById(id);
+      e.textContent = shown ? val : '—';
+      e.className = 'v' + (shown ? (ok ? ' ok' : ' no') : ' dim');
+    }
+    set('az-g-quart', quartCnt.join(' / ') + (gateQuart ? '  ✓' : '  ✗'), gateQuart, idx >= 4);
+    set('az-g-recent', recentCnt.join(' / ') + (gateRecent ? '  ✓' : '  ✗'), gateRecent, idx >= 7);
+    set('az-g-cur', cur1.length + '건 · ' + CUR_HOURS + 'h · rank ' + CUR_PMRANK +
+      (gateCur ? '  ✓' : '  ✗'), gateCur, idx >= 9);
+    set('az-g-if', ifRows.length + '건 ' + (gateIf ? '✓' : '✗'), gateIf, idx >= 10);
+
+    var rows = [
+      ['all', '전체', M_ALL, 4],
+      ['wgt', 'weighted', M_W, 8],
+      ['cur', 'current', M_CUR, 9],
+      ['if', 'IF', M_IF, 10]
+    ];
+    document.getElementById('az-coef').innerHTML = rows.map(function (r) {
+      var M = MODELS.filter(function (m) { return m.key === r[0]; })[0];
+      var shown = idx >= r[3];
+      return '<div class="az-kv"><span class="k"><span class="az-swatch" style="background:' +
+        M.col + '"></span>' + r[1] + '</span><span class="v ' +
+        (shown ? (r[2] ? 'ok' : 'no') : 'dim') + '">' +
+        (shown ? fmtCoef(r[2]) : '—') + '</span></div>';
+    }).join('');
+
+    var showApply = (idx >= STAGES.length - 1);
+    var sel = pickModel(applyPad);
+    var rrdb = sel.m.b1 * applyPad + sel.m.b0;
+    function setA(id, val) {
+      var e = document.getElementById(id);
+      e.textContent = showApply ? val : '—';
+      e.className = 'v' + (showApply ? ' ok' : ' dim');
+    }
+    setA('az-a-model', sel.name);
+    setA('az-a-rr', rrdb.toFixed(3) + ' Å/s');
+    setA('az-a-pt', (DELTA / rrdb).toFixed(2) + ' s');
+  }
+
+  function stop() {
+    playing = false;
+    if (timer) { clearTimeout(timer); timer = null; }
+    btnPlay.textContent = '▶ 재생';
+  }
+  function tick() {
+    if (!playing) { return; }
+    if (idx >= STAGES.length - 1) { stop(); return; }
+    go(idx + 1);
+    timer = setTimeout(tick, 3800 * speed);
+  }
+  btnPlay.addEventListener('click', function () {
+    if (playing) { stop(); return; }
+    if (idx >= STAGES.length - 1) { go(0); }
+    playing = true;
+    btnPlay.textContent = '❚❚ 정지';
+    timer = setTimeout(tick, 2600 * speed);
+  });
+  btnPrev.addEventListener('click', function () { stop(); go(idx - 1); });
+  btnNext.addEventListener('click', function () { stop(); go(idx + 1); });
+  document.getElementById('az-spd').addEventListener('change', function (e) {
+    speed = parseFloat(e.target.value);
+  });
+  document.addEventListener('keydown', function (e) {
+    if (e.target.tagName === 'SELECT' || e.target.tagName === 'INPUT') { return; }
+    if (e.key === 'ArrowRight') { stop(); go(idx + 1); }
+    if (e.key === 'ArrowLeft')  { stop(); go(idx - 1); }
+  });
+
+  document.getElementById('az-w-pad').addEventListener('input', function (e) {
+    applyPad = parseFloat(e.target.value);
+    document.getElementById('az-w-padv').textContent = applyPad.toFixed(1) + ' h';
+    drawApply(); updatePanels();
+  });
+  document.getElementById('az-w-cur').addEventListener('change', function (e) {
+    curEnabled = e.target.checked;
+    drawApply(); updatePanels();
+  });
+
+  go(0);
+})();
+</script>
+{% endblock %}

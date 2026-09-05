@@ -2186,3 +2186,55 @@ def error_404(request, exception=None):
 
 def error_500(request):
     return render(request, 'errors/500.html', status=500)
+
+
+@login_required
+def algorithm_guide(request):
+    """CMP APC 알고리즘 교육 가이드 (정적 시각 자료).
+
+    algorithm_new 의 학습 3종(Pre_Thk_VM / Removal Rate / OFFSET)과
+    Simulation 결합 과정을 신규 공정·APC 담당자용으로 시각화한 페이지.
+    DB 조회 없음 — 템플릿 렌더링만 수행.
+    """
+    return render(request, 'setup_mico/algorithm_guide.html')
+
+
+@login_required
+def guide_animation(request):
+    """핵심 알고리즘 애니메이션 (Pre_Thk_VM 단계별 시각화).
+
+    compute_detrend / rolling_mean / fit_pre_oper_regression 의 계산 순서를
+    합성 데이터로 브라우저에서 재현해 단계별로 보여준다. DB 조회 없음.
+    """
+    return render(request, 'setup_mico/guide_animation.html')
+
+
+@login_required
+def guide_animation_rr(request):
+    """핵심 알고리즘 애니메이션 ② — Removal Rate 단계별 시각화.
+
+    _detect_cycles / _process_models / _fit_weighted / _fit_current / _fit_if 의
+    계산 순서와 게이트 조건을 합성 데이터로 브라우저에서 재현한다. DB 조회 없음.
+    """
+    return render(request, 'setup_mico/guide_animation_rr.html')
+
+
+@login_required
+def guide_animation_offset(request):
+    """핵심 알고리즘 애니메이션 ③ — OFFSET 단계별 시각화.
+
+    compute_offset / compute_lc_offset / _build_idle_table 의 계산 순서(시간 환산 →
+    clip → Truing 강제 0 → IDLE 라벨 집계 → recipe_group 평균)를 합성 데이터로
+    브라우저에서 재현한다. DB 조회 없음.
+    """
+    return render(request, 'setup_mico/guide_animation_offset.html')
+
+
+@login_required
+def guide_animation_pressure(request):
+    """핵심 알고리즘 애니메이션 ④ — PRESSURE (BIAS · Post_Target + BIAS).
+
+    웨이퍼 평면도와 반경별 두께 프로파일로 BIAS 를 정의하고,
+    그 값이 Pre_Thk / Removal Rate 계산에 어떻게 들어가는지 보인다. DB 조회 없음.
+    """
+    return render(request, 'setup_mico/guide_animation_pressure.html')

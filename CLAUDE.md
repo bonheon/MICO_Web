@@ -93,6 +93,11 @@ ADMIN (superuser만 노출)
 | `/simulation/` | simulation | Simulation |
 | `/apc/history/` | apc_history | APC 수정건수 (DB 미연결) |
 | `/improvement/dispersion/` | dispersion | 산포 개선 현황 (DB 미연결) |
+| `/guide/animation/` | guide_animation | 핵심 알고리즘 애니메이션 ① Pre_Thk_VM |
+| `/guide/animation/rr/` | guide_animation_rr | 핵심 알고리즘 애니메이션 ② Removal Rate |
+| `/guide/animation/offset/` | guide_animation_offset | 핵심 알고리즘 애니메이션 ③ OFFSET |
+| `/guide/animation/pressure/` | guide_animation_pressure | 핵심 알고리즘 애니메이션 ④ PRESSURE (BIAS) |
+| `/guide/algorithm/` | algorithm_guide | 알고리즘 가이드 (교육 시각자료, 정적) |
 | `/voc/` | voc_list | VOC 게시판 |
 | `/admin-stats/` | access_stats | 접속 현황 (superuser only) |
 

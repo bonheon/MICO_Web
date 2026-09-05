@@ -511,6 +511,12 @@
     </a>
 
     <div class="nav-section">Support</div>
+    <a href="{% url 'guide_animation' %}" class="sb-link {% block nav_guide_animation %}{% endblock %}">
+      <i class="bi bi-play-btn"></i> 핵심 알고리즘 (애니메이션)
+    </a>
+    <a href="{% url 'algorithm_guide' %}" class="sb-link {% block nav_algorithm_guide %}{% endblock %}">
+      <i class="bi bi-mortarboard"></i> 알고리즘 상세 문서
+    </a>
     <a href="{% url 'voc_list' %}" class="sb-link {% block nav_voc %}{% endblock %}">
       <i class="bi bi-chat-left-text"></i> VOC 게시판
     </a>

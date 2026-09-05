@@ -1,0 +1,1683 @@
+{% extends 'setup_mico/base.html' %}
+
+{% block title %}| 알고리즘 가이드{% endblock %}
+{% block nav_algorithm_guide %}active{% endblock %}
+
+{% block breadcrumb %}
+  <li class="breadcrumb-item"><a href="{% url 'dashboard' %}">Home</a></li>
+  <li class="breadcrumb-item active">알고리즘 가이드</li>
+{% endblock %}
+
+{% block content %}
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=IBM+Plex+Sans+KR:wght@300;400;500;600;700&family=IBM+Plex+Mono:wght@400;500;600&display=swap">
+
+<style>
+/* ══════════════════════════════════════════════════════════════
+   알고리즘 가이드 — 페이지 스코프 토큰
+   의미 부여: teal=학습값/모델  amber=소모품·마모  violet=PRESSURE
+   ══════════════════════════════════════════════════════════════ */
+.ag {
+  --ag-ink:     #16202b;
+  --ag-body:    #46586a;
+  --ag-muted:   #7b8b9a;
+  --ag-rule:    #dde4ea;
+  --ag-surface: #ffffff;
+  --ag-sunken:  #f1f5f8;
+  --ag-learn:   #0e7c86;
+  --ag-learn-w: rgba(14,124,134,0.09);
+  --ag-wear:    #b3690b;
+  --ag-wear-w:  rgba(179,105,11,0.10);
+  --ag-press:   #7a4fbf;
+  --ag-press-w: rgba(122,79,191,0.10);
+  --ag-alarm:   #c0392b;
+  --ag-alarm-w: rgba(192,57,43,0.09);
+
+  font-family: 'IBM Plex Sans KR', 'Segoe UI', system-ui, sans-serif;
+  color: var(--ag-body);
+  -webkit-font-smoothing: antialiased;
+}
+[data-theme="dark"] .ag {
+  --ag-ink:     #eef3f7;
+  --ag-body:    #b9c6d2;
+  --ag-muted:   #8497a6;
+  --ag-rule:    #33404f;
+  --ag-surface: #1f2937;
+  --ag-sunken:  #18222f;
+  --ag-learn:   #3fb8c2;
+  --ag-learn-w: rgba(63,184,194,0.12);
+  --ag-wear:    #e0a244;
+  --ag-wear-w:  rgba(224,162,68,0.13);
+  --ag-press:   #b18ee8;
+  --ag-press-w: rgba(177,142,232,0.14);
+  --ag-alarm:   #ef6c5c;
+  --ag-alarm-w: rgba(239,108,92,0.13);
+}
+
+/* ── 레이아웃 ─────────────────────────────────────────────── */
+.ag-wrap    { max-width: 1080px; margin: 0 auto; padding-bottom: 5rem; }
+.ag-read    { max-width: 68ch; }
+.ag section { scroll-margin-top: 72px; }
+
+.ag p       { line-height: 1.85; margin: 0 0 1rem; font-size: 0.925rem; }
+.ag strong  { color: var(--ag-ink); font-weight: 600; }
+.ag code    { font-family: 'IBM Plex Mono', monospace; font-size: 0.86em;
+              background: var(--ag-sunken); color: var(--ag-ink);
+              padding: 0.1em 0.38em; border-radius: 3px; }
+
+/* ── 히어로 ───────────────────────────────────────────────── */
+.ag-hero {
+  border-bottom: 1px solid var(--ag-rule);
+  padding: 0.5rem 0 2.25rem;
+  margin-bottom: 2.5rem;
+}
+.ag-eyebrow {
+  font-family: 'IBM Plex Mono', monospace;
+  font-size: 0.7rem; letter-spacing: 0.16em; text-transform: uppercase;
+  color: var(--ag-learn); margin-bottom: 0.75rem;
+}
+.ag-hero h1 {
+  font-size: clamp(1.7rem, 3.4vw, 2.5rem);
+  font-weight: 700; letter-spacing: -0.025em; line-height: 1.25;
+  color: var(--ag-ink); margin: 0 0 0.85rem; text-wrap: balance;
+}
+.ag-hero .lede { font-size: 1.02rem; line-height: 1.8; max-width: 62ch; margin: 0; }
+
+/* 핵심 식 블록 */
+.ag-keyeq {
+  margin: 1.9rem 0 0;
+  padding: 1.35rem 1.6rem;
+  background: var(--ag-sunken);
+  border-left: 3px solid var(--ag-learn);
+  border-radius: 0 6px 6px 0;
+  overflow-x: auto;
+}
+.ag-keyeq .eq {
+  font-family: 'IBM Plex Mono', monospace;
+  font-size: 1.02rem; font-weight: 500; color: var(--ag-ink);
+  white-space: nowrap; letter-spacing: -0.01em;
+}
+.ag-keyeq .eq .t-learn { color: var(--ag-learn); font-weight: 600; }
+.ag-keyeq .eq .t-wear  { color: var(--ag-wear);  font-weight: 600; }
+.ag-keyeq .note { font-size: 0.8rem; color: var(--ag-muted); margin: 0.6rem 0 0; }
+
+/* ── 목차 ─────────────────────────────────────────────────── */
+.ag-toc { display: flex; flex-wrap: wrap; gap: 0.4rem; margin: 1.75rem 0 0; }
+.ag-toc a {
+  font-family: 'IBM Plex Mono', monospace; font-size: 0.745rem;
+  padding: 0.34rem 0.7rem; border: 1px solid var(--ag-rule); border-radius: 999px;
+  color: var(--ag-body); text-decoration: none; transition: all 0.15s;
+}
+.ag-toc a:hover { border-color: var(--ag-learn); color: var(--ag-learn); background: var(--ag-learn-w); }
+
+/* ── 섹션 헤더 (번호 레일 = 실제 파이프라인 순서) ─────────── */
+.ag-sec-head { display: flex; gap: 1.1rem; align-items: baseline; margin: 4rem 0 1.5rem; }
+.ag-sec-head:first-child { margin-top: 0; }
+.ag-sec-num {
+  font-family: 'IBM Plex Mono', monospace; font-size: 0.78rem; font-weight: 600;
+  color: var(--ag-learn); flex-shrink: 0; padding-top: 0.35rem;
+  min-width: 2.4rem; letter-spacing: 0.06em;
+}
+.ag-sec-head h2 {
+  font-size: 1.42rem; font-weight: 650; letter-spacing: -0.02em;
+  color: var(--ag-ink); margin: 0 0 0.35rem; text-wrap: balance;
+}
+.ag-sec-head .sub { font-size: 0.86rem; color: var(--ag-muted); margin: 0; }
+.ag-sub { font-size: 1.02rem; font-weight: 600; color: var(--ag-ink);
+          margin: 2.4rem 0 0.85rem; letter-spacing: -0.012em; }
+
+/* ── 그림 ─────────────────────────────────────────────────── */
+.ag figure { margin: 1.9rem 0; }
+.ag figure svg { display: block; width: 100%; max-width: 100%; height: auto;
+                 color: var(--ag-body); }
+.ag .fig-scroll { overflow-x: auto; }
+.ag figcaption {
+  font-size: 0.8rem; line-height: 1.65; color: var(--ag-muted);
+  margin-top: 0.85rem; padding-top: 0.7rem; border-top: 1px solid var(--ag-rule);
+  max-width: 72ch;
+}
+.ag figcaption b { color: var(--ag-body); font-weight: 600; }
+
+/* ── 3문제 카드 ───────────────────────────────────────────── */
+.ag-probs { display: grid; grid-template-columns: repeat(auto-fit, minmax(255px, 1fr)); gap: 1px;
+            background: var(--ag-rule); border: 1px solid var(--ag-rule); border-radius: 8px;
+            overflow: hidden; margin: 2rem 0; }
+.ag-prob { background: var(--ag-surface); padding: 1.4rem 1.4rem 1.5rem; }
+.ag-prob .q { font-family: 'IBM Plex Mono', monospace; font-size: 0.72rem;
+              letter-spacing: 0.08em; color: var(--ag-muted); margin-bottom: 0.7rem; }
+.ag-prob h4 { font-size: 0.96rem; font-weight: 600; color: var(--ag-ink); margin: 0 0 0.55rem; }
+.ag-prob p  { font-size: 0.845rem; line-height: 1.75; margin: 0 0 1rem; }
+.ag-prob .ans {
+  display: inline-flex; align-items: center; gap: 0.4rem;
+  font-family: 'IBM Plex Mono', monospace; font-size: 0.775rem; font-weight: 600;
+  color: var(--ag-learn); background: var(--ag-learn-w);
+  padding: 0.3rem 0.6rem; border-radius: 4px;
+}
+
+/* ── 콜아웃 ───────────────────────────────────────────────── */
+.ag-note {
+  border: 1px solid var(--ag-rule); border-radius: 7px;
+  padding: 1.05rem 1.25rem; margin: 1.6rem 0; background: var(--ag-surface);
+}
+.ag-note.warn  { border-color: color-mix(in srgb, var(--ag-alarm) 40%, var(--ag-rule));
+                 background: var(--ag-alarm-w); }
+.ag-note.wear  { border-color: color-mix(in srgb, var(--ag-wear) 40%, var(--ag-rule));
+                 background: var(--ag-wear-w); }
+.ag-note .lbl {
+  font-family: 'IBM Plex Mono', monospace; font-size: 0.7rem; font-weight: 600;
+  letter-spacing: 0.1em; text-transform: uppercase; display: block; margin-bottom: 0.45rem;
+  color: var(--ag-learn);
+}
+.ag-note.warn .lbl { color: var(--ag-alarm); }
+.ag-note.wear .lbl { color: var(--ag-wear); }
+.ag-note p:last-child { margin-bottom: 0; }
+.ag-note p { font-size: 0.87rem; }
+
+/* ── 표 ───────────────────────────────────────────────────── */
+.ag-table-wrap { overflow-x: auto; margin: 1.6rem 0; border: 1px solid var(--ag-rule); border-radius: 7px; }
+.ag table { width: 100%; border-collapse: collapse; font-size: 0.845rem; background: var(--ag-surface); }
+.ag table th {
+  text-align: left; font-weight: 600; font-size: 0.735rem; letter-spacing: 0.05em;
+  text-transform: uppercase; color: var(--ag-muted); background: var(--ag-sunken);
+  padding: 0.7rem 0.95rem; border-bottom: 1px solid var(--ag-rule); white-space: nowrap;
+}
+.ag table td { padding: 0.72rem 0.95rem; border-bottom: 1px solid var(--ag-rule);
+               vertical-align: top; line-height: 1.65; }
+.ag table tr:last-child td { border-bottom: none; }
+.ag table td code { background: none; padding: 0; color: var(--ag-learn); }
+.ag .num { font-family: 'IBM Plex Mono', monospace; font-variant-numeric: tabular-nums; }
+
+/* ── 모드 배지 ────────────────────────────────────────────── */
+.ag-badge {
+  display: inline-block; font-family: 'IBM Plex Mono', monospace;
+  font-size: 0.7rem; font-weight: 600; letter-spacing: 0.06em;
+  padding: 0.18rem 0.5rem; border-radius: 3px; vertical-align: middle;
+}
+.ag-badge.time  { color: var(--ag-learn); background: var(--ag-learn-w); }
+.ag-badge.press { color: var(--ag-press); background: var(--ag-press-w); }
+
+/* ── 인터랙티브 패널 ──────────────────────────────────────── */
+.ag-lab {
+  border: 1px solid var(--ag-rule); border-radius: 9px; overflow: hidden;
+  margin: 2rem 0; background: var(--ag-surface);
+}
+.ag-lab-head {
+  padding: 0.85rem 1.25rem; border-bottom: 1px solid var(--ag-rule);
+  background: var(--ag-sunken); display: flex; align-items: center; gap: 0.6rem;
+}
+.ag-lab-head .t { font-size: 0.875rem; font-weight: 600; color: var(--ag-ink); }
+.ag-lab-head .h { font-family: 'IBM Plex Mono', monospace; font-size: 0.7rem;
+                  color: var(--ag-muted); margin-left: auto; }
+.ag-lab-body { display: grid; grid-template-columns: minmax(240px, 320px) 1fr; }
+@media (max-width: 780px) { .ag-lab-body { grid-template-columns: 1fr; } }
+.ag-controls { padding: 1.25rem; border-right: 1px solid var(--ag-rule);
+               display: flex; flex-direction: column; gap: 1.05rem; }
+@media (max-width: 780px) { .ag-controls { border-right: none; border-bottom: 1px solid var(--ag-rule); } }
+.ag-ctl label {
+  display: flex; justify-content: space-between; align-items: baseline;
+  font-size: 0.79rem; font-weight: 500; color: var(--ag-body); margin-bottom: 0.42rem;
+}
+.ag-ctl label .v {
+  font-family: 'IBM Plex Mono', monospace; font-variant-numeric: tabular-nums;
+  font-weight: 600; color: var(--ag-ink); font-size: 0.82rem;
+}
+.ag-ctl input[type=range] { width: 100%; accent-color: var(--ag-learn); height: 1.2rem; cursor: pointer; }
+.ag-ctl.wear input[type=range] { accent-color: var(--ag-wear); }
+.ag-ctl select {
+  width: 100%; font-size: 0.82rem; padding: 0.4rem 0.5rem; border-radius: 5px;
+  border: 1px solid var(--ag-rule); background: var(--ag-surface); color: var(--ag-ink);
+}
+.ag-out { padding: 1.25rem; display: flex; flex-direction: column; gap: 1.1rem; }
+.ag-steps { display: flex; flex-direction: column; gap: 0.5rem; }
+.ag-step {
+  display: grid; grid-template-columns: 1fr auto; gap: 1rem; align-items: baseline;
+  padding: 0.5rem 0.75rem; border-radius: 5px; background: var(--ag-sunken);
+}
+.ag-step .k { font-family: 'IBM Plex Mono', monospace; font-size: 0.775rem; color: var(--ag-body); }
+.ag-step .n { font-family: 'IBM Plex Mono', monospace; font-variant-numeric: tabular-nums;
+              font-size: 0.83rem; font-weight: 600; color: var(--ag-ink); white-space: nowrap; }
+.ag-step.final { background: var(--ag-learn-w); }
+.ag-step.final .k, .ag-step.final .n { color: var(--ag-learn); }
+.ag-step.final .n { font-size: 0.95rem; }
+.ag-verdict { font-size: 0.83rem; line-height: 1.7; color: var(--ag-muted);
+              padding-top: 0.85rem; border-top: 1px solid var(--ag-rule); }
+.ag-verdict b { color: var(--ag-ink); font-weight: 600; }
+
+/* ── 결정 트리 리스트 ─────────────────────────────────────── */
+.ag-prio { counter-reset: prio; margin: 1.5rem 0; padding: 0; list-style: none; }
+.ag-prio li {
+  position: relative; padding: 0.8rem 0 0.8rem 3.1rem;
+  border-bottom: 1px solid var(--ag-rule); font-size: 0.875rem; line-height: 1.7;
+}
+.ag-prio li:last-child { border-bottom: none; }
+.ag-prio li::before {
+  counter-increment: prio; content: counter(prio);
+  position: absolute; left: 0; top: 0.85rem;
+  width: 1.55rem; height: 1.55rem; border-radius: 50%;
+  background: var(--ag-learn-w); color: var(--ag-learn);
+  font-family: 'IBM Plex Mono', monospace; font-size: 0.73rem; font-weight: 600;
+  display: flex; align-items: center; justify-content: center;
+}
+.ag-prio li b { color: var(--ag-ink); }
+.ag-prio li .cond {
+  display: block; font-family: 'IBM Plex Mono', monospace;
+  font-size: 0.755rem; color: var(--ag-muted); margin-top: 0.2rem;
+}
+
+@media (prefers-reduced-motion: reduce) { .ag * { transition: none !important; } }
+</style>
+
+<div class="ag">
+<div class="ag-wrap">
+
+<!-- ══════════════════ HERO ══════════════════ -->
+<header class="ag-hero">
+  <div class="ag-eyebrow">MICO / algorithm_new · 신규 담당자용</div>
+  <h1>연마 시간은 어떻게 정해지는가</h1>
+  <p class="lede">
+    CMP는 웨이퍼를 회전하는 패드에 눌러 깎아내는 공정입니다. 매번 같은 시간만큼 깎으면
+    두께가 흐릅니다 — 입고 두께가 다르고, 패드가 닳고, 장비가 쉬었다 돌기 때문입니다.
+    MICO는 이 세 가지를 각각 학습해서 <b>다음 웨이퍼의 연마 시간(또는 존 압력)</b>을 정합니다.
+    이 문서는 그 세 학습값이 무엇을 보고 무엇을 계산하는지 그림으로 설명합니다.
+  </p>
+
+  <div class="ag-keyeq">
+    <div class="eq">
+      Pol_Time&nbsp; = &nbsp;<span class="t-learn">Δ</span>&nbsp;/&nbsp;<span class="t-wear">RR_DB</span>&nbsp; + &nbsp;<span class="t-learn">OFFSET</span>
+    </div>
+    <p class="note">
+      Δ = 깎아내야 할 두께 (입고 − 목표) · RR_DB = 지금 이 패드의 제거율 (Å/sec) · OFFSET = Idle 보정 (sec)<br>
+      → 이 식의 세 항이 각각 <b>Pre_Thk_VM</b>, <b>Removal Rate</b>, <b>OFFSET</b> 학습값입니다.
+    </p>
+  </div>
+
+  <nav class="ag-toc" aria-label="목차">
+    <a href="#s-why">왜 보정하나</a>
+    <a href="#s-flow">전체 흐름</a>
+    <a href="#s-mode">TIME vs PRESSURE</a>
+    <a href="#s-vm">① Pre_Thk_VM</a>
+    <a href="#s-rr">② Removal Rate</a>
+    <a href="#s-off">③ OFFSET</a>
+    <a href="#s-sim">④ Simulation</a>
+    <a href="#s-trouble">학습값이 안 나올 때</a>
+    <a href="#s-glossary">용어</a>
+  </nav>
+</header>
+
+<!-- ══════════════════ 1. 왜 보정하나 ══════════════════ -->
+<section id="s-why">
+  <div class="ag-sec-head">
+    <div class="ag-sec-num">문제</div>
+    <div>
+      <h2>고정 시간으로 깎으면 왜 두께가 흐르는가</h2>
+      <p class="sub">세 가지 변동 요인 — 그리고 각각에 대응하는 세 학습값</p>
+    </div>
+  </div>
+
+  <div class="ag-read">
+    <p>
+      연마량은 대략 <code>제거율 × 시간</code> 입니다. 그런데 <strong>제거율은 상수가 아니고,
+      출발점인 입고 두께도 상수가 아닙니다.</strong> 아래 그림은 아무 보정 없이 고정 시간으로
+      깎았을 때 후처리 두께가 어떻게 흘러가는지를 보여줍니다.
+    </p>
+  </div>
+
+  <figure>
+    <div class="fig-scroll">
+    <svg viewBox="0 0 920 300" role="img" aria-label="보정 없이 고정 시간으로 연마했을 때 후처리 두께가 목표에서 벗어나는 세 가지 요인: 입고 두께 산포, 패드 마모에 따른 제거율 저하, Idle 이후 첫 웨이퍼 이탈">
+      <defs>
+        <marker id="ag-ar" viewBox="0 0 10 10" refX="9" refY="5" markerWidth="6" markerHeight="6" orient="auto-start-reverse">
+          <path d="M0,0 L10,5 L0,10 z" fill="currentColor"/>
+        </marker>
+      </defs>
+
+      <!-- 축 -->
+      <line x1="70" y1="240" x2="840" y2="240" stroke="currentColor" stroke-width="1" opacity="0.35"/>
+      <line x1="70" y1="45" x2="70" y2="240" stroke="currentColor" stroke-width="1" opacity="0.35"/>
+      <text x="70" y="266" font-size="11" fill="currentColor" opacity="0.65" font-family="IBM Plex Mono, monospace">웨이퍼 순서 →</text>
+      <text x="26" y="52" font-size="11" fill="currentColor" opacity="0.65" font-family="IBM Plex Mono, monospace">Post</text>
+      <text x="26" y="66" font-size="11" fill="currentColor" opacity="0.65" font-family="IBM Plex Mono, monospace">Thk</text>
+
+      <!-- 목표선 + 관리한계 -->
+      <line x1="70" y1="140" x2="840" y2="140" stroke="var(--ag-learn)" stroke-width="1.6" stroke-dasharray="7 4"/>
+      <text x="846" y="144" font-size="11" fill="var(--ag-learn)" font-family="IBM Plex Mono, monospace" font-weight="600">Target</text>
+      <line x1="70" y1="90"  x2="800" y2="90"  stroke="var(--ag-alarm)" stroke-width="1" opacity="0.45"/>
+      <line x1="70" y1="190" x2="800" y2="190" stroke="var(--ag-alarm)" stroke-width="1" opacity="0.45"/>
+      <text x="806" y="93"  font-size="10" fill="var(--ag-alarm)" opacity="0.8" font-family="IBM Plex Mono, monospace">USL</text>
+      <text x="806" y="193" font-size="10" fill="var(--ag-alarm)" opacity="0.8" font-family="IBM Plex Mono, monospace">LSL</text>
+
+      <!-- 무보정 궤적: 패드 마모로 서서히 두꺼워지고, PM 후 리셋, Idle 스파이크 -->
+      <polyline fill="none" stroke="currentColor" stroke-width="1.8" opacity="0.85"
+        points="95,152 125,143 155,149 185,136 215,131 245,124 275,118 305,110 335,103 365,96
+                395,72 425,128 455,120 485,113 515,105 545,99 575,92 605,86
+                635,64 665,122 695,116 725,109 755,101 785,95 815,88"/>
+
+      <!-- 요인 ① 입고 산포 (초반 지그재그) -->
+      <rect x="88" y="118" width="120" height="46" fill="var(--ag-learn)" opacity="0.07" rx="3"/>
+      <text x="96" y="290" font-size="11" fill="var(--ag-learn)" font-weight="600" font-family="IBM Plex Mono, monospace">① 입고 두께 산포</text>
+      <line x1="148" y1="168" x2="148" y2="282" stroke="var(--ag-learn)" stroke-width="1" opacity="0.5" stroke-dasharray="3 3"/>
+
+      <!-- 요인 ② 패드 마모 추세 -->
+      <line x1="245" y1="128" x2="600" y2="80" stroke="var(--ag-wear)" stroke-width="1.4" stroke-dasharray="5 3" opacity="0.9"/>
+      <text x="400" y="290" font-size="11" fill="var(--ag-wear)" font-weight="600" font-family="IBM Plex Mono, monospace">② 패드가 닳아 제거율 ↓</text>
+      <line x1="470" y1="112" x2="470" y2="282" stroke="var(--ag-wear)" stroke-width="1" opacity="0.5" stroke-dasharray="3 3"/>
+
+      <!-- 요인 ③ Idle 스파이크 -->
+      <circle cx="395" cy="72" r="6" fill="none" stroke="var(--ag-alarm)" stroke-width="1.8"/>
+      <circle cx="635" cy="64" r="6" fill="none" stroke="var(--ag-alarm)" stroke-width="1.8"/>
+      <text x="672" y="290" font-size="11" fill="var(--ag-alarm)" font-weight="600" font-family="IBM Plex Mono, monospace">③ Idle 직후 첫 장</text>
+      <line x1="700" y1="70" x2="700" y2="282" stroke="var(--ag-alarm)" stroke-width="1" opacity="0.5" stroke-dasharray="3 3"/>
+      <path d="M 660 62 L 692 62" stroke="var(--ag-alarm)" stroke-width="1" opacity="0.6" marker-end="url(#ag-ar)"/>
+
+      <!-- 패드 교체 -->
+      <line x1="410" y1="45" x2="410" y2="240" stroke="currentColor" stroke-width="1" opacity="0.3"/>
+      <text x="415" y="56" font-size="10" fill="currentColor" opacity="0.55" font-family="IBM Plex Mono, monospace">패드 교체</text>
+      <line x1="650" y1="45" x2="650" y2="240" stroke="currentColor" stroke-width="1" opacity="0.3"/>
+      <text x="655" y="56" font-size="10" fill="currentColor" opacity="0.55" font-family="IBM Plex Mono, monospace">패드 교체</text>
+    </svg>
+    </div>
+    <figcaption>
+      <b>보정이 없을 때의 후처리 두께 궤적.</b> 짧은 진동은 입고 두께 산포에서, 우상향 추세는 패드 마모로
+      제거율이 떨어지면서 (같은 시간에 덜 깎여서) 생깁니다. 패드를 교체하면 추세가 리셋되고,
+      장비가 쉬었다 돌면 첫 장이 크게 튑니다. MICO의 세 학습값은 이 세 가지를 하나씩 지웁니다.
+    </figcaption>
+  </figure>
+
+  <div class="ag-probs">
+    <div class="ag-prob">
+      <div class="q">문제 ①</div>
+      <h4>입고 두께를 모른다</h4>
+      <p>CMP 직전 두께를 매 웨이퍼 측정하지 않습니다. 사전공정 장비가 다르면 입고 두께도 다른데,
+         그 차이를 모른 채 같은 시간을 깎습니다.</p>
+      <span class="ans">Pre_Thk_VM</span>
+    </div>
+    <div class="ag-prob">
+      <div class="q">문제 ②</div>
+      <h4>제거율이 계속 변한다</h4>
+      <p>패드·디스크·헤드가 닳으면서 같은 조건에서도 깎이는 양이 달라집니다. 패드 교체 직후와
+         수명 말기의 제거율이 다릅니다.</p>
+      <span class="ans">Removal Rate</span>
+    </div>
+    <div class="ag-prob">
+      <div class="q">문제 ③</div>
+      <h4>쉬었다 온 장비는 다르다</h4>
+      <p>Idle 후 첫 장, 레이어가 바뀐 첫 장, 패드 교체(LC) 직후 — 정상 상태 모델이 맞지 않는
+         구간이 규칙적으로 발생합니다.</p>
+      <span class="ans">OFFSET</span>
+    </div>
+  </div>
+</section>
+
+<!-- ══════════════════ 2. 전체 흐름 ══════════════════ -->
+<section id="s-flow">
+  <div class="ag-sec-head">
+    <div class="ag-sec-num">흐름</div>
+    <div>
+      <h2>데이터가 학습값이 되어 돌아오는 경로</h2>
+      <p class="sub">Merge → Module(학습) → MongoDB → Simulation → APC</p>
+    </div>
+  </div>
+
+  <div class="ag-read">
+    <p>
+      MICO는 <strong>학습과 적용이 분리</strong>되어 있습니다. 학습은 매시간 배치로 돌면서
+      MongoDB에 계수만 저장하고, 실제 웨이퍼가 들어올 때는 저장된 계수를 읽어 쓰기만 합니다.
+      그래서 학습이 오래 걸려도 생산이 기다리지 않습니다.
+    </p>
+  </div>
+
+  <figure>
+    <div class="fig-scroll">
+    <svg viewBox="0 0 900 380" role="img" aria-label="MICO 파이프라인: DataLake와 MES에서 수집한 데이터를 Merge Hub에 병합하고, Module이 세 학습값을 산출해 MongoDB에 저장하며, Simulation이 이를 다시 결합해 APC 제어값을 만든다">
+      <defs>
+        <marker id="ag-ar2" viewBox="0 0 10 10" refX="9" refY="5" markerWidth="7" markerHeight="7" orient="auto-start-reverse">
+          <path d="M0,0 L10,5 L0,10 z" fill="currentColor"/>
+        </marker>
+        <marker id="ag-ar2t" viewBox="0 0 10 10" refX="9" refY="5" markerWidth="7" markerHeight="7" orient="auto-start-reverse">
+          <path d="M0,0 L10,5 L0,10 z" fill="var(--ag-learn)"/>
+        </marker>
+      </defs>
+
+      <!-- 소스 -->
+      <text x="20" y="30" font-size="10.5" font-family="IBM Plex Mono, monospace" fill="currentColor" opacity="0.55" letter-spacing="1">SOURCE</text>
+      <rect x="20" y="42" width="132" height="42" rx="4" fill="none" stroke="currentColor" stroke-width="1.3" opacity="0.6"/>
+      <text x="86" y="62" font-size="12" text-anchor="middle" fill="currentColor" font-weight="500">DataLake</text>
+      <text x="86" y="76" font-size="10" text-anchor="middle" fill="currentColor" opacity="0.6" font-family="IBM Plex Mono, monospace">CMP 실측·장비</text>
+
+      <rect x="20" y="98" width="132" height="42" rx="4" fill="none" stroke="currentColor" stroke-width="1.3" opacity="0.6"/>
+      <text x="86" y="118" font-size="12" text-anchor="middle" fill="currentColor" font-weight="500">MES</text>
+      <text x="86" y="132" font-size="10" text-anchor="middle" fill="currentColor" opacity="0.6" font-family="IBM Plex Mono, monospace">사전공정 이력</text>
+
+      <rect x="20" y="154" width="132" height="42" rx="4" fill="none" stroke="currentColor" stroke-width="1.3" opacity="0.6"/>
+      <text x="86" y="174" font-size="12" text-anchor="middle" fill="currentColor" font-weight="500">웹 Set-up</text>
+      <text x="86" y="188" font-size="10" text-anchor="middle" fill="currentColor" opacity="0.6" font-family="IBM Plex Mono, monospace">Category~Detail</text>
+
+      <!-- Merge -->
+      <path d="M 156 63 C 180 63, 180 118, 202 118" fill="none" stroke="currentColor" stroke-width="1.2" opacity="0.55" marker-end="url(#ag-ar2)"/>
+      <path d="M 156 119 L 202 119" fill="none" stroke="currentColor" stroke-width="1.2" opacity="0.55" marker-end="url(#ag-ar2)"/>
+      <path d="M 156 175 C 180 175, 180 120, 202 120" fill="none" stroke="currentColor" stroke-width="1.2" opacity="0.55" marker-end="url(#ag-ar2)"/>
+
+      <rect x="206" y="88" width="124" height="62" rx="5" fill="var(--ag-sunken)" stroke="currentColor" stroke-width="1.3" opacity="0.9"/>
+      <text x="268" y="112" font-size="12.5" text-anchor="middle" fill="currentColor" font-weight="600">Merge Hub</text>
+      <text x="268" y="128" font-size="10" text-anchor="middle" fill="currentColor" opacity="0.7" font-family="IBM Plex Mono, monospace">merge_df</text>
+      <text x="268" y="141" font-size="9.5" text-anchor="middle" fill="currentColor" opacity="0.55" font-family="IBM Plex Mono, monospace">웨이퍼 1장 = 1행</text>
+      <text x="268" y="72" font-size="10.5" text-anchor="middle" font-family="IBM Plex Mono, monospace" fill="currentColor" opacity="0.55" letter-spacing="1">MERGE</text>
+
+      <!-- Module 3종 -->
+      <path d="M 334 119 L 382 119" fill="none" stroke="currentColor" stroke-width="1.4" opacity="0.6" marker-end="url(#ag-ar2)"/>
+
+      <rect x="386" y="30" width="168" height="178" rx="6" fill="none" stroke="var(--ag-learn)" stroke-width="1.3" stroke-dasharray="4 3" opacity="0.7"/>
+      <text x="470" y="22" font-size="10.5" text-anchor="middle" font-family="IBM Plex Mono, monospace" fill="var(--ag-learn)" letter-spacing="1">MODULE · 학습</text>
+
+      <rect x="400" y="44" width="140" height="42" rx="4" fill="var(--ag-learn-w)" stroke="var(--ag-learn)" stroke-width="1.2"/>
+      <text x="470" y="62" font-size="11.5" text-anchor="middle" fill="var(--ag-learn)" font-weight="600">① Pre_Thk_VM</text>
+      <text x="470" y="77" font-size="9.5" text-anchor="middle" fill="var(--ag-learn)" opacity="0.85" font-family="IBM Plex Mono, monospace">입고 두께 가상계측</text>
+
+      <rect x="400" y="97" width="140" height="42" rx="4" fill="var(--ag-learn-w)" stroke="var(--ag-learn)" stroke-width="1.2"/>
+      <text x="470" y="115" font-size="11.5" text-anchor="middle" fill="var(--ag-learn)" font-weight="600">② Removal Rate</text>
+      <text x="470" y="130" font-size="9.5" text-anchor="middle" fill="var(--ag-learn)" opacity="0.85" font-family="IBM Plex Mono, monospace">b1·b0 (패드 마모)</text>
+
+      <rect x="400" y="150" width="140" height="42" rx="4" fill="var(--ag-learn-w)" stroke="var(--ag-learn)" stroke-width="1.2"/>
+      <text x="470" y="168" font-size="11.5" text-anchor="middle" fill="var(--ag-learn)" font-weight="600">③ OFFSET</text>
+      <text x="470" y="183" font-size="9.5" text-anchor="middle" fill="var(--ag-learn)" opacity="0.85" font-family="IBM Plex Mono, monospace">IDLE 구간 보정</text>
+
+      <!-- ①→② 의존 -->
+      <path d="M 396 65 C 372 65, 372 118, 396 118" fill="none" stroke="var(--ag-learn)" stroke-width="1.1" opacity="0.7" marker-end="url(#ag-ar2t)"/>
+      <text x="352" y="92" font-size="9" fill="var(--ag-learn)" opacity="0.85" font-family="IBM Plex Mono, monospace">VM 필요</text>
+      <path d="M 396 118 C 372 118, 372 171, 396 171" fill="none" stroke="var(--ag-learn)" stroke-width="1.1" opacity="0.7" marker-end="url(#ag-ar2t)"/>
+      <text x="349" y="152" font-size="9" fill="var(--ag-learn)" opacity="0.85" font-family="IBM Plex Mono, monospace">b1·b0 필요</text>
+
+      <!-- Mongo -->
+      <path d="M 558 119 L 606 119" fill="none" stroke="var(--ag-learn)" stroke-width="1.4" opacity="0.8" marker-end="url(#ag-ar2t)"/>
+      <ellipse cx="672" cy="80" rx="62" ry="12" fill="var(--ag-sunken)" stroke="currentColor" stroke-width="1.3" opacity="0.9"/>
+      <path d="M 610 80 L 610 158 A 62 12 0 0 0 734 158 L 734 80" fill="var(--ag-sunken)" stroke="currentColor" stroke-width="1.3" opacity="0.9"/>
+      <text x="672" y="112" font-size="12" text-anchor="middle" fill="currentColor" font-weight="600">MongoDB</text>
+      <text x="672" y="128" font-size="9.5" text-anchor="middle" fill="currentColor" opacity="0.7" font-family="IBM Plex Mono, monospace">MICO_PRE_THK_*</text>
+      <text x="672" y="141" font-size="9.5" text-anchor="middle" fill="currentColor" opacity="0.7" font-family="IBM Plex Mono, monospace">MICO_Removal_Rate_*</text>
+      <text x="672" y="154" font-size="9.5" text-anchor="middle" fill="currentColor" opacity="0.7" font-family="IBM Plex Mono, monospace">MICO_OFFSET_*</text>
+      <text x="672" y="60" font-size="10.5" text-anchor="middle" font-family="IBM Plex Mono, monospace" fill="currentColor" opacity="0.55" letter-spacing="1">학습값 저장소</text>
+
+      <!-- Simulation -->
+      <path d="M 672 182 L 672 232" fill="none" stroke="currentColor" stroke-width="1.4" opacity="0.6" marker-end="url(#ag-ar2)"/>
+      <text x="682" y="212" font-size="9.5" fill="currentColor" opacity="0.6" font-family="IBM Plex Mono, monospace">merge_asof · 시점 기준</text>
+
+      <rect x="576" y="236" width="192" height="58" rx="5" fill="var(--ag-sunken)" stroke="currentColor" stroke-width="1.3"/>
+      <text x="672" y="258" font-size="12.5" text-anchor="middle" fill="currentColor" font-weight="600">④ Simulation</text>
+      <text x="672" y="275" font-size="9.5" text-anchor="middle" fill="currentColor" opacity="0.7" font-family="IBM Plex Mono, monospace">세 학습값 재결합 · 검증</text>
+
+      <!-- APC -->
+      <path d="M 572 265 L 500 265" fill="none" stroke="currentColor" stroke-width="1.4" opacity="0.6" marker-end="url(#ag-ar2)"/>
+      <rect x="330" y="236" width="166" height="58" rx="5" fill="var(--ag-learn-w)" stroke="var(--ag-learn)" stroke-width="1.5"/>
+      <text x="413" y="255" font-size="12.5" text-anchor="middle" fill="var(--ag-learn)" font-weight="600">APC 제어값</text>
+      <text x="413" y="272" font-size="10" text-anchor="middle" fill="var(--ag-learn)" font-family="IBM Plex Mono, monospace">Pol_Time / Pressure</text>
+      <text x="413" y="286" font-size="9" text-anchor="middle" fill="var(--ag-learn)" opacity="0.75" font-family="IBM Plex Mono, monospace">다음 웨이퍼에 적용</text>
+
+      <!-- 피드백 루프 -->
+      <path d="M 330 265 L 268 265 L 268 158" fill="none" stroke="currentColor" stroke-width="1.2" opacity="0.45" stroke-dasharray="5 4" marker-end="url(#ag-ar2)"/>
+      <text x="180" y="228" font-size="9.5" fill="currentColor" opacity="0.55" font-family="IBM Plex Mono, monospace">연마 결과가 다시 실측 데이터로</text>
+
+      <!-- 시간축 주석 -->
+      <line x1="20" y1="330" x2="880" y2="330" stroke="currentColor" stroke-width="1" opacity="0.25"/>
+      <text x="20" y="352" font-size="10.5" fill="var(--ag-learn)" font-family="IBM Plex Mono, monospace" font-weight="600">학습 (매시간 배치)</text>
+      <text x="20" y="368" font-size="10" fill="currentColor" opacity="0.6" font-family="IBM Plex Mono, monospace">시간 제한 없음 · 계수만 저장</text>
+      <text x="470" y="352" font-size="10.5" fill="currentColor" font-family="IBM Plex Mono, monospace" font-weight="600">적용 (웨이퍼마다)</text>
+      <text x="470" y="368" font-size="10" fill="currentColor" opacity="0.6" font-family="IBM Plex Mono, monospace">저장된 계수 조회만 — 재학습 없음</text>
+      <line x1="455" y1="336" x2="455" y2="372" stroke="currentColor" stroke-width="1" opacity="0.25"/>
+    </svg>
+    </div>
+    <figcaption>
+      <b>학습과 적용의 분리.</b> 왼쪽에서 오른쪽으로 데이터가 흐르고, 학습값은 MongoDB를 거쳐
+      다시 Simulation으로 내려옵니다. 점선 화살표는 <b>의존 순서</b>입니다 —
+      Removal Rate는 Pre_Thk_VM 결과가 있어야 계산할 수 있고, OFFSET은 RR 계수가 있어야 합니다.
+      그래서 학습은 반드시 ① → ② → ③ 순서로 돕니다.
+    </figcaption>
+  </figure>
+
+  <div class="ag-note">
+    <span class="lbl">읽는 법</span>
+    <p>
+      Set-up 화면(Category / SubCategory / Detail)에서 넣는 값은 전부 이 그림의 왼쪽 아래
+      <b>웹 Set-up</b>으로 들어가서, 어떤 파라미터를 어떤 역할로 쓸지를 정합니다.
+      즉 <b>Set-up이 곧 알고리즘의 배선도</b>입니다 — 코드를 고치지 않고 공정별 동작을 바꾸는 지점입니다.
+    </p>
+  </div>
+</section>
+
+<!-- ══════════════════ 3. TIME vs PRESSURE ══════════════════ -->
+<section id="s-mode">
+  <div class="ag-sec-head">
+    <div class="ag-sec-num">모드</div>
+    <div>
+      <h2>TIME과 PRESSURE는 무엇이 다른가</h2>
+      <p class="sub">같은 학습 파이프라인, 다른 제어 대상 — 평균 두께냐, 웨이퍼 안의 프로파일이냐</p>
+    </div>
+  </div>
+
+  <div class="ag-read">
+    <p>
+      Set-up의 <code>FB_Type</code>이 <span class="ag-badge time">TIME</span> 이냐
+      <span class="ag-badge press">PRESSURE</span> 냐에 따라 알고리즘이 제어하는 대상이 갈립니다.
+      두 모드는 <strong>학습 로직이 같고 y축(무엇을 0 기준으로 볼 것인가)만 다릅니다.</strong>
+      이 한 가지가 코드 전체에서 <code>use_pressure</code> / <code>is_bias_type</code> 분기로 나타납니다.
+    </p>
+  </div>
+
+  <figure>
+    <div class="fig-scroll">
+    <svg viewBox="0 0 880 330" role="img" aria-label="TIME 모드는 웨이퍼 평균 두께를 목표에 맞추기 위해 연마 시간을 조절하고, PRESSURE 모드는 13P 평균 대비 존별 편차를 없애기 위해 존 압력을 조절한다">
+      <defs>
+        <marker id="ag-ar3t" viewBox="0 0 10 10" refX="9" refY="5" markerWidth="7" markerHeight="7" orient="auto-start-reverse">
+          <path d="M0,0 L10,5 L0,10 z" fill="var(--ag-learn)"/>
+        </marker>
+        <marker id="ag-ar3p" viewBox="0 0 10 10" refX="9" refY="5" markerWidth="7" markerHeight="7" orient="auto-start-reverse">
+          <path d="M0,0 L10,5 L0,10 z" fill="var(--ag-press)"/>
+        </marker>
+      </defs>
+
+      <!-- ── 왼쪽: TIME ── -->
+      <text x="30" y="26" font-size="11" font-family="IBM Plex Mono, monospace" fill="var(--ag-learn)" font-weight="600" letter-spacing="1">FB_TYPE = TIME</text>
+      <text x="30" y="44" font-size="12" fill="currentColor" opacity="0.75">웨이퍼 <tspan font-weight="600">평균</tspan> 두께를 목표에 맞춘다</text>
+
+      <!-- 웨이퍼 단면 (평평, 전체가 내려감) -->
+      <line x1="40" y1="200" x2="400" y2="200" stroke="currentColor" stroke-width="1" opacity="0.3"/>
+      <text x="40" y="220" font-size="10" fill="currentColor" opacity="0.55" font-family="IBM Plex Mono, monospace">웨이퍼 반경 (중심 → 엣지)</text>
+
+      <!-- 입고 프로파일 -->
+      <path d="M 60 90 L 120 92 L 180 89 L 240 91 L 300 90 L 360 93" fill="none" stroke="currentColor" stroke-width="2" opacity="0.5" stroke-dasharray="5 3"/>
+      <text x="366" y="88" font-size="10" fill="currentColor" opacity="0.6" font-family="IBM Plex Mono, monospace">입고</text>
+
+      <!-- 목표선 -->
+      <line x1="55" y1="160" x2="365" y2="160" stroke="var(--ag-learn)" stroke-width="1.5" stroke-dasharray="6 4"/>
+      <text x="366" y="164" font-size="10" fill="var(--ag-learn)" font-weight="600" font-family="IBM Plex Mono, monospace">Target</text>
+
+      <!-- 연마 후 프로파일 (평평하게 내려옴) -->
+      <path d="M 60 158 L 120 161 L 180 158 L 240 160 L 300 159 L 360 162" fill="none" stroke="var(--ag-learn)" stroke-width="2.4"/>
+
+      <!-- 제어 화살표: 전체가 같이 내려감 -->
+      <path d="M 90 100 L 90 150" stroke="var(--ag-learn)" stroke-width="1.6" marker-end="url(#ag-ar3t)"/>
+      <path d="M 165 99 L 165 150" stroke="var(--ag-learn)" stroke-width="1.6" marker-end="url(#ag-ar3t)"/>
+      <path d="M 240 101 L 240 152" stroke="var(--ag-learn)" stroke-width="1.6" marker-end="url(#ag-ar3t)"/>
+      <path d="M 315 100 L 315 151" stroke="var(--ag-learn)" stroke-width="1.6" marker-end="url(#ag-ar3t)"/>
+      <text x="120" y="128" font-size="10.5" fill="var(--ag-learn)" font-weight="600" font-family="IBM Plex Mono, monospace">Δ 전체 동일</text>
+
+      <rect x="40" y="240" width="330" height="72" rx="5" fill="var(--ag-learn-w)"/>
+      <text x="56" y="262" font-size="11" fill="var(--ag-learn)" font-weight="600" font-family="IBM Plex Mono, monospace">제어 변수 : Pol_Time (sec)</text>
+      <text x="56" y="281" font-size="10.5" fill="currentColor" opacity="0.8" font-family="IBM Plex Mono, monospace">학습 y축 : 절대 두께</text>
+      <text x="56" y="299" font-size="10.5" fill="currentColor" opacity="0.8" font-family="IBM Plex Mono, monospace">RR = (Pre_Thk − Post_Thk) / Pol_Time</text>
+
+      <!-- 구분선 -->
+      <line x1="440" y1="14" x2="440" y2="318" stroke="currentColor" stroke-width="1" opacity="0.2"/>
+
+      <!-- ── 오른쪽: PRESSURE ── -->
+      <text x="475" y="26" font-size="11" font-family="IBM Plex Mono, monospace" fill="var(--ag-press)" font-weight="600" letter-spacing="1">FB_TYPE = PRESSURE</text>
+      <text x="475" y="44" font-size="12" fill="currentColor" opacity="0.75">평균 대비 <tspan font-weight="600">존별 편차</tspan>를 없앤다</text>
+
+      <line x1="485" y1="200" x2="845" y2="200" stroke="currentColor" stroke-width="1" opacity="0.3"/>
+      <text x="485" y="220" font-size="10" fill="currentColor" opacity="0.55" font-family="IBM Plex Mono, monospace">Z1 ~ Z5 · ED (엣지)</text>
+
+      <!-- 13P 평균 기준선 -->
+      <line x1="500" y1="130" x2="810" y2="130" stroke="var(--ag-press)" stroke-width="1.5" stroke-dasharray="6 4"/>
+      <text x="812" y="134" font-size="10" fill="var(--ag-press)" font-weight="600" font-family="IBM Plex Mono, monospace">13P 평균</text>
+
+      <!-- 휘어진 프로파일: 엣지가 얇음 -->
+      <path d="M 505 122 L 565 126 L 625 130 L 685 138 L 745 152 L 800 170" fill="none" stroke="currentColor" stroke-width="2.4" opacity="0.8"/>
+      <text x="505" y="112" font-size="10" fill="currentColor" opacity="0.6" font-family="IBM Plex Mono, monospace">실제 프로파일</text>
+
+      <!-- BIAS 표시 -->
+      <path d="M 745 148 L 745 134" stroke="var(--ag-press)" stroke-width="1.6" marker-end="url(#ag-ar3p)"/>
+      <path d="M 800 166 L 800 134" stroke="var(--ag-press)" stroke-width="1.6" marker-end="url(#ag-ar3p)"/>
+      <text x="690" y="186" font-size="10.5" fill="var(--ag-press)" font-weight="600" font-family="IBM Plex Mono, monospace">BIAS (편차)</text>
+      <line x1="748" y1="156" x2="722" y2="180" stroke="var(--ag-press)" stroke-width="0.9" opacity="0.6"/>
+
+      <!-- 존 압력 조절 표시 -->
+      <rect x="700" y="196" width="46" height="9" fill="var(--ag-press)" opacity="0.28" rx="2"/>
+      <rect x="752" y="196" width="46" height="9" fill="var(--ag-press)" opacity="0.55" rx="2"/>
+      <rect x="596" y="196" width="46" height="9" fill="var(--ag-press)" opacity="0.14" rx="2"/>
+      <rect x="544" y="196" width="46" height="9" fill="var(--ag-press)" opacity="0.10" rx="2"/>
+      <text x="596" y="232" font-size="10" fill="var(--ag-press)" font-family="IBM Plex Mono, monospace">엣지 존 압력 ↑ → 그 존만 더 깎임</text>
+
+      <rect x="485" y="240" width="330" height="72" rx="5" fill="var(--ag-press-w)"/>
+      <text x="501" y="262" font-size="11" fill="var(--ag-press)" font-weight="600" font-family="IBM Plex Mono, monospace">제어 변수 : Pressure_1..n (존별)</text>
+      <text x="501" y="281" font-size="10.5" fill="currentColor" opacity="0.8" font-family="IBM Plex Mono, monospace">학습 y축 : 13P 대비 편차 (BIAS)</text>
+      <text x="501" y="299" font-size="10.5" fill="currentColor" opacity="0.8" font-family="IBM Plex Mono, monospace">post = Target + BIAS 로 치환 후 동일 계산</text>
+    </svg>
+    </div>
+    <figcaption>
+      <b>두 모드가 갈리는 유일한 지점은 y축입니다.</b> TIME은 절대 두께를 그대로 쓰고,
+      PRESSURE는 같은 레시피의 13P(TIME) 파라미터를 기준으로 뺀 <b>편차(BIAS)</b>를 씁니다.
+      Detrend·Moving Average·회귀·RR 학습·OFFSET 계산은 두 모드가 완전히 같은 코드를 탑니다.
+    </figcaption>
+  </figure>
+
+  <div class="ag-table-wrap">
+    <table>
+      <thead>
+        <tr><th style="width:24%">항목</th><th style="width:38%">TIME (13P)</th><th style="width:38%">PRESSURE (존별 · ED/EX)</th></tr>
+      </thead>
+      <tbody>
+        <tr>
+          <td><b>맞추는 대상</b></td>
+          <td>웨이퍼 평균 두께 → Target</td>
+          <td>존 두께 − 13P 두께 → 목표 편차</td>
+        </tr>
+        <tr>
+          <td><b>제어 변수</b></td>
+          <td><code>Pol_Time</code> (연마 시간, sec)</td>
+          <td><code>Pressure_1..n</code> (존별 압력)</td>
+        </tr>
+        <tr>
+          <td><b>0 기준값</b></td>
+          <td><code>Thk_Para − mean(Thk_Para)</code></td>
+          <td><code>(Thk − Thk_13P) − (Target − Target_13P)</code></td>
+        </tr>
+        <tr>
+          <td><b>RR 계산 시 post</b></td>
+          <td><code>Thk_Para</code> 실측값</td>
+          <td><code>Target + BIAS</code> (편차를 되돌린 값)</td>
+        </tr>
+        <tr>
+          <td><b>MA 최소 건수</b></td>
+          <td class="num">10건</td>
+          <td class="num">5건 (Thk_Para에 ED/EX 포함 시)</td>
+        </tr>
+        <tr>
+          <td><b>RR 알람</b></td>
+          <td>발송 (3σ 이탈 시 Cube)</td>
+          <td>미발송 — TIME 파라미터 한정</td>
+        </tr>
+      </tbody>
+    </table>
+  </div>
+
+  <div class="ag-note">
+    <span class="lbl">왜 PRESSURE는 13P를 빼는가</span>
+    <p>
+      존별 압력은 <b>웨이퍼 안의 상대적 기울기</b>만 바꿉니다. 평균 두께 자체는 TIME이 이미
+      맞추고 있으므로, PRESSURE 학습에서 절대 두께를 y로 쓰면 TIME 제어가 만든 변동까지
+      같이 학습해 두 루프가 서로 싸웁니다. 13P를 빼서 <b>평균 성분을 제거</b>해야 두 제어가
+      독립적으로 동작합니다.
+    </p>
+  </div>
+</section>
+
+<!-- ══════════════════ 4. Pre_Thk_VM ══════════════════ -->
+<section id="s-vm">
+  <div class="ag-sec-head">
+    <div class="ag-sec-num">① VM</div>
+    <div>
+      <h2>Pre_Thk_VM — 재지 않은 입고 두께를 추정한다</h2>
+      <p class="sub">사전공정 장비가 남긴 지문을 후처리 두께에서 역으로 읽어낸다</p>
+    </div>
+  </div>
+
+  <div class="ag-read">
+    <p>
+      CMP 직전 두께를 매 웨이퍼 측정할 수 없습니다. 그런데 <strong>같은 사전공정 장비·채널에서
+      나온 웨이퍼들은 비슷하게 두껍거나 얇습니다.</strong> Pre_Thk_VM은 이 규칙성을 이용합니다 —
+      과거 웨이퍼들의 후처리 두께에서 "패드 마모 때문에 생긴 추세"를 지우고 남은 잔차를
+      사전공정 장비별로 평균 내면, 그것이 곧 그 장비의 입고 두께 편차입니다.
+    </p>
+  </div>
+
+  <h3 class="ag-sub">먼저: 두 갈래 경로 중 어디로 가는가</h3>
+  <div class="ag-read">
+    <p>
+      Set-up에 <code>Pre_Thk_Para_ITM</code>(사전공정 실측 파라미터)이 있으면 그 실측값을
+      그대로 쓰고, 없으면 후처리 두께에서 역산합니다. 세 번째로,
+      실측값이 있어도 <code>Pre_Thk_VM_Source = POST</code>로 두면 강제로 역산 경로를 탑니다.
+    </p>
+  </div>
+
+  <figure>
+    <div class="fig-scroll">
+    <svg viewBox="0 0 880 300" role="img" aria-label="Pre_Thk_VM 경로 분기: ITM 실측이 있으면 BIAS 경로, 없으면 detrend 경로, POST 강제 설정 시 실측이 있어도 detrend 경로로 간다">
+      <defs>
+        <marker id="ag-ar4" viewBox="0 0 10 10" refX="9" refY="5" markerWidth="7" markerHeight="7" orient="auto-start-reverse">
+          <path d="M0,0 L10,5 L0,10 z" fill="currentColor"/>
+        </marker>
+      </defs>
+
+      <!-- 분기 조건 -->
+      <rect x="20" y="112" width="150" height="52" rx="5" fill="var(--ag-sunken)" stroke="currentColor" stroke-width="1.3"/>
+      <text x="95" y="134" font-size="11.5" text-anchor="middle" fill="currentColor" font-weight="600">Set-up 확인</text>
+      <text x="95" y="150" font-size="9.5" text-anchor="middle" fill="currentColor" opacity="0.65" font-family="IBM Plex Mono, monospace">Pre_Thk_Para_ITM ?</text>
+
+      <path d="M 174 128 L 224 86" stroke="currentColor" stroke-width="1.2" opacity="0.6" marker-end="url(#ag-ar4)"/>
+      <path d="M 174 148 L 224 190" stroke="currentColor" stroke-width="1.2" opacity="0.6" marker-end="url(#ag-ar4)"/>
+      <text x="182" y="98" font-size="10" fill="currentColor" opacity="0.65" font-family="IBM Plex Mono, monospace">있음</text>
+      <text x="182" y="188" font-size="10" fill="currentColor" opacity="0.65" font-family="IBM Plex Mono, monospace">없음</text>
+
+      <!-- ITM 경로 -->
+      <rect x="228" y="46" width="212" height="66" rx="5" fill="var(--ag-learn-w)" stroke="var(--ag-learn)" stroke-width="1.3"/>
+      <text x="334" y="68" font-size="11.5" text-anchor="middle" fill="var(--ag-learn)" font-weight="600">ITM 경로 — 실측 사용</text>
+      <text x="334" y="86" font-size="10" text-anchor="middle" fill="var(--ag-learn)" font-family="IBM Plex Mono, monospace">BIAS = ITM − mean(ITM)</text>
+      <text x="334" y="101" font-size="9.5" text-anchor="middle" fill="var(--ag-learn)" opacity="0.8" font-family="IBM Plex Mono, monospace">detrend 불필요 (직접 계측했으므로)</text>
+
+      <!-- POST 강제 -->
+      <rect x="228" y="124" width="212" height="42" rx="5" fill="var(--ag-alarm-w)" stroke="var(--ag-alarm)" stroke-width="1.2" stroke-dasharray="4 3"/>
+      <text x="334" y="142" font-size="10.5" text-anchor="middle" fill="var(--ag-alarm)" font-weight="600" font-family="IBM Plex Mono, monospace">Pre_Thk_VM_Source = POST</text>
+      <text x="334" y="157" font-size="9.5" text-anchor="middle" fill="var(--ag-alarm)" opacity="0.85">실측이 있어도 아래 경로로 강제</text>
+      <path d="M 334 112 L 334 122" stroke="var(--ag-alarm)" stroke-width="1.2" marker-end="url(#ag-ar4)"/>
+      <path d="M 334 168 L 334 182 L 228 182" stroke="var(--ag-alarm)" stroke-width="1.2" fill="none" marker-end="url(#ag-ar4)"/>
+
+      <!-- detrend 경로 -->
+      <rect x="228" y="188" width="212" height="66" rx="5" fill="var(--ag-learn-w)" stroke="var(--ag-learn)" stroke-width="1.3"/>
+      <text x="334" y="210" font-size="11.5" text-anchor="middle" fill="var(--ag-learn)" font-weight="600">Detrend 경로 — 역산</text>
+      <text x="334" y="228" font-size="10" text-anchor="middle" fill="var(--ag-learn)" font-family="IBM Plex Mono, monospace">후처리 두께 → 추세 제거 → 잔차</text>
+      <text x="334" y="243" font-size="9.5" text-anchor="middle" fill="var(--ag-learn)" opacity="0.8" font-family="IBM Plex Mono, monospace">Detrend_Thk</text>
+
+      <!-- 합류 -->
+      <path d="M 444 79 C 480 79, 480 150, 512 150" fill="none" stroke="currentColor" stroke-width="1.3" opacity="0.6" marker-end="url(#ag-ar4)"/>
+      <path d="M 444 221 C 480 221, 480 150, 512 150" fill="none" stroke="currentColor" stroke-width="1.3" opacity="0.6" marker-end="url(#ag-ar4)"/>
+
+      <rect x="516" y="102" width="176" height="96" rx="5" fill="var(--ag-sunken)" stroke="currentColor" stroke-width="1.3"/>
+      <text x="604" y="124" font-size="11.5" text-anchor="middle" fill="currentColor" font-weight="600">공통 후처리</text>
+      <text x="604" y="143" font-size="9.5" text-anchor="middle" fill="currentColor" opacity="0.75" font-family="IBM Plex Mono, monospace">IQR 이상치 제거 (3σ)</text>
+      <text x="604" y="159" font-size="9.5" text-anchor="middle" fill="currentColor" opacity="0.75" font-family="IBM Plex Mono, monospace">전공정 장비·채널별 rolling</text>
+      <text x="604" y="175" font-size="9.5" text-anchor="middle" fill="currentColor" opacity="0.75" font-family="IBM Plex Mono, monospace">Pre_Oper2~4 회귀 보정</text>
+      <text x="604" y="191" font-size="9.5" text-anchor="middle" fill="currentColor" opacity="0.75" font-family="IBM Plex Mono, monospace">최신 1건만 저장</text>
+
+      <path d="M 696 150 L 740 150" stroke="var(--ag-learn)" stroke-width="1.5" opacity="0.85" marker-end="url(#ag-ar4)"/>
+      <rect x="744" y="122" width="126" height="56" rx="5" fill="var(--ag-learn-w)" stroke="var(--ag-learn)" stroke-width="1.5"/>
+      <text x="807" y="144" font-size="11.5" text-anchor="middle" fill="var(--ag-learn)" font-weight="600">VM 학습값</text>
+      <text x="807" y="161" font-size="9.5" text-anchor="middle" fill="var(--ag-learn)" font-family="IBM Plex Mono, monospace">전공정 장비별 1행</text>
+
+      <text x="20" y="284" font-size="10" fill="currentColor" opacity="0.6" font-family="IBM Plex Mono, monospace">
+        두 경로 모두 결과는 0을 중심으로 한 편차 — 그래서 Pre_Thk = Pre_Target + VM 으로 합쳐진다
+      </text>
+    </svg>
+    </div>
+    <figcaption>
+      <b>경로가 갈려도 산출물의 의미는 같습니다.</b> ITM 경로의 BIAS도, Detrend 경로의
+      Detrend_Thk도 모두 <b>0을 중심으로 한 편차</b>입니다. 그래서 뒤쪽의 rolling·회귀·저장 로직이
+      경로와 무관하게 동일하게 동작합니다.
+      <code>POST</code> 강제 옵션은 사전공정 zone 차이가 <b>입고 두께가 아니라 제거율에</b> 영향을 주는
+      공정(예: CBL HM NIT CMP)을 위한 것입니다 — 실측값은 Simulation·RR 학습에서 계속 쓰이므로 지우지 않습니다.
+    </figcaption>
+  </figure>
+
+  <h3 class="ag-sub">Detrend — 후처리 두께에서 패드 추세를 지우는 3단계</h3>
+  <div class="ag-read">
+    <p>
+      역산 경로의 핵심입니다. 후처리 두께에는 <strong>입고 산포와 패드 마모가 섞여</strong> 있습니다.
+      우리가 원하는 건 입고 산포뿐이므로, 패드 마모 성분을 먼저 지워야 합니다.
+    </p>
+  </div>
+
+  <figure>
+    <div class="fig-scroll">
+    <svg viewBox="0 0 880 420" role="img" aria-label="Detrend 3단계: 실측 후처리 두께를 공통 연마시간으로 정규화한 뒤, 10점 이동평균으로 패드 마모 추세를 그리고, 그 차이인 잔차만 남긴다">
+      <!-- STEP 1 -->
+      <text x="20" y="22" font-size="10.5" font-family="IBM Plex Mono, monospace" fill="var(--ag-learn)" font-weight="600" letter-spacing="1">STEP 1 — 시간 정규화</text>
+      <text x="20" y="40" font-size="11" fill="currentColor" opacity="0.72">웨이퍼마다 연마 시간이 달랐으므로, 전부 평균 시간으로 깎았다면 얼마였을지로 되돌린다</text>
+      <text x="20" y="60" font-size="10.5" font-family="IBM Plex Mono, monospace" fill="var(--ag-ink)">RR = (Pre_Target − Post_Thk) / Pol_Time&nbsp;&nbsp;→&nbsp;&nbsp;Unctr_Thk = Pre_Target − RR × FIX_Time</text>
+
+      <line x1="60" y1="150" x2="840" y2="150" stroke="currentColor" stroke-width="1" opacity="0.2"/>
+      <!-- 원 데이터 (산점) -->
+      <g fill="currentColor" opacity="0.55">
+        <circle cx="90" cy="128" r="2.6"/><circle cx="120" cy="137" r="2.6"/><circle cx="150" cy="121" r="2.6"/>
+        <circle cx="180" cy="133" r="2.6"/><circle cx="210" cy="126" r="2.6"/><circle cx="240" cy="140" r="2.6"/>
+        <circle cx="270" cy="124" r="2.6"/><circle cx="300" cy="132" r="2.6"/><circle cx="330" cy="118" r="2.6"/>
+        <circle cx="360" cy="129" r="2.6"/><circle cx="390" cy="115" r="2.6"/><circle cx="420" cy="124" r="2.6"/>
+        <circle cx="450" cy="110" r="2.6"/><circle cx="480" cy="121" r="2.6"/><circle cx="510" cy="106" r="2.6"/>
+        <circle cx="540" cy="117" r="2.6"/><circle cx="570" cy="102" r="2.6"/><circle cx="600" cy="113" r="2.6"/>
+        <circle cx="630" cy="99"  r="2.6"/><circle cx="660" cy="109" r="2.6"/><circle cx="690" cy="95"  r="2.6"/>
+        <circle cx="720" cy="106" r="2.6"/><circle cx="750" cy="92"  r="2.6"/><circle cx="780" cy="102" r="2.6"/>
+        <circle cx="810" cy="89"  r="2.6"/>
+      </g>
+      <text x="60" y="168" font-size="9.5" fill="currentColor" opacity="0.6" font-family="IBM Plex Mono, monospace">Unctr_Thk — 마모 추세 + 입고 산포가 섞여 있음</text>
+
+      <!-- STEP 2 -->
+      <text x="20" y="212" font-size="10.5" font-family="IBM Plex Mono, monospace" fill="var(--ag-wear)" font-weight="600" letter-spacing="1">STEP 2 — 추세선 그리기</text>
+      <text x="20" y="230" font-size="11" fill="currentColor" opacity="0.72">패드 사이클 안에서 10점 이동평균 — 이것이 "패드 마모 때문에 생긴 부분"</text>
+
+      <line x1="60" y1="330" x2="840" y2="330" stroke="currentColor" stroke-width="1" opacity="0.2"/>
+      <g fill="currentColor" opacity="0.3">
+        <circle cx="90" cy="308" r="2.4"/><circle cx="120" cy="317" r="2.4"/><circle cx="150" cy="301" r="2.4"/>
+        <circle cx="180" cy="313" r="2.4"/><circle cx="210" cy="306" r="2.4"/><circle cx="240" cy="320" r="2.4"/>
+        <circle cx="270" cy="304" r="2.4"/><circle cx="300" cy="312" r="2.4"/><circle cx="330" cy="298" r="2.4"/>
+        <circle cx="360" cy="309" r="2.4"/><circle cx="390" cy="295" r="2.4"/><circle cx="420" cy="304" r="2.4"/>
+        <circle cx="450" cy="290" r="2.4"/><circle cx="480" cy="301" r="2.4"/><circle cx="510" cy="286" r="2.4"/>
+        <circle cx="540" cy="297" r="2.4"/><circle cx="570" cy="282" r="2.4"/><circle cx="600" cy="293" r="2.4"/>
+        <circle cx="630" cy="279" r="2.4"/><circle cx="660" cy="289" r="2.4"/><circle cx="690" cy="275" r="2.4"/>
+        <circle cx="720" cy="286" r="2.4"/><circle cx="750" cy="272" r="2.4"/><circle cx="780" cy="282" r="2.4"/>
+        <circle cx="810" cy="269" r="2.4"/>
+      </g>
+      <polyline fill="none" stroke="var(--ag-wear)" stroke-width="2.4"
+        points="330,309 360,308 390,306 420,304 450,302 480,300 510,297 540,295 570,292 600,290 630,288 660,286 690,283 720,281 750,279 780,277 810,275"/>
+      <text x="600" y="262" font-size="10" fill="var(--ag-wear)" font-weight="600" font-family="IBM Plex Mono, monospace">Unctr_Thk_MA — rolling(10)</text>
+      <line x1="600" y1="266" x2="600" y2="288" stroke="var(--ag-wear)" stroke-width="0.9" opacity="0.6"/>
+      <text x="60" y="348" font-size="9.5" fill="currentColor" opacity="0.6" font-family="IBM Plex Mono, monospace">앞 9점은 MA가 없어 잔차도 생기지 않는다 (min_periods)</text>
+
+      <!-- STEP 3 -->
+      <text x="20" y="378" font-size="10.5" font-family="IBM Plex Mono, monospace" fill="var(--ag-learn)" font-weight="600" letter-spacing="1">STEP 3 — 잔차만 남기기</text>
+      <text x="20" y="396" font-size="11" fill="currentColor" opacity="0.72">Detrend_Thk = Unctr_Thk − Unctr_Thk_MA&nbsp;&nbsp;→&nbsp;&nbsp;0을 중심으로 흔들리는 입고 산포만 남는다</text>
+      <text x="20" y="414" font-size="10" fill="var(--ag-learn)" opacity="0.9" font-family="IBM Plex Mono, monospace">이 잔차를 사전공정 장비·채널별로 평균 내면 그 장비의 입고 두께 편차가 된다</text>
+    </svg>
+    </div>
+    <figcaption>
+      <b>Detrend는 "이 웨이퍼가 평균보다 두꺼웠나 얇았나"만 남기는 작업입니다.</b>
+      Step 1에서 연마 시간 차이를 지우고, Step 2에서 패드 마모를 지우면, Step 3에 남는 것은
+      입고 두께 산포뿐입니다. <code>FIX_Time</code>은 EQP/레시피 구분 없이
+      <b>전체 평균 연마시간 하나</b>를 씁니다 — 장비별로 다른 기준을 쓰면 장비 간 편차가 잔차에 섞이기 때문입니다.
+    </figcaption>
+  </figure>
+
+  <h3 class="ag-sub">왜 패드 사이클마다 잘라서 계산하는가</h3>
+
+  <figure>
+    <div class="fig-scroll">
+    <svg viewBox="0 0 880 240" role="img" aria-label="패드 교체 시점에서 이동평균을 끊지 않으면 교체 전후 값이 섞여 잔차에 가짜 점프가 생긴다">
+      <!-- 왼쪽: 잘못된 경우 -->
+      <text x="20" y="22" font-size="10.5" font-family="IBM Plex Mono, monospace" fill="var(--ag-alarm)" font-weight="600" letter-spacing="1">사이클을 안 나누면</text>
+      <line x1="30" y1="180" x2="410" y2="180" stroke="currentColor" stroke-width="1" opacity="0.25"/>
+      <line x1="220" y1="40" x2="220" y2="180" stroke="currentColor" stroke-width="1.2" opacity="0.45" stroke-dasharray="4 3"/>
+      <text x="226" y="52" font-size="9.5" fill="currentColor" opacity="0.6" font-family="IBM Plex Mono, monospace">패드 교체</text>
+      <!-- 데이터: 교체 시 점프 -->
+      <polyline fill="none" stroke="currentColor" stroke-width="2" opacity="0.55"
+        points="45,150 70,146 95,142 120,138 145,134 170,130 195,126 220,86 245,82 270,78 295,74 320,70 345,66 370,62 395,58"/>
+      <!-- MA가 교체 구간을 가로지름 -->
+      <polyline fill="none" stroke="var(--ag-alarm)" stroke-width="2.4"
+        points="145,138 170,134 195,130 220,120 245,104 270,92 295,84 320,76 345,70 370,66 395,62"/>
+      <rect x="200" y="86" width="72" height="46" fill="var(--ag-alarm)" opacity="0.12" rx="3"/>
+      <text x="150" y="212" font-size="10.5" fill="var(--ag-alarm)" font-family="IBM Plex Mono, monospace">MA가 교체를 가로질러 잔차에 가짜 점프</text>
+
+      <line x1="440" y1="14" x2="440" y2="226" stroke="currentColor" stroke-width="1" opacity="0.2"/>
+
+      <!-- 오른쪽: 올바른 경우 -->
+      <text x="470" y="22" font-size="10.5" font-family="IBM Plex Mono, monospace" fill="var(--ag-learn)" font-weight="600" letter-spacing="1">사이클마다 끊으면</text>
+      <line x1="480" y1="180" x2="860" y2="180" stroke="currentColor" stroke-width="1" opacity="0.25"/>
+      <line x1="670" y1="40" x2="670" y2="180" stroke="currentColor" stroke-width="1.2" opacity="0.45" stroke-dasharray="4 3"/>
+      <text x="676" y="52" font-size="9.5" fill="currentColor" opacity="0.6" font-family="IBM Plex Mono, monospace">패드 교체</text>
+      <polyline fill="none" stroke="currentColor" stroke-width="2" opacity="0.55"
+        points="495,150 520,146 545,142 570,138 595,134 620,130 645,126 670,86 695,82 720,78 745,74 770,70 795,66 820,62 845,58"/>
+      <polyline fill="none" stroke="var(--ag-learn)" stroke-width="2.4"
+        points="595,138 620,134 645,130"/>
+      <polyline fill="none" stroke="var(--ag-learn)" stroke-width="2.4"
+        points="770,74 795,70 820,66 845,62"/>
+      <text x="600" y="212" font-size="10.5" fill="var(--ag-learn)" font-family="IBM Plex Mono, monospace">사이클마다 MA를 새로 시작 — 점프 없음</text>
+
+      <text x="20" y="238" font-size="9.5" fill="currentColor" opacity="0.55" font-family="IBM Plex Mono, monospace">사이클 판정 : 소모품 값이 직전 행 대비 0.5 이상 급감하면 교체로 간주 (Detrend), RR 학습에서는 3 이상</text>
+    </svg>
+    </div>
+    <figcaption>
+      <b>패드 교체는 데이터의 불연속점입니다.</b> 이동평균이 교체 시점을 가로지르면 교체 전후 값이
+      섞여 잔차에 실제로는 없는 점프가 생깁니다. 그래서 소모품 파라미터가 급감하는 지점에서
+      사이클 번호를 새로 매기고, 이동평균을 사이클 안에서만 계산합니다.
+    </figcaption>
+  </figure>
+
+  <h3 class="ag-sub">장비별로 모으고, 전공정 파라미터로 한 번 더 보정한다</h3>
+  <div class="ag-read">
+    <p>
+      잔차를 <strong>사전공정 장비·채널(<code>pre_eq_ch</code>)별로</strong> 설정 기간
+      (<code>Pre_Thk_Period</code>, 예: 7D) 만큼 이동평균하면, "이 장비에서 온 웨이퍼는 평균보다
+      이만큼 두껍다"는 값이 나옵니다. 이것이 저장되는 VM 학습값입니다.
+    </p>
+    <p>
+      여기에 더해, 사전공정의 특정 <strong>계측 파라미터</strong>(<code>Pre_Oper2~4</code>)가
+      설정되어 있으면 그 값과 잔차 사이의 단순선형회귀를 하나 더 돌려 기울기·절편
+      (<code>b1</code>, <code>b0</code>)을 저장합니다. 적용 시점에는 두 가지가 더해집니다.
+    </p>
+  </div>
+
+  <div class="ag-keyeq">
+    <div class="eq">
+      <span class="t-learn">VM</span> &nbsp;=&nbsp; MA(잔차)<sub style="font-size:0.7em">장비별</sub> &nbsp;+&nbsp; Σ<sub style="font-size:0.7em">n=2..4</sub> w<sub style="font-size:0.7em">n</sub> · ( x<sub style="font-size:0.7em">n</sub> · b1<sub style="font-size:0.7em">n</sub> + b0<sub style="font-size:0.7em">n</sub> )
+    </div>
+    <p class="note">
+      그리고 <span style="color:var(--ag-ink);font-weight:600">Pre_Thk = Pre_Target + VM</span> —
+      Set-up의 고정 입고 목표에 학습된 편차를 얹은 값이 실제 계산에 쓰입니다.<br>
+      <code>Pre_Oper</code>(이동평균)를 끄고 회귀항만 쓰거나, 항목별 가중치를 바꾸는 것은
+      공정별 <code>Simulation_Hub.py</code>의 <code>PRE_THK_FORMULA</code>에서 조정합니다.
+    </p>
+  </div>
+</section>
+
+<!-- ══════════════════ 5. Removal Rate ══════════════════ -->
+<section id="s-rr">
+  <div class="ag-sec-head">
+    <div class="ag-sec-num">② RR</div>
+    <div>
+      <h2>Removal Rate — 지금 이 패드가 얼마나 깎는지</h2>
+      <p class="sub">소모품 사용량 대 제거율의 직선, 그리고 그 직선을 네 가지로 그리는 이유</p>
+    </div>
+  </div>
+
+  <div class="ag-read">
+    <p>
+      제거율은 정의부터 단순합니다. 깎인 두께를 걸린 시간으로 나눈 값입니다.
+      Pre_Thk에는 방금 학습한 VM이 들어갑니다 — <strong>①이 있어야 ②를 계산할 수 있는 이유</strong>입니다.
+    </p>
+  </div>
+
+  <div class="ag-keyeq">
+    <div class="eq">
+      <span class="t-wear">RR</span> &nbsp;=&nbsp; ( <span class="t-learn">Pre_Thk</span> − Post_Thk ) &nbsp;/&nbsp; Pol_Time
+      &nbsp;&nbsp;&nbsp;<span style="opacity:0.5">[Å/sec]</span>
+    </div>
+    <p class="note">
+      <span class="ag-badge time">TIME</span> Post_Thk = 실측 두께 &nbsp;·&nbsp;
+      <span class="ag-badge press">PRESSURE</span> Post_Thk = Target + BIAS (13P 대비 편차를 되돌린 값)<br>
+      REV 파라미터(두께가 늘어나는 방향)는 부호를 뒤집어 <code>(Post − Pre)</code>로 계산합니다.
+    </p>
+  </div>
+
+  <h3 class="ag-sub">패드가 닳으면 제거율이 떨어진다 — 그 기울기를 학습한다</h3>
+
+  <figure>
+    <div class="fig-scroll">
+    <svg viewBox="0 0 880 340" role="img" aria-label="소모품 사용량을 x축, 제거율을 y축으로 놓은 산점도와 회귀직선. 4분면에 각각 25건 이상 있어야 학습이 실행된다">
+      <!-- 축 -->
+      <line x1="80" y1="270" x2="820" y2="270" stroke="currentColor" stroke-width="1.2" opacity="0.4"/>
+      <line x1="80" y1="40" x2="80" y2="270" stroke="currentColor" stroke-width="1.2" opacity="0.4"/>
+      <text x="450" y="298" font-size="11" text-anchor="middle" fill="var(--ag-wear)" font-family="IBM Plex Mono, monospace" font-weight="600">소모품 사용량 (패드 / 디스크 / 헤드)  →  마모</text>
+      <text x="30" y="60" font-size="11" fill="var(--ag-wear)" font-family="IBM Plex Mono, monospace" font-weight="600">RR</text>
+      <text x="24" y="76" font-size="10" fill="currentColor" opacity="0.6" font-family="IBM Plex Mono, monospace">Å/s</text>
+
+      <!-- 4분면 -->
+      <line x1="265" y1="40" x2="265" y2="270" stroke="currentColor" stroke-width="0.8" opacity="0.18" stroke-dasharray="3 3"/>
+      <line x1="450" y1="40" x2="450" y2="270" stroke="currentColor" stroke-width="0.8" opacity="0.18" stroke-dasharray="3 3"/>
+      <line x1="635" y1="40" x2="635" y2="270" stroke="currentColor" stroke-width="0.8" opacity="0.18" stroke-dasharray="3 3"/>
+      <text x="172" y="56" font-size="10" text-anchor="middle" fill="currentColor" opacity="0.45" font-family="IBM Plex Mono, monospace">Q1</text>
+      <text x="357" y="56" font-size="10" text-anchor="middle" fill="currentColor" opacity="0.45" font-family="IBM Plex Mono, monospace">Q2</text>
+      <text x="542" y="56" font-size="10" text-anchor="middle" fill="currentColor" opacity="0.45" font-family="IBM Plex Mono, monospace">Q3</text>
+      <text x="727" y="56" font-size="10" text-anchor="middle" fill="currentColor" opacity="0.45" font-family="IBM Plex Mono, monospace">Q4</text>
+
+      <!-- 산점 -->
+      <g fill="currentColor" opacity="0.42">
+        <circle cx="105" cy="98" r="2.8"/><circle cx="128" cy="112" r="2.8"/><circle cx="146" cy="92" r="2.8"/>
+        <circle cx="168" cy="108" r="2.8"/><circle cx="192" cy="100" r="2.8"/><circle cx="214" cy="118" r="2.8"/>
+        <circle cx="236" cy="106" r="2.8"/><circle cx="256" cy="122" r="2.8"/>
+        <circle cx="282" cy="112" r="2.8"/><circle cx="304" cy="128" r="2.8"/><circle cx="326" cy="118" r="2.8"/>
+        <circle cx="348" cy="132" r="2.8"/><circle cx="370" cy="122" r="2.8"/><circle cx="392" cy="138" r="2.8"/>
+        <circle cx="414" cy="130" r="2.8"/><circle cx="436" cy="144" r="2.8"/>
+        <circle cx="466" cy="136" r="2.8"/><circle cx="488" cy="152" r="2.8"/><circle cx="510" cy="142" r="2.8"/>
+        <circle cx="532" cy="158" r="2.8"/><circle cx="554" cy="148" r="2.8"/><circle cx="576" cy="164" r="2.8"/>
+        <circle cx="598" cy="154" r="2.8"/><circle cx="620" cy="170" r="2.8"/>
+        <circle cx="650" cy="162" r="2.8"/><circle cx="672" cy="178" r="2.8"/><circle cx="694" cy="168" r="2.8"/>
+        <circle cx="716" cy="184" r="2.8"/><circle cx="738" cy="174" r="2.8"/><circle cx="760" cy="190" r="2.8"/>
+        <circle cx="782" cy="180" r="2.8"/><circle cx="800" cy="196" r="2.8"/>
+      </g>
+      <!-- 6시그마로 잘려나간 점 -->
+      <circle cx="330" cy="216" r="3.4" fill="none" stroke="var(--ag-alarm)" stroke-width="1.6"/>
+      <text x="340" y="222" font-size="9.5" fill="var(--ag-alarm)" font-family="IBM Plex Mono, monospace">6σ 밖 → 제외</text>
+
+      <!-- 회귀선 -->
+      <line x1="92" y1="99" x2="812" y2="189" stroke="var(--ag-wear)" stroke-width="2.6"/>
+      <text x="620" y="122" font-size="12" fill="var(--ag-wear)" font-weight="600" font-family="IBM Plex Mono, monospace">RR = b1 · 소모품 + b0</text>
+      <text x="620" y="140" font-size="10" fill="var(--ag-wear)" opacity="0.85" font-family="IBM Plex Mono, monospace">b1 = 마모 기울기 (보통 음수)</text>
+      <text x="620" y="155" font-size="10" fill="var(--ag-wear)" opacity="0.85" font-family="IBM Plex Mono, monospace">b0 = 새 패드일 때 제거율</text>
+
+      <!-- b0 표시 -->
+      <circle cx="92" cy="99" r="4" fill="var(--ag-wear)"/>
+      <text x="100" y="88" font-size="10" fill="var(--ag-wear)" font-weight="600" font-family="IBM Plex Mono, monospace">b0</text>
+
+      <!-- 게이트 -->
+      <rect x="80" y="308" width="740" height="26" rx="4" fill="var(--ag-sunken)"/>
+      <text x="94" y="325" font-size="10.5" fill="currentColor" opacity="0.8" font-family="IBM Plex Mono, monospace">학습 실행 조건 : Q1~Q4 각각 25건 초과  ·  EQP/레시피 조합당 10건 이상  ·  RR 6σ 밖 제외</text>
+    </svg>
+    </div>
+    <figcaption>
+      <b>4분면 조건이 핵심입니다.</b> 데이터가 패드 수명 한쪽 끝에만 몰려 있으면 직선의 기울기를
+      믿을 수 없습니다. 그래서 소모품 사용량 범위를 4등분해 <b>모든 구간에 25건 넘게</b> 있을 때만
+      회귀를 돌립니다. "학습값이 안 나온다"는 문의의 대부분이 이 조건입니다.
+      <code>RR_Para_Max</code>를 설정하면 4등분 기준의 상한을 실측 최대값 대신 그 값으로 고정합니다.
+    </figcaption>
+  </figure>
+
+  <h3 class="ag-sub">같은 데이터로 직선을 네 개 그린다</h3>
+  <div class="ag-read">
+    <p>
+      전체 데이터로 그린 직선 하나만 쓰면, 어제 패드를 갈았는데도 <strong>지난 6개월 평균</strong>을
+      따라갑니다. 반대로 최근 것만 쓰면 데이터가 적어 흔들립니다. MICO는 성격이 다른 직선
+      네 개를 모두 학습해두고, 적용 시점에 <strong>가장 좁고 최신인 것부터</strong> 골라 씁니다.
+    </p>
+  </div>
+
+  <figure>
+    <div class="fig-scroll">
+    <svg viewBox="0 0 880 330" role="img" aria-label="네 가지 회귀 모델 비교: 전체 회귀, 최근 가중 회귀, 현재 패드 사이클 회귀, 패드 분리 구간 회귀. 각각 쓰는 데이터 범위가 다르다">
+      <!-- 공통 축 -->
+      <line x1="60" y1="230" x2="820" y2="230" stroke="currentColor" stroke-width="1.1" opacity="0.35"/>
+      <line x1="60" y1="40" x2="60" y2="230" stroke="currentColor" stroke-width="1.1" opacity="0.35"/>
+      <text x="440" y="256" font-size="10.5" text-anchor="middle" fill="var(--ag-wear)" font-family="IBM Plex Mono, monospace">소모품 사용량 →</text>
+      <text x="22" y="52" font-size="10.5" fill="var(--ag-wear)" font-family="IBM Plex Mono, monospace">RR</text>
+
+      <!-- 배경 산점 -->
+      <g fill="currentColor" opacity="0.22">
+        <circle cx="90" cy="92" r="2.6"/><circle cx="126" cy="104" r="2.6"/><circle cx="162" cy="96" r="2.6"/>
+        <circle cx="198" cy="110" r="2.6"/><circle cx="234" cy="102" r="2.6"/><circle cx="270" cy="118" r="2.6"/>
+        <circle cx="306" cy="110" r="2.6"/><circle cx="342" cy="124" r="2.6"/><circle cx="378" cy="116" r="2.6"/>
+        <circle cx="414" cy="132" r="2.6"/><circle cx="450" cy="124" r="2.6"/><circle cx="486" cy="140" r="2.6"/>
+        <circle cx="522" cy="132" r="2.6"/><circle cx="558" cy="148" r="2.6"/><circle cx="594" cy="140" r="2.6"/>
+        <circle cx="630" cy="156" r="2.6"/><circle cx="666" cy="148" r="2.6"/><circle cx="702" cy="164" r="2.6"/>
+        <circle cx="738" cy="156" r="2.6"/><circle cx="774" cy="172" r="2.6"/>
+      </g>
+
+      <!-- 1) 전체 -->
+      <line x1="72" y1="94" x2="808" y2="168" stroke="currentColor" stroke-width="2.2" opacity="0.65"/>
+      <text x="640" y="82" font-size="10.5" fill="currentColor" opacity="0.75" font-family="IBM Plex Mono, monospace" font-weight="600">① b1 / b0 — 전체</text>
+      <text x="640" y="96" font-size="9.5" fill="currentColor" opacity="0.55" font-family="IBM Plex Mono, monospace">모든 사이클 · 가장 안정적</text>
+
+      <!-- 2) weighted -->
+      <line x1="72" y1="88" x2="808" y2="180" stroke="var(--ag-learn)" stroke-width="2.2" stroke-dasharray="7 4"/>
+      <text x="640" y="196" font-size="10.5" fill="var(--ag-learn)" font-family="IBM Plex Mono, monospace" font-weight="600">② b1_weighted — 최근 가중</text>
+      <text x="640" y="210" font-size="9.5" fill="var(--ag-learn)" opacity="0.75" font-family="IBM Plex Mono, monospace">날짜 5구간 · 가중치 1,2,3,4,RR_Weight</text>
+
+      <!-- 3) current (마지막 구간만) -->
+      <rect x="600" y="130" width="215" height="66" fill="var(--ag-alarm)" opacity="0.07" rx="4"/>
+      <line x1="608" y1="146" x2="806" y2="176" stroke="var(--ag-alarm)" stroke-width="2.6"/>
+      <text x="352" y="286" font-size="10.5" fill="var(--ag-alarm)" font-family="IBM Plex Mono, monospace" font-weight="600">③ b1_current — 지금 붙어 있는 패드(cycle 1)만</text>
+      <line x1="700" y1="196" x2="640" y2="278" stroke="var(--ag-alarm)" stroke-width="0.9" opacity="0.55"/>
+
+      <!-- 4) IF (Pad_Seperation 이하) -->
+      <line x1="330" y1="40" x2="330" y2="230" stroke="var(--ag-press)" stroke-width="1.4" stroke-dasharray="5 3"/>
+      <text x="336" y="52" font-size="9.5" fill="var(--ag-press)" font-family="IBM Plex Mono, monospace">Pad_Seperation</text>
+      <line x1="72" y1="90" x2="326" y2="116" stroke="var(--ag-press)" stroke-width="2.6"/>
+      <text x="72" y="286" font-size="10.5" fill="var(--ag-press)" font-family="IBM Plex Mono, monospace" font-weight="600">④ if_b1 — 초기 구간 전용 (기울기가 다른 구간)</text>
+      <line x1="200" y1="120" x2="200" y2="278" stroke="var(--ag-press)" stroke-width="0.9" opacity="0.5"/>
+
+      <text x="60" y="316" font-size="9.5" fill="currentColor" opacity="0.55" font-family="IBM Plex Mono, monospace">네 직선은 같은 데이터에서 나오지만 쓰는 구간이 다르다 — 좁을수록 최신을 잘 따라가고, 넓을수록 안정적이다</text>
+    </svg>
+    </div>
+    <figcaption>
+      <b>넓은 직선은 안정적이고, 좁은 직선은 민감합니다.</b> 어느 쪽도 항상 옳지 않기 때문에
+      네 개를 모두 저장해두고 적용 시점에 조건을 보고 고릅니다. 조건을 만족하지 못한 모델은
+      <code>'-'</code>로 저장되어 자동으로 후보에서 빠집니다.
+    </figcaption>
+  </figure>
+
+  <h3 class="ag-sub">적용할 때의 선택 순서</h3>
+  <ol class="ag-prio">
+    <li>
+      <b>IF 모델</b> — 지금 소모품 사용량이 <code>Pad_Seperation</code> 이하면 초기 구간 전용 직선을 쓴다.
+      <span class="cond">조건 : Pad_Seperation 설정됨 · 해당 구간 100건 이상 · 4등분 각 25건 이상</span>
+    </li>
+    <li>
+      <b>current 모델</b> — 지금 붙어 있는 패드에서 뽑은 직선. 가장 최신 상태를 반영한다.
+      <span class="cond">조건 : cycle 1 데이터 &gt; RR_Count · 최신 타점이 12시간 이내 · 최근 PM 이후 웨이퍼 2장 이상</span>
+    </li>
+    <li>
+      <b>weighted 모델</b> — 최근 날짜에 가중치를 준 직선.
+      <span class="cond">조건 : 가장 최근 날짜 구간에 소모품 4구간이 모두 있고 각 25건 초과</span>
+    </li>
+    <li>
+      <b>전체 회귀</b> — 위가 전부 없을 때의 기본값. 항상 존재한다.
+      <span class="cond">조건 : 없음 (4분면 조건을 통과해 학습이 돌았다면 항상 있음)</span>
+    </li>
+  </ol>
+
+  <div class="ag-note wear">
+    <span class="lbl">current 모델의 안전장치</span>
+    <p>
+      current는 데이터가 적어 기울기가 튈 수 있습니다. 그래서 <code>RR_Period</code>가 설정되지 않은 경우
+      <b>b1은 기준 모델(weighted 또는 전체)의 2배를 넘지 못하고 부호도 뒤집히지 못하며,
+      b0는 기준값의 ±10% 안으로 묶입니다.</b> 최신성을 취하되 폭주는 막는 구조입니다.
+    </p>
+  </div>
+
+  <!-- ── 인터랙티브: RR → Pol_Time ── -->
+  <div class="ag-lab">
+    <div class="ag-lab-head">
+      <span class="t">직접 움직여 보기 — 패드 마모가 연마 시간에 미치는 영향</span>
+      <span class="h">TIME 모드</span>
+    </div>
+    <div class="ag-lab-body">
+      <div class="ag-controls">
+        <div class="ag-ctl wear">
+          <label for="ag-pad">패드 사용량 <span class="v" id="ag-pad-v">0</span></label>
+          <input type="range" id="ag-pad" min="0" max="1000" step="10" value="0">
+        </div>
+        <div class="ag-ctl">
+          <label for="ag-vm">Pre_Thk_VM (입고 편차) <span class="v" id="ag-vm-v">0 Å</span></label>
+          <input type="range" id="ag-vm" min="-120" max="120" step="5" value="0">
+        </div>
+        <div class="ag-ctl">
+          <label for="ag-off">OFFSET (Idle 보정) <span class="v" id="ag-off-v">0.0 s</span></label>
+          <input type="range" id="ag-off" min="-5" max="3" step="0.1" value="0">
+        </div>
+        <div class="ag-ctl" style="font-size:0.76rem;color:var(--ag-muted);line-height:1.7;
+                                   border-top:1px solid var(--ag-rule);padding-top:0.9rem;">
+          <div style="font-family:'IBM Plex Mono',monospace;">고정 Set-up 값</div>
+          Pre_Target 5500 Å · Target 4000 Å<br>
+          b1 = −0.0060 · b0 = 22.00 Å/s
+        </div>
+      </div>
+      <div class="ag-out">
+        <div class="ag-steps">
+          <div class="ag-step"><span class="k">Pre_Thk = Pre_Target + VM</span><span class="n" id="ag-o-pre">5500.0 Å</span></div>
+          <div class="ag-step"><span class="k">Δ = Pre_Thk − Target</span><span class="n" id="ag-o-delta">1500.0 Å</span></div>
+          <div class="ag-step"><span class="k">RR_DB = 패드 × b1 + b0</span><span class="n" id="ag-o-rr">22.000 Å/s</span></div>
+          <div class="ag-step"><span class="k">Δ / RR_DB</span><span class="n" id="ag-o-base">68.18 s</span></div>
+          <div class="ag-step final"><span class="k">Pol_Time = Δ / RR_DB + OFFSET</span><span class="n" id="ag-o-pt">68.18 s</span></div>
+        </div>
+        <div class="ag-verdict" id="ag-verdict"></div>
+      </div>
+    </div>
+  </div>
+
+  <div class="ag-note warn">
+    <span class="lbl">RR 알람</span>
+    <p>
+      TIME 파라미터에 한해, <b>최근 3건의 RR 평균이 전체 데이터의 ±3σ를 벗어나면</b> Cube로 알람이 갑니다.
+      제거율이 갑자기 올라가거나 내려간다는 뜻이고, 보통 소모품 이상이나 슬러리 문제의 첫 신호입니다.
+      학습값을 고치는 게 아니라 <b>사람에게 알리는</b> 장치입니다.
+    </p>
+  </div>
+</section>
+
+<!-- ══════════════════ 6. OFFSET ══════════════════ -->
+<section id="s-off">
+  <div class="ag-sec-head">
+    <div class="ag-sec-num">③ OFF</div>
+    <div>
+      <h2>OFFSET — 모델이 틀리는 구간을 따로 외운다</h2>
+      <p class="sub">Idle 이후·레이어 전환·패드 교체 직후에 필요했던 추가 시간</p>
+    </div>
+  </div>
+
+  <div class="ag-read">
+    <p>
+      Removal Rate 모델은 <strong>정상 연속 생산 상태</strong>를 가정합니다. 장비가 쉬었다 돌면
+      패드 표면 상태가 달라져 첫 몇 장의 제거율이 모델과 다릅니다. OFFSET은 이 차이를
+      <strong>"시간을 몇 초 더 줬어야 했나"</strong>로 환산해 IDLE 구간별로 저장합니다.
+    </p>
+  </div>
+
+  <figure>
+    <div class="fig-scroll">
+    <svg viewBox="0 0 880 300" role="img" aria-label="OFFSET은 실제 제거율로 계산한 필요 시간과 패드 모델이 예측한 시간의 차이다">
+      <defs>
+        <marker id="ag-ar5" viewBox="0 0 10 10" refX="9" refY="5" markerWidth="7" markerHeight="7" orient="auto-start-reverse">
+          <path d="M0,0 L10,5 L0,10 z" fill="var(--ag-learn)"/>
+        </marker>
+      </defs>
+
+      <text x="20" y="26" font-size="10.5" font-family="IBM Plex Mono, monospace" fill="currentColor" opacity="0.6" letter-spacing="1">같은 Δ를 깎는 데 걸리는 시간, 두 가지 계산</text>
+
+      <!-- 막대 1: 모델 예측 -->
+      <text x="20" y="76" font-size="11" fill="var(--ag-wear)" font-weight="600" font-family="IBM Plex Mono, monospace">모델이 예측한 시간</text>
+      <text x="20" y="92" font-size="10" fill="currentColor" opacity="0.65" font-family="IBM Plex Mono, monospace">Δ / RR_Pad&nbsp;&nbsp;(RR_Pad = 패드 × b1 + b0)</text>
+      <rect x="20" y="104" width="440" height="30" rx="3" fill="var(--ag-wear)" opacity="0.35"/>
+      <text x="470" y="124" font-size="12" fill="var(--ag-wear)" font-weight="600" font-family="IBM Plex Mono, monospace">68.2 s</text>
+
+      <!-- 막대 2: 실제 필요 시간 -->
+      <text x="20" y="172" font-size="11" fill="currentColor" font-weight="600" font-family="IBM Plex Mono, monospace">실제로 필요했던 시간</text>
+      <text x="20" y="188" font-size="10" fill="currentColor" opacity="0.65" font-family="IBM Plex Mono, monospace">Δ / RR_실측&nbsp;&nbsp;(그 웨이퍼에서 실제로 나온 제거율)</text>
+      <rect x="20" y="200" width="512" height="30" rx="3" fill="currentColor" opacity="0.3"/>
+      <text x="542" y="220" font-size="12" fill="currentColor" font-weight="600" font-family="IBM Plex Mono, monospace">72.9 s</text>
+
+      <!-- 차이 = OFFSET -->
+      <line x1="460" y1="104" x2="460" y2="244" stroke="var(--ag-learn)" stroke-width="1.2" stroke-dasharray="4 3"/>
+      <line x1="532" y1="200" x2="532" y2="244" stroke="var(--ag-learn)" stroke-width="1.2" stroke-dasharray="4 3"/>
+      <path d="M 460 250 L 532 250" stroke="var(--ag-learn)" stroke-width="2" marker-start="url(#ag-ar5)" marker-end="url(#ag-ar5)"/>
+      <rect x="418" y="258" width="160" height="30" rx="4" fill="var(--ag-learn-w)"/>
+      <text x="498" y="278" font-size="12" text-anchor="middle" fill="var(--ag-learn)" font-weight="600" font-family="IBM Plex Mono, monospace">OFFSET = +4.7 s</text>
+
+      <!-- 우측 설명 -->
+      <line x1="620" y1="60" x2="620" y2="250" stroke="currentColor" stroke-width="1" opacity="0.2"/>
+      <text x="646" y="80" font-size="11" fill="currentColor" font-weight="600">모델보다 덜 깎였다</text>
+      <text x="646" y="100" font-size="10.5" fill="currentColor" opacity="0.72" font-family="IBM Plex Mono, monospace">→ 시간을 더 줬어야 했다</text>
+      <text x="646" y="116" font-size="10.5" fill="currentColor" opacity="0.72" font-family="IBM Plex Mono, monospace">→ OFFSET 양수</text>
+      <text x="646" y="150" font-size="11" fill="currentColor" font-weight="600">저장 단위</text>
+      <text x="646" y="170" font-size="10.5" fill="currentColor" opacity="0.72" font-family="IBM Plex Mono, monospace">장비 × 레시피 × IDLE 라벨</text>
+      <text x="646" y="186" font-size="10.5" fill="currentColor" opacity="0.72" font-family="IBM Plex Mono, monospace">각 그룹 5건 이상일 때만</text>
+      <text x="646" y="220" font-size="11" fill="var(--ag-alarm)" font-weight="600">범위 제한</text>
+      <text x="646" y="240" font-size="10.5" fill="var(--ag-alarm)" opacity="0.85" font-family="IBM Plex Mono, monospace">clip(−5 s, +3 s)</text>
+    </svg>
+    </div>
+    <figcaption>
+      <b>OFFSET은 모델의 잔여 오차를 시간 단위로 외운 것입니다.</b>
+      <code>OFFSET = Δ/RR_실측 − Δ/RR_Pad</code> — 즉 실제 필요했던 시간에서 모델 예측 시간을 뺀 값입니다.
+      그래서 적용 시점에 <code>Δ/RR_DB + OFFSET</code>을 하면 실제 필요했던 시간으로 되돌아옵니다.
+      값이 <code>−5 ~ +3</code>초로 잘리는 이유는 계측 이상치 한 건이 그룹 평균을 흔드는 것을 막기 위함입니다.
+    </figcaption>
+  </figure>
+
+  <h3 class="ag-sub">IDLE 라벨 — 어떤 상황이었는지가 그룹 키다</h3>
+
+  <div class="ag-table-wrap">
+    <table>
+      <thead>
+        <tr><th style="width:20%">IDLE 라벨</th><th style="width:32%">의미</th><th style="width:48%">처리</th></tr>
+      </thead>
+      <tbody>
+        <tr>
+          <td><code>(빈 값)</code></td>
+          <td>정상 연속 생산</td>
+          <td>RR 학습에 쓰이는 유일한 구간. OFFSET 계산 대상이 아님 (저장 시 <code>Normal</code>로 표기)</td>
+        </tr>
+        <tr>
+          <td><code>Idle_*</code></td>
+          <td>장비가 쉰 뒤 첫 웨이퍼 — 쉰 시간대별로 라벨이 나뉨</td>
+          <td>장비 × 레시피 × 라벨로 묶어 평균. <b>그룹당 5건 이상</b>일 때만 저장</td>
+        </tr>
+        <tr>
+          <td><code>Layer_*</code></td>
+          <td>직전 웨이퍼와 레이어(막질)가 달랐던 경우</td>
+          <td><code>Idle_*</code>와 동일하게 처리</td>
+        </tr>
+        <tr>
+          <td><code>LC_*</code></td>
+          <td>패드 교체(Life Cycle) 직후 구간</td>
+          <td>별도 함수에서 집계. <code>Offset_Group='Y'</code>면 장비 번호를 떼고 레시피 그룹 단위로 평균</td>
+        </tr>
+        <tr>
+          <td><code>LC_T_* / LC_TB_*</code></td>
+          <td>패드 교체 + Truing(표면 다듬기) 수행</td>
+          <td>OFFSET을 <b>강제로 0</b>. Truing으로 표면이 새로 잡혀 정상 모델이 맞기 때문</td>
+        </tr>
+      </tbody>
+    </table>
+  </div>
+
+  <div class="ag-note">
+    <span class="lbl">Offset_Group 옵션</span>
+    <p>
+      장비 대수가 많고 각 장비의 LC 데이터가 5건을 못 채우면 학습이 아예 안 나옵니다.
+      <code>Offset_Group='Y'</code>는 IDLE 라벨에서 장비 번호를 떼어내 같은 상황끼리 합쳐 평균을 냅니다 —
+      개별 장비 특성은 포기하고 <b>표본 수를 확보</b>하는 쪽을 택하는 설정입니다.
+    </p>
+  </div>
+</section>
+
+<!-- ══════════════════ 7. Simulation ══════════════════ -->
+<section id="s-sim">
+  <div class="ag-sec-head">
+    <div class="ag-sec-num">④ SIM</div>
+    <div>
+      <h2>Simulation — 세 학습값을 다시 하나로 합친다</h2>
+      <p class="sub">시점 기준 결합(merge_asof)과 최종 제어값 계산</p>
+    </div>
+  </div>
+
+  <div class="ag-read">
+    <p>
+      학습이 끝나면 세 값은 서로 다른 MongoDB 컬렉션에 <strong>서로 다른 키와 시점</strong>으로
+      들어가 있습니다. Simulation은 이것을 웨이퍼 한 장 기준으로 다시 붙입니다.
+      이때 중요한 것이 <strong>그 웨이퍼가 흐르던 시점에 유효했던 학습값</strong>을 붙이는 것입니다 —
+      오늘 학습된 계수를 지난주 웨이퍼에 붙이면 검증이 무의미해집니다.
+    </p>
+  </div>
+
+  <figure>
+    <div class="fig-scroll">
+    <svg viewBox="0 0 880 300" role="img" aria-label="merge_asof는 웨이퍼 시점보다 앞선 학습값 중 가장 가까운 것을 붙인다. 미래의 학습값은 붙지 않는다">
+      <defs>
+        <marker id="ag-ar6" viewBox="0 0 10 10" refX="9" refY="5" markerWidth="6.5" markerHeight="6.5" orient="auto-start-reverse">
+          <path d="M0,0 L10,5 L0,10 z" fill="var(--ag-learn)"/>
+        </marker>
+      </defs>
+
+      <!-- 시간축 -->
+      <line x1="60" y1="150" x2="830" y2="150" stroke="currentColor" stroke-width="1.3" opacity="0.4"/>
+      <path d="M 824 145 L 834 150 L 824 155 z" fill="currentColor" opacity="0.4"/>
+      <text x="760" y="172" font-size="10.5" fill="currentColor" opacity="0.6" font-family="IBM Plex Mono, monospace">시간 →</text>
+
+      <!-- 학습값 적재 시점 -->
+      <text x="60" y="60" font-size="10.5" font-family="IBM Plex Mono, monospace" fill="var(--ag-learn)" font-weight="600" letter-spacing="1">학습값 적재 (매시간)</text>
+      <g fill="var(--ag-learn)">
+        <rect x="118" y="88" width="8" height="26" rx="1.5"/>
+        <rect x="298" y="88" width="8" height="26" rx="1.5"/>
+        <rect x="478" y="88" width="8" height="26" rx="1.5"/>
+        <rect x="658" y="88" width="8" height="26" rx="1.5"/>
+      </g>
+      <text x="122" y="82" font-size="9.5" text-anchor="middle" fill="var(--ag-learn)" opacity="0.8" font-family="IBM Plex Mono, monospace">v1</text>
+      <text x="302" y="82" font-size="9.5" text-anchor="middle" fill="var(--ag-learn)" opacity="0.8" font-family="IBM Plex Mono, monospace">v2</text>
+      <text x="482" y="82" font-size="9.5" text-anchor="middle" fill="var(--ag-learn)" opacity="0.8" font-family="IBM Plex Mono, monospace">v3</text>
+      <text x="662" y="82" font-size="9.5" text-anchor="middle" fill="var(--ag-learn)" opacity="0.8" font-family="IBM Plex Mono, monospace">v4</text>
+      <line x1="122" y1="114" x2="122" y2="150" stroke="var(--ag-learn)" stroke-width="1" opacity="0.4" stroke-dasharray="3 3"/>
+      <line x1="302" y1="114" x2="302" y2="150" stroke="var(--ag-learn)" stroke-width="1" opacity="0.4" stroke-dasharray="3 3"/>
+      <line x1="482" y1="114" x2="482" y2="150" stroke="var(--ag-learn)" stroke-width="1" opacity="0.4" stroke-dasharray="3 3"/>
+      <line x1="662" y1="114" x2="662" y2="150" stroke="var(--ag-learn)" stroke-width="1" opacity="0.4" stroke-dasharray="3 3"/>
+
+      <!-- 웨이퍼 -->
+      <text x="60" y="252" font-size="10.5" font-family="IBM Plex Mono, monospace" fill="currentColor" opacity="0.6" letter-spacing="1">웨이퍼 처리 시점</text>
+      <g fill="currentColor" opacity="0.6">
+        <circle cx="200" cy="200" r="5"/><circle cx="392" cy="200" r="5"/>
+        <circle cx="560" cy="200" r="5"/><circle cx="742" cy="200" r="5"/>
+      </g>
+      <!-- 결합 화살표: 과거 방향으로 -->
+      <path d="M 196 196 L 128 156" stroke="var(--ag-learn)" stroke-width="1.5" marker-end="url(#ag-ar6)"/>
+      <path d="M 388 196 L 308 156" stroke="var(--ag-learn)" stroke-width="1.5" marker-end="url(#ag-ar6)"/>
+      <path d="M 556 196 L 488 156" stroke="var(--ag-learn)" stroke-width="1.5" marker-end="url(#ag-ar6)"/>
+      <path d="M 738 196 L 668 156" stroke="var(--ag-learn)" stroke-width="1.5" marker-end="url(#ag-ar6)"/>
+
+      <!-- 금지된 결합 -->
+      <path d="M 396 196 L 470 156" stroke="var(--ag-alarm)" stroke-width="1.5" stroke-dasharray="4 3" opacity="0.75"/>
+      <line x1="424" y1="166" x2="442" y2="186" stroke="var(--ag-alarm)" stroke-width="2"/>
+      <line x1="442" y1="166" x2="424" y2="186" stroke="var(--ag-alarm)" stroke-width="2"/>
+      <text x="452" y="222" font-size="10" fill="var(--ag-alarm)" font-family="IBM Plex Mono, monospace">미래 학습값은 붙지 않는다</text>
+
+      <text x="60" y="288" font-size="10.5" fill="currentColor" opacity="0.7" font-family="IBM Plex Mono, monospace">
+        merge_asof(on='Date', by=['eqp_id','recipe_id'])  —  같은 장비·레시피 안에서, 웨이퍼 시점 이전의 가장 가까운 학습값
+      </text>
+    </svg>
+    </div>
+    <figcaption>
+      <b>merge_asof는 "그때 알고 있었던 값"으로 붙입니다.</b> 일반 join과 달리 시점 조건이 들어가므로,
+      과거 웨이퍼를 검증할 때 미래 정보가 새어 들어가지 않습니다.
+      Pre_Thk_VM만 결합 키가 다릅니다 — 장비·레시피가 아니라 <b>사전공정 장비 채널
+      (<code>pre_eq_ch</code>)과 사전공정 시각</b> 기준으로 붙습니다. 그 값이 사전공정 장비의 성질이기 때문입니다.
+    </figcaption>
+  </figure>
+
+  <h3 class="ag-sub">결합 순서와 최종 계산</h3>
+  <div class="ag-read">
+    <p>
+      <code>Simulation_Get.simulate()</code>는 TIME·PRESSURE 공통으로 아래 순서를 탑니다.
+      마지막 <code>_finalize</code>에서 모드에 따라 출력 컬럼이 갈립니다 —
+      TIME은 <code>Pol_Time</code>, PRESSURE는 <code>Pressure_1..n</code>.
+    </p>
+  </div>
+
+  <div class="ag-table-wrap">
+    <table>
+      <thead>
+        <tr><th style="width:6%">#</th><th style="width:30%">단계</th><th style="width:64%">하는 일</th></tr>
+      </thead>
+      <tbody>
+        <tr><td class="num">1</td><td><code>_build_base_frame</code></td><td>merge_df에서 해당 Oper/Recipe/APC 파라미터 행만 추출</td></tr>
+        <tr><td class="num">2</td><td><code>_attach_pre_vm</code></td><td>① VM 학습값을 <b>사전공정 채널·시각</b> 기준으로 결합</td></tr>
+        <tr><td class="num">3</td><td><code>_attach_rr</code></td><td>② RR 계수 4종(b1/b0 · weighted · current · IF)을 장비·레시피·시점 기준으로 결합</td></tr>
+        <tr><td class="num">4</td><td><code>_attach_offset</code></td><td>③ OFFSET을 장비·레시피·<b>IDLE 라벨</b>까지 맞춰 결합</td></tr>
+        <tr><td class="num">5</td><td><code>_fill_learning_values</code></td><td>남은 결측을 평균으로 보정, <code>'-'</code> 표기를 NaN으로 정규화</td></tr>
+        <tr><td class="num">6</td><td><code>_apply_pre_thk_formula</code></td><td>공정별 <code>PRE_THK_FORMULA</code>대로 Pre_Thk 조합 (이동평균 사용 여부·회귀항·가중치)</td></tr>
+        <tr><td class="num">7</td><td><code>_finalize</code></td><td>RR 모델 우선순위로 <code>RR_DB</code> 결정 → 모드별 출력 컬럼 산출</td></tr>
+      </tbody>
+    </table>
+  </div>
+
+  <!-- ── 인터랙티브: 종합 ── -->
+  <div class="ag-lab">
+    <div class="ag-lab-head">
+      <span class="t">종합 — 세 학습값이 함께 움직일 때</span>
+      <span class="h" id="ag2-mode-label">TIME</span>
+    </div>
+    <div class="ag-lab-body">
+      <div class="ag-controls">
+        <div class="ag-ctl">
+          <label for="ag2-mode">제어 모드</label>
+          <select id="ag2-mode">
+            <option value="TIME">TIME — 평균 두께 제어</option>
+            <option value="PRESSURE">PRESSURE — 존 편차 제어</option>
+          </select>
+        </div>
+        <div class="ag-ctl wear">
+          <label for="ag2-pad">패드 사용량 <span class="v" id="ag2-pad-v">400</span></label>
+          <input type="range" id="ag2-pad" min="0" max="1000" step="10" value="400">
+        </div>
+        <div class="ag-ctl" id="ag2-vm-row">
+          <label for="ag2-vm">Pre_Thk_VM <span class="v" id="ag2-vm-v">+30 Å</span></label>
+          <input type="range" id="ag2-vm" min="-120" max="120" step="5" value="30">
+        </div>
+        <div class="ag-ctl" id="ag2-zone-row" hidden>
+          <label for="ag2-zone">엣지 존 실측 두께 <span class="v" id="ag2-zone-v">3940 Å</span></label>
+          <input type="range" id="ag2-zone" min="3820" max="4080" step="5" value="3940">
+        </div>
+        <div class="ag-ctl">
+          <label for="ag2-idle">IDLE 상황</label>
+          <select id="ag2-idle">
+            <option value="0">Normal — 연속 생산</option>
+            <option value="1.8">Idle_2H — 2시간 쉼</option>
+            <option value="3.4">Idle_8H — 8시간 쉼</option>
+            <option value="2.1">Layer_CHG — 레이어 전환</option>
+            <option value="0" data-note="truing">LC_T — 패드 교체 + Truing</option>
+          </select>
+        </div>
+      </div>
+      <div class="ag-out">
+        <div class="ag-steps" id="ag2-steps"></div>
+        <div class="ag-verdict" id="ag2-verdict"></div>
+      </div>
+    </div>
+  </div>
+</section>
+
+<!-- ══════════════════ 8. 트러블슈팅 ══════════════════ -->
+<section id="s-trouble">
+  <div class="ag-sec-head">
+    <div class="ag-sec-num">점검</div>
+    <div>
+      <h2>학습값이 안 나올 때 볼 것</h2>
+      <p class="sub">대부분은 알고리즘 오류가 아니라 표본 수 게이트에 걸린 것입니다</p>
+    </div>
+  </div>
+
+  <div class="ag-table-wrap">
+    <table>
+      <thead>
+        <tr><th style="width:24%">증상</th><th style="width:38%">가장 흔한 원인</th><th style="width:38%">확인할 곳</th></tr>
+      </thead>
+      <tbody>
+        <tr>
+          <td><b>RR 계수가 아예 없다</b></td>
+          <td>소모품 사용량 4분면 중 한 구간이 25건을 못 채움 — 패드 수명 한쪽에만 데이터가 몰림</td>
+          <td>Set-up의 <code>RR_Para</code>(HEAD/PAD/DISK 중 무엇을 볼지)와 <code>RR_Para_Max</code></td>
+        </tr>
+        <tr>
+          <td><b>b1_current만 비어 있다</b></td>
+          <td>최신 타점이 12시간을 넘었거나, PM 이후 웨이퍼가 2장 미만이거나, cycle 1 데이터가 <code>RR_Count</code> 이하</td>
+          <td>장비 가동 이력 · <code>RR_Count</code> 설정값</td>
+        </tr>
+        <tr>
+          <td><b>if_b1이 비어 있다</b></td>
+          <td><code>Pad_Seperation</code> 미설정, 또는 그 구간 데이터가 100건 미만 / 4등분 각 25건 미만</td>
+          <td>Detail의 <code>Pad_Seperation</code></td>
+        </tr>
+        <tr>
+          <td><b>Pre_Thk_VM이 0으로만 나온다</b></td>
+          <td><code>Pre_Oper_Code</code>(사전공정)가 비어 있어 이동평균 경로를 못 탐 — 회귀 보정만 적용됨</td>
+          <td>SubCategory/Detail의 사전공정 설정, <code>Pre_Oper_Code2~4</code></td>
+        </tr>
+        <tr>
+          <td><b>VM이 일부 웨이퍼에만 붙는다</b></td>
+          <td>사전공정 장비 채널(<code>pre_eqp_ch</code>)이 없거나 <code>pre_oper_time</code>이 결측</td>
+          <td>Merge 단계에서 사전공정 이력이 정상 병합됐는지</td>
+        </tr>
+        <tr>
+          <td><b>OFFSET이 특정 IDLE만 없다</b></td>
+          <td>장비 × 레시피 × 라벨 그룹이 5건 미만</td>
+          <td><code>Offset_Group='Y'</code>로 묶어 표본을 확보할지 검토</td>
+        </tr>
+        <tr>
+          <td><b>PRESSURE 학습값이 전부 0</b></td>
+          <td>PRESSURE 파라미터가 13P 자기 자신과 비교되어 BIAS가 항상 0 — 같은 레시피의 TIME 파라미터가 제대로 잡혀 있는지</td>
+          <td>Detail에서 해당 Recipe의 <code>FB_Type='TIME'</code> 행 존재 여부</td>
+        </tr>
+      </tbody>
+    </table>
+  </div>
+</section>
+
+<!-- ══════════════════ 9. 용어 ══════════════════ -->
+<section id="s-glossary">
+  <div class="ag-sec-head">
+    <div class="ag-sec-num">용어</div>
+    <div>
+      <h2>Set-up 항목이 알고리즘의 어디에 쓰이는가</h2>
+      <p class="sub">웹 화면에서 넣는 값과 코드 동작의 대응표</p>
+    </div>
+  </div>
+
+  <div class="ag-table-wrap">
+    <table>
+      <thead>
+        <tr><th style="width:24%">Set-up 항목</th><th style="width:76%">알고리즘에서의 역할</th></tr>
+      </thead>
+      <tbody>
+        <tr><td><code>APC_Para</code></td><td>제어할 파라미터(플래튼). 이 값으로 대응하는 패드·디스크·헤드 소모품 컬럼이 자동 결정됨</td></tr>
+        <tr><td><code>Thk_Para</code></td><td>후처리 두께 계측 컬럼. TIME은 이 값 자체, PRESSURE는 13P와의 차이를 씀</td></tr>
+        <tr><td><code>FB_Type</code></td><td><span class="ag-badge time">TIME</span> / <span class="ag-badge press">PRESSURE</span> — 제어 대상과 학습 y축을 결정하는 가장 상위 스위치</td></tr>
+        <tr><td><code>Pre_Target</code></td><td>입고 두께의 기준값. 실제 입고 = Pre_Target + VM</td></tr>
+        <tr><td><code>Target</code></td><td>후처리 목표 두께. Δ = 입고 − Target</td></tr>
+        <tr><td><code>Pre_Thk_Para_ITM</code></td><td>사전공정 실측 파라미터. 있으면 VM이 ITM 경로(BIAS)로, 없으면 detrend 경로로</td></tr>
+        <tr><td><code>Pre_Thk_VM_Source</code></td><td><code>AUTO</code>(기본) / <code>POST</code> — POST면 ITM이 있어도 detrend 경로로 강제</td></tr>
+        <tr><td><code>Pre_Thk_Period</code></td><td>VM 이동평균 기간(일). 길면 안정적, 짧으면 최신 변화를 빨리 반영</td></tr>
+        <tr><td><code>Pre_Oper_Code</code></td><td>사전공정 코드. 비어 있으면 VM 이동평균 경로를 타지 않음</td></tr>
+        <tr><td><code>Pre_Oper_Code2~4</code></td><td>추가 사전공정. 해당 계측 파라미터와 잔차의 회귀계수(b1/b0)를 학습</td></tr>
+        <tr><td><code>RR_Para</code></td><td>제거율 회귀의 x축으로 쓸 소모품 — <code>HEAD</code> / <code>PAD</code> / <code>DISK</code> / <code>DRESSER_CUTTING_RATE</code></td></tr>
+        <tr><td><code>RR_Para_Max</code></td><td>4분면을 나눌 때의 상한. 미설정 시 실측 최대값 사용</td></tr>
+        <tr><td><code>RR_Weight</code></td><td>weighted 회귀에서 가장 최근 날짜 구간에 줄 가중치 (앞 4구간은 1,2,3,4 고정)</td></tr>
+        <tr><td><code>RR_Count</code></td><td>current 모델을 쓰기 위해 현재 패드 사이클에 필요한 최소 데이터 수</td></tr>
+        <tr><td><code>RR_Period</code></td><td>current 모델이 볼 소모품 구간 폭. 설정 시 클리핑 안전장치가 해제됨</td></tr>
+        <tr><td><code>Pad_Seperation</code></td><td>IF 모델의 경계. 이 값 이하 구간은 별도 직선으로 학습·적용</td></tr>
+        <tr><td><code>Offset_Group</code></td><td><code>Y</code>면 LC 계열 OFFSET을 장비 번호 없이 레시피 그룹 단위로 집계</td></tr>
+        <tr><td><code>Maker</code></td><td>AMAT / EBARA / KCT — 장비 채널을 어떻게 나눌지(레시피명의 AB·CD, L·R) 결정</td></tr>
+        <tr><td><code>Pol_Type</code></td><td>플래튼 구성. APC 파라미터가 몇 개 컬럼으로 펼쳐지는지 결정</td></tr>
+      </tbody>
+    </table>
+  </div>
+
+  <div class="ag-note">
+    <span class="lbl">한 줄 요약</span>
+    <p>
+      <b>Pre_Thk_VM</b>은 출발점을, <b>Removal Rate</b>는 속도를, <b>OFFSET</b>은 모델이 틀리는
+      구간의 보정을 담당합니다. 세 값이 <code>Pol_Time = Δ / RR_DB + OFFSET</code> 하나로 모이고,
+      PRESSURE 모드에서는 같은 계산이 <b>13P 대비 편차</b> 위에서 돌면서 존별 압력을 만듭니다.
+    </p>
+  </div>
+</section>
+
+</div><!-- /ag-wrap -->
+</div><!-- /ag -->
+
+<script>
+(function () {
+  'use strict';
+
+  var PRE_TARGET = 5500, TARGET = 4000, B1 = -0.006, B0 = 22.0;
+
+  function fmt(v, d) { return v.toFixed(d === undefined ? 2 : d); }
+  function sign(v, d) { return (v >= 0 ? '+' : '') + v.toFixed(d === undefined ? 0 : d); }
+
+  // ── 랩 1 : 패드 마모 → 연마 시간 ─────────────────────────
+  var pad = document.getElementById('ag-pad');
+  var vm  = document.getElementById('ag-vm');
+  var off = document.getElementById('ag-off');
+
+  function lab1() {
+    var p = +pad.value, v = +vm.value, o = +off.value;
+    var pre   = PRE_TARGET + v;
+    var delta = pre - TARGET;
+    var rr    = p * B1 + B0;
+    var base  = delta / rr;
+    var pt    = base + o;
+
+    document.getElementById('ag-pad-v').textContent = p;
+    document.getElementById('ag-vm-v').textContent  = sign(v) + ' Å';
+    document.getElementById('ag-off-v').textContent = sign(o, 1) + ' s';
+
+    document.getElementById('ag-o-pre').textContent   = fmt(pre, 1) + ' Å';
+    document.getElementById('ag-o-delta').textContent = fmt(delta, 1) + ' Å';
+    document.getElementById('ag-o-rr').textContent    = fmt(rr, 3) + ' Å/s';
+    document.getElementById('ag-o-base').textContent  = fmt(base) + ' s';
+    document.getElementById('ag-o-pt').textContent    = fmt(pt) + ' s';
+
+    var fresh   = (PRE_TARGET - TARGET) / B0;      // 새 패드 · VM 0 · OFFSET 0
+    var diff    = pt - fresh;
+    var fixedPost = pre - rr * fresh;               // 보정 없이 새 패드 기준 시간으로 깎았다면
+    var err     = fixedPost - TARGET;
+
+    document.getElementById('ag-verdict').innerHTML =
+      '새 패드에 보정이 없었다면 <b>' + fmt(fresh) + ' s</b>. 지금 조건에서는 <b>' + sign(diff, 1) +
+      ' s</b> 만큼 달라집니다.<br>' +
+      '만약 이 보정을 하지 않고 계속 ' + fmt(fresh) + ' s로 깎았다면 후처리 두께는 <b>' +
+      fmt(fixedPost, 1) + ' Å</b> — 목표에서 <b>' + sign(err, 1) + ' Å</b> 벗어납니다.';
+  }
+  [pad, vm, off].forEach(function (el) { el.addEventListener('input', lab1); });
+  lab1();
+
+  // ── 랩 2 : 종합 (TIME / PRESSURE) ───────────────────────
+  var m2    = document.getElementById('ag2-mode');
+  var pad2  = document.getElementById('ag2-pad');
+  var vm2   = document.getElementById('ag2-vm');
+  var zone2 = document.getElementById('ag2-zone');
+  var idle2 = document.getElementById('ag2-idle');
+  var steps = document.getElementById('ag2-steps');
+  var verd  = document.getElementById('ag2-verdict');
+
+  var TARGET_13P  = 4000;   // 13P(평균) 목표
+  var TARGET_ZONE = 3960;   // 엣지 존 목표 (평균보다 40 Å 얇게 관리)
+
+  function row(k, n, isFinal) {
+    return '<div class="ag-step' + (isFinal ? ' final' : '') + '">' +
+           '<span class="k">' + k + '</span><span class="n">' + n + '</span></div>';
+  }
+
+  function lab2() {
+    var mode = m2.value;
+    var p    = +pad2.value;
+    var o    = +idle2.value;
+    var truing = idle2.options[idle2.selectedIndex].getAttribute('data-note') === 'truing';
+    if (truing) { o = 0; }
+
+    var rr = p * B1 + B0;
+
+    document.getElementById('ag2-pad-v').textContent = p;
+    document.getElementById('ag2-mode-label').textContent = mode;
+    document.getElementById('ag2-vm-row').hidden   = (mode !== 'TIME');
+    document.getElementById('ag2-zone-row').hidden = (mode === 'TIME');
+
+    if (mode === 'TIME') {
+      var v     = +vm2.value;
+      var pre   = PRE_TARGET + v;
+      var delta = pre - TARGET_13P;
+      var base  = delta / rr;
+      var pt    = base + o;
+      document.getElementById('ag2-vm-v').textContent = sign(v) + ' Å';
+
+      steps.innerHTML =
+        row('① Pre_Thk = Pre_Target + VM', fmt(pre, 1) + ' Å') +
+        row('&nbsp;&nbsp;&nbsp;Δ = Pre_Thk − Target', fmt(delta, 1) + ' Å') +
+        row('② RR_DB = 패드 × b1 + b0', fmt(rr, 3) + ' Å/s') +
+        row('③ OFFSET (' + idle2.options[idle2.selectedIndex].textContent.split(' —')[0] + ')', sign(o, 1) + ' s') +
+        row('Pol_Time = Δ / RR_DB + OFFSET', fmt(pt) + ' s', true);
+
+      verd.innerHTML =
+        '세 학습값이 모두 <b>같은 하나의 숫자</b>로 모입니다. ' +
+        '입고가 ' + sign(v) + ' Å 두꺼우면 그만큼 더 깎아야 하고, 패드가 닳아 제거율이 ' +
+        fmt(rr, 2) + ' Å/s로 떨어졌으면 시간이 더 걸리며, ' +
+        (truing
+          ? 'Truing을 한 직후는 표면이 새로 잡혀 <b>OFFSET을 0으로 강제</b>합니다.'
+          : (o === 0 ? '연속 생산 구간이라 추가 보정은 없습니다.'
+                     : '쉬었다 온 첫 장이라 <b>' + sign(o, 1) + ' s</b>를 더 줍니다.'));
+    } else {
+      var zoneThk = +zone2.value;
+      document.getElementById('ag2-zone-v').textContent = zoneThk + ' Å';
+
+      // BIAS = (존 실측 − 13P 실측) − (존 목표 − 13P 목표)
+      var thk13p    = 4000;                        // 13P는 TIME 루프가 목표에 맞춰둔 상태로 가정
+      var measured  = zoneThk - thk13p;            // 실제 존 편차
+      var wanted    = TARGET_ZONE - TARGET_13P;    // 목표 존 편차
+      var bias      = measured - wanted;
+      var postForRR = TARGET_ZONE + bias;          // RR 계산에 쓰는 치환 post
+
+      steps.innerHTML =
+        row('존 실측 − 13P 실측', sign(measured, 0) + ' Å') +
+        row('목표 편차 (존 − 13P)', sign(wanted, 0) + ' Å') +
+        row('① BIAS = 실측편차 − 목표편차', sign(bias, 1) + ' Å') +
+        row('&nbsp;&nbsp;&nbsp;post = Target + BIAS (RR 계산에 사용)', fmt(postForRR, 1) + ' Å') +
+        row('② RR_DB = 패드 × b1 + b0', fmt(rr, 3) + ' Å/s') +
+        row('③ OFFSET (' + idle2.options[idle2.selectedIndex].textContent.split(' —')[0] + ')', sign(o, 1) + ' s') +
+        row('제어 출력 : 해당 존 Pressure', (bias > 0 ? '↑ 압력 증가' : bias < 0 ? '↓ 압력 감소' : '유지'), true);
+
+      verd.innerHTML =
+        'PRESSURE 모드는 절대 두께가 아니라 <b>13P 평균 대비 편차</b>를 0으로 만드는 것이 목표입니다. ' +
+        'BIAS가 <b>' + sign(bias, 1) + ' Å</b> — ' +
+        (Math.abs(bias) < 0.5
+          ? '목표 프로파일과 일치합니다. 압력을 유지합니다.'
+          : (bias > 0
+              ? '이 존이 목표보다 <b>덜 깎였습니다</b>. 해당 존 압력을 올려 제거량을 늘립니다.'
+              : '이 존이 목표보다 <b>더 깎였습니다</b>. 해당 존 압력을 내립니다.')) +
+        '<br>학습 로직(Detrend · 이동평균 · 회귀 · RR · OFFSET)은 TIME과 동일한 코드를 타고, ' +
+        '입력되는 y값만 이 BIAS로 바뀝니다.';
+    }
+  }
+  [m2, pad2, vm2, zone2, idle2].forEach(function (el) { el.addEventListener('input', lab2); });
+  m2.addEventListener('change', lab2);
+  idle2.addEventListener('change', lab2);
+  lab2();
+})();
+</script>
+{% endblock %}

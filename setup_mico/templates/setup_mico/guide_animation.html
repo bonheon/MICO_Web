@@ -1,0 +1,1217 @@
+{% extends 'setup_mico/base.html' %}
+
+{% block title %}| 핵심 알고리즘{% endblock %}
+{% block nav_guide_animation %}active{% endblock %}
+
+{% block breadcrumb %}
+  <li class="breadcrumb-item"><a href="{% url 'dashboard' %}">Home</a></li>
+  <li class="breadcrumb-item active">핵심 알고리즘</li>
+{% endblock %}
+
+{% block content %}
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=IBM+Plex+Sans+KR:wght@300;400;500;600;700&family=IBM+Plex+Mono:wght@400;500;600&display=swap">
+
+<style>
+.az {
+  --az-ink:#16202b; --az-body:#46586a; --az-muted:#7b8b9a;
+  --az-rule:#dde4ea; --az-surface:#fff; --az-sunken:#f1f5f8;
+  --az-learn:#0e7c86; --az-learn-w:rgba(14,124,134,0.09);
+  --az-wear:#b3690b;  --az-wear-w:rgba(179,105,11,0.10);
+  --az-apc:#7a4fbf;   --az-apc-w:rgba(122,79,191,0.10);
+  --az-dim:#9aa8b4; --az-trend:#33454f;
+  --c1:#1552d4; --c2:#e07a00; --c3:#8e2fce; --c4:#d11a4f;
+  font-family:'IBM Plex Sans KR','Segoe UI',system-ui,sans-serif;
+  color:var(--az-body); -webkit-font-smoothing:antialiased;
+}
+[data-theme="dark"] .az {
+  --az-ink:#eef3f7; --az-body:#b9c6d2; --az-muted:#8497a6;
+  --az-rule:#33404f; --az-surface:#1f2937; --az-sunken:#18222f;
+  --az-learn:#3fb8c2; --az-learn-w:rgba(63,184,194,0.13);
+  --az-wear:#e0a244;  --az-wear-w:rgba(224,162,68,0.14);
+  --az-apc:#b18ee8;   --az-apc-w:rgba(177,142,232,0.15);
+  --az-dim:#5c6b78; --az-trend:#b9c9d6;
+  --c1:#6ea8ff; --c2:#ffa645; --c3:#c98bff; --c4:#ff5f86;
+}
+
+.az-wrap { max-width:1120px; margin:0 auto; padding-bottom:3rem; }
+
+/* ── 헤더 ── */
+.az-head { display:flex; align-items:flex-end; gap:1.2rem; flex-wrap:wrap;
+           padding-bottom:1rem; margin-bottom:1.2rem; border-bottom:1px solid var(--az-rule); }
+.az-head h1 { font-size:1.55rem; font-weight:700; letter-spacing:-0.025em;
+              color:var(--az-ink); margin:0; }
+.az-head .sub { font-size:0.85rem; color:var(--az-muted); margin:0.3rem 0 0; }
+.az-head .doclink { margin-left:auto; font-size:0.8rem; color:var(--az-learn);
+                    text-decoration:none; white-space:nowrap; }
+.az-head .doclink:hover { text-decoration:underline; }
+
+/* ── 상단 탭 ── */
+.az-tabs { display:flex; gap:0.4rem; flex-wrap:wrap; margin-bottom:1.4rem; }
+.az-tab {
+  font-family:'IBM Plex Mono',monospace; font-size:0.775rem; font-weight:500;
+  padding:0.45rem 0.85rem; border-radius:6px; border:1px solid var(--az-rule);
+  background:var(--az-surface); color:var(--az-body); text-decoration:none;
+}
+.az-tab:hover { border-color:var(--az-learn); color:var(--az-learn); }
+.az-tab.on { border-color:var(--az-learn); background:var(--az-learn-w);
+             color:var(--az-learn); font-weight:600; }
+.az-tab.off { opacity:0.5; cursor:default; }
+.az-tab.off:hover { border-color:var(--az-rule); color:var(--az-body); }
+
+/* ── 무대 ── */
+.az-stage { border:1px solid var(--az-rule); border-radius:10px; overflow:hidden;
+            background:var(--az-surface); }
+
+.az-caption { padding:1.1rem 1.35rem 1rem; border-bottom:1px solid var(--az-rule);
+              background:var(--az-sunken); min-height:118px; }
+.az-caption .step {
+  font-family:'IBM Plex Mono',monospace; font-size:0.7rem; font-weight:600;
+  letter-spacing:0.14em; text-transform:uppercase; color:var(--az-learn);
+  margin-bottom:0.45rem;
+}
+.az-caption h2 { font-size:1.12rem; font-weight:650; letter-spacing:-0.018em;
+                 color:var(--az-ink); margin:0 0 0.4rem; }
+.az-caption p { font-size:0.875rem; line-height:1.7; margin:0; max-width:84ch; }
+.az-caption .eq {
+  display:inline-block; margin-top:0.6rem; font-family:'IBM Plex Mono',monospace;
+  font-size:0.815rem; color:var(--az-ink); background:var(--az-surface);
+  border:1px solid var(--az-rule); border-radius:5px; padding:0.34rem 0.65rem;
+  max-width:100%; overflow-x:auto; white-space:nowrap;
+}
+.az-caption .eq .hl { color:var(--az-learn); font-weight:600; }
+.az-caption .eq .hl2 { color:var(--az-wear); font-weight:600; }
+.az-caption .eq .hl3 { color:var(--az-apc); font-weight:600; }
+
+.az-canvas { padding:0.5rem 0.4rem 0; }
+.az-canvas svg { display:block; width:100%; height:auto; color:var(--az-body); }
+
+/* ── 컨트롤 ── */
+.az-ctrl { display:flex; align-items:center; gap:0.75rem; flex-wrap:wrap;
+           padding:0.85rem 1.35rem; border-top:1px solid var(--az-rule); }
+.az-btn {
+  display:inline-flex; align-items:center; gap:0.4rem;
+  font-family:'IBM Plex Sans KR',sans-serif; font-size:0.82rem; font-weight:500;
+  padding:0.42rem 0.85rem; border-radius:6px; cursor:pointer;
+  border:1px solid var(--az-rule); background:var(--az-surface); color:var(--az-body);
+  transition:border-color .15s, color .15s, background .15s;
+}
+.az-btn:hover:not(:disabled) { border-color:var(--az-learn); color:var(--az-learn); }
+.az-btn:disabled { opacity:0.38; cursor:default; }
+.az-btn.primary { background:var(--az-learn); border-color:var(--az-learn); color:#fff; min-width:96px; justify-content:center; }
+.az-btn.primary:hover { filter:brightness(1.08); color:#fff; }
+.az-btn:focus-visible { outline:2px solid var(--az-learn); outline-offset:2px; }
+
+.az-dots { display:flex; gap:0.34rem; margin-left:0.4rem; }
+.az-dot {
+  width:26px; height:26px; border-radius:50%; border:1px solid var(--az-rule);
+  background:var(--az-surface); color:var(--az-muted); cursor:pointer;
+  font-family:'IBM Plex Mono',monospace; font-size:0.7rem; font-weight:600;
+  display:flex; align-items:center; justify-content:center; padding:0;
+  transition:all .15s;
+}
+.az-dot:hover { border-color:var(--az-learn); color:var(--az-learn); }
+.az-dot.on { background:var(--az-learn); border-color:var(--az-learn); color:#fff; }
+.az-dot.done { border-color:var(--az-learn); color:var(--az-learn); }
+.az-case { display:flex; align-items:center; gap:0.35rem; margin-left:1rem;
+           padding-left:1rem; border-left:1px solid var(--az-rule); }
+.az-case .cl { font-family:'IBM Plex Mono',monospace; font-size:0.68rem; font-weight:600;
+               letter-spacing:0.08em; color:var(--az-muted); margin-right:0.25rem; }
+.az-case-btn {
+  font-family:'IBM Plex Sans KR',sans-serif; font-size:0.76rem; font-weight:500;
+  padding:0.3rem 0.6rem; border-radius:5px; cursor:pointer;
+  border:1px solid var(--az-rule); background:var(--az-surface); color:var(--az-body);
+  transition:all .15s;
+}
+.az-case-btn:hover { border-color:var(--az-learn); color:var(--az-learn); }
+.az-case-btn.on { border-color:var(--az-learn); background:var(--az-learn-w);
+                  color:var(--az-learn); font-weight:600; }
+.az-case-btn:focus-visible { outline:2px solid var(--az-learn); outline-offset:2px; }
+
+.az-speed { margin-left:auto; display:flex; align-items:center; gap:0.5rem;
+            font-size:0.76rem; color:var(--az-muted); }
+.az-speed select { font-size:0.76rem; padding:0.24rem 0.4rem; border-radius:5px;
+                   border:1px solid var(--az-rule); background:var(--az-surface); color:var(--az-ink); }
+
+/* ── 하단 상태 패널 ── */
+.az-panels { display:grid; grid-template-columns:repeat(auto-fit,minmax(230px,1fr));
+             gap:1px; background:var(--az-rule); border-top:1px solid var(--az-rule); }
+.az-panel { background:var(--az-surface); padding:0.95rem 1.15rem; }
+.az-panel .h { font-family:'IBM Plex Mono',monospace; font-size:0.68rem; font-weight:600;
+               letter-spacing:0.1em; text-transform:uppercase; color:var(--az-muted);
+               margin-bottom:0.55rem; }
+.az-kv { display:flex; justify-content:space-between; gap:0.8rem; font-size:0.8rem;
+         padding:0.2rem 0; }
+.az-kv .k { color:var(--az-body); font-family:'IBM Plex Mono',monospace; font-size:0.76rem; }
+.az-kv .v { font-family:'IBM Plex Mono',monospace; font-variant-numeric:tabular-nums;
+            font-weight:600; color:var(--az-ink); white-space:nowrap; }
+.az-kv .v.ok  { color:var(--az-learn); }
+.az-kv .v.dim { color:var(--az-muted); font-weight:400; }
+.az-swatch { display:inline-block; width:9px; height:9px; margin-right:0.45rem;
+             vertical-align:baseline; }
+.az-swatch.s0 { border-radius:50%; }
+.az-swatch.s1 { border-radius:1px; }
+.az-swatch.s2 { width:0; height:0; background:none !important;
+                border-left:5px solid transparent; border-right:5px solid transparent;
+                border-bottom-width:9px; border-bottom-style:solid; }
+.az-swatch.s3 { border-radius:1px; transform:rotate(45deg) scale(0.82); }
+
+/* ── STEP 7 : 진행 중인 웨이퍼 컨트롤 ── */
+.az-apply {
+  display:flex; align-items:center; gap:1.4rem; flex-wrap:wrap;
+  padding:0.8rem 1.35rem; border-top:1px solid var(--az-rule);
+  background:var(--az-sunken);
+}
+.az-apply .lbl {
+  font-family:'IBM Plex Mono',monospace; font-size:0.7rem; font-weight:600;
+  letter-spacing:0.1em; text-transform:uppercase; color:var(--az-learn);
+}
+.az-apply label { display:flex; align-items:center; gap:0.55rem;
+                  font-size:0.79rem; color:var(--az-body); margin:0; }
+.az-apply select { font-size:0.79rem; padding:0.28rem 0.45rem; border-radius:5px;
+                   border:1px solid var(--az-rule); background:var(--az-surface); color:var(--az-ink);
+                   font-family:'IBM Plex Mono',monospace; }
+.az-apply input[type=range] { width:170px; accent-color:var(--az-learn); cursor:pointer; }
+.az-apply .num { font-family:'IBM Plex Mono',monospace; font-variant-numeric:tabular-nums;
+                 font-weight:600; color:var(--az-ink); min-width:3.4rem; }
+
+.az-foot { font-size:0.78rem; color:var(--az-muted); line-height:1.7;
+           margin-top:1.1rem; max-width:82ch; }
+.az-foot code { font-family:'IBM Plex Mono',monospace; font-size:0.94em;
+                background:var(--az-sunken); padding:0.08em 0.35em; border-radius:3px; color:var(--az-ink); }
+
+@media (prefers-reduced-motion:reduce) { .az * { transition:none !important; } }
+</style>
+
+<div class="az">
+<div class="az-wrap">
+
+  <div class="az-head">
+    <div>
+      <h1>Pre_Thk_VM — 입고 두께는 어떻게 복원되는가</h1>
+      <p class="sub">웨이퍼 360장이 단계마다 어떻게 변형되는지 따라가 보세요. 같은 점들이 계속 움직입니다.</p>
+    </div>
+    <a class="doclink" href="{% url 'algorithm_guide' %}">상세 문서 →</a>
+  </div>
+
+  <div class="az-tabs">
+    <a class="az-tab on" href="#">① Pre_Thk_VM</a>
+    <a class="az-tab" href="{% url 'guide_animation_rr' %}">② Removal Rate</a>
+    <a class="az-tab" href="{% url 'guide_animation_offset' %}">③ OFFSET</a>
+    <a class="az-tab" href="{% url 'guide_animation_pressure' %}">④ PRESSURE</a>
+  </div>
+
+  <div class="az-stage">
+    <div class="az-caption">
+      <div class="step" id="az-step">STEP 0 / 6</div>
+      <h2 id="az-title">—</h2>
+      <p id="az-desc">—</p>
+      <div class="eq" id="az-eq" hidden></div>
+    </div>
+
+    <div class="az-canvas">
+      <svg id="az-svg" viewBox="0 0 900 430" role="img"
+           aria-label="Pre_Thk_VM 학습 과정 애니메이션: 실측 후처리 두께에서 APC 성분과 CMP 성분을 차례로 제거해 입고 두께 편차를 복원하는 과정">
+        <g id="az-grid"></g>
+        <g id="az-seps"></g>
+        <g id="az-lines"></g>
+        <g id="az-pts"></g>
+        <g id="az-final"></g>
+        <g id="az-apply-g"></g>
+      </svg>
+    </div>
+
+    <div class="az-apply" id="az-apply" hidden>
+      <span class="lbl">진행 중인 웨이퍼</span>
+      <label for="az-w-ch">사전공정 장비·채널
+        <select id="az-w-ch"></select>
+      </label>
+      <label for="az-w-x2">Pre_Oper2 계측값
+        <input type="range" id="az-w-x2" min="30" max="70" step="0.5" value="62">
+        <span class="num" id="az-w-x2v">62.0</span>
+      </label>
+    </div>
+
+    <div class="az-ctrl">
+      <button class="az-btn" id="az-prev" type="button">◀ 이전</button>
+      <button class="az-btn primary" id="az-play" type="button">▶ 재생</button>
+      <button class="az-btn" id="az-next" type="button">다음 ▶</button>
+      <div class="az-dots" id="az-dots"></div>
+      <div class="az-case">
+        <span class="cl">공정 상태</span>
+        <button type="button" class="az-case-btn on" data-applied="0">MICO 적용 전</button>
+        <button type="button" class="az-case-btn" data-applied="1">MICO 적용 중</button>
+      </div>
+      <div class="az-speed">
+        <label for="az-spd">속도</label>
+        <select id="az-spd">
+          <option value="1.6">느리게</option>
+          <option value="1" selected>보통</option>
+          <option value="0.6">빠르게</option>
+        </select>
+      </div>
+    </div>
+
+    <div class="az-panels">
+      <div class="az-panel">
+        <div class="h">데이터</div>
+        <div class="az-kv"><span class="k">웨이퍼</span><span class="v">360 장</span></div>
+        <div class="az-kv"><span class="k">CMP 장비</span><span class="v">3 대 × 패드주기 4</span></div>
+        <div class="az-kv"><span class="k">사전공정 채널</span><span class="v">4 개</span></div>
+        <div class="az-kv"><span class="k">FIX_Time</span><span class="v" id="az-fix">—</span></div>
+        <div class="az-kv"><span class="k">Post 3σ 폭</span><span class="v" id="az-sig">—</span></div>
+        <div class="az-kv"><span class="k">Pol_Time 3σ 폭</span><span class="v" id="az-sigp">—</span></div>
+      </div>
+      <div class="az-panel">
+        <div class="h">지금까지 지운 것</div>
+        <div class="az-kv"><span class="k">APC 성분</span><span class="v dim" id="az-s-apc">—</span></div>
+        <div class="az-kv"><span class="k">CMP 성분</span><span class="v dim" id="az-s-cmp">—</span></div>
+        <div class="az-kv"><span class="k">유효 데이터</span><span class="v" id="az-s-valid">360 / 360</span></div>
+      </div>
+      <div class="az-panel">
+        <div class="h">복원된 VM (사전공정 채널별)</div>
+        <div id="az-vm-list"></div>
+      </div>
+      <div class="az-panel">
+        <div class="h">Pre_Oper2 회귀</div>
+        <div class="az-kv"><span class="k">b1 (기울기)</span><span class="v dim" id="az-b1">—</span></div>
+        <div class="az-kv"><span class="k">b0 (절편)</span><span class="v dim" id="az-b0">—</span></div>
+        <div class="az-kv"><span class="k">실제 계수</span><span class="v dim">0.800</span></div>
+      </div>
+    </div>
+  </div>
+
+  <p class="az-foot">
+    데이터는 <code>compute_detrend()</code> · <code>rolling_mean()</code> · <code>fit_pre_oper_regression()</code>의
+    실제 계산식으로 브라우저에서 생성·처리한 <b>예시</b>입니다 — 실제 팹 데이터가 아니라, 알고리즘이 무엇을 하는지
+    보이기 위해 정답(사전공정 채널별 실제 편차)을 미리 심어둔 합성 데이터입니다.
+    마지막 단계에서 알고리즘이 그 정답을 얼마나 되찾는지 비교합니다.
+    윈도우 <code>10</code>, 패드 교체 판정 <code>diff &lt; −0.5</code> 등 상수는 코드와 같습니다.
+  </p>
+
+</div>
+</div>
+
+<script>
+(function () {
+  'use strict';
+
+  // ══════════════════════════════════════════════════════════
+  //  1. 합성 데이터 — compute_detrend 가 상대하는 상황을 재현
+  // ══════════════════════════════════════════════════════════
+  var PRE_TARGET = 5500, TARGET = 4000, WINDOW = 10;
+  var N = 360, PER_EQ = 120, CYCLE_LEN = 30, N_CYC = PER_EQ / CYCLE_LEN;   // 장비당 패드 주기 4개
+  var EQS = ['CMP01', 'CMP02', 'CMP03'];
+  var CHS = ['PRE_A_1', 'PRE_A_2', 'PRE_B_1', 'PRE_B_2'];
+  var TRUE_BIAS = { PRE_A_1: 38, PRE_A_2: 12, PRE_B_1: -14, PRE_B_2: -34 };
+  var CH_COLOR  = { PRE_A_1: 'var(--c1)', PRE_A_2: 'var(--c2)', PRE_B_1: 'var(--c3)', PRE_B_2: 'var(--c4)' };
+  var B2_TRUE = 0.8;
+  var RR_BASE = { CMP01: 22.0, CMP02: 21.9, CMP03: 22.1 };
+  // 장비 간 제거율 차이를 줄였다 → 적용 전 Post 두께에서 사전공정 챔버 차이가 주된 산포가 된다
+
+  function mulberry32(a) {
+    return function () {
+      a |= 0; a = a + 0x6D2B79F5 | 0;
+      var t = Math.imul(a ^ a >>> 15, 1 | a);
+      t = t + Math.imul(t ^ t >>> 7, 61 | t) ^ t;
+      return ((t ^ t >>> 14) >>> 0) / 4294967296;
+    };
+  }
+  var rnd = mulberry32(20260905);
+  function gauss(sd) {
+    var u = 1 - rnd(), v = rnd();
+    return Math.sqrt(-2 * Math.log(u)) * Math.cos(2 * Math.PI * v) * sd;
+  }
+
+  // 사전공정 채널 배정.
+  //  - 고정 주기로 배정하면 패드 주기와 위상이 맞아 채널별 편향이 생긴다 → 랜덤 런
+  //  - 같은 채널이 10장 이상 연속되면 rolling(10) 이 그 채널의 신호까지 먹어버린다.
+  //    실제로도 여러 사전공정 장비의 로트가 한 CMP 장비에 섞여 들어오므로 짧은 런으로 둔다.
+  var chSeq = [];
+  while (chSeq.length < N) {
+    var runCh  = CHS[Math.floor(rnd() * 4)];
+    var runLen = 1 + Math.floor(rnd() * 3);
+    for (var t = 0; t < runLen && chSeq.length < N; t++) { chSeq.push(runCh); }
+  }
+
+  // ── 웨이퍼의 "구조"는 케이스와 무관하게 한 번만 만든다 ──
+  //    (사전공정 채널·계측값·실제 입고 두께·실제 제거율은 공정의 성질이지 제어 방식이 아니다)
+  var W = [];
+  for (var i = 0; i < N; i++) {
+    var eq   = EQS[i % 3];
+    var k    = Math.floor(i / 3);              // 장비 내 순번
+    var cyc  = Math.floor(k / CYCLE_LEN) + 1;  // 패드 주기 1~4
+    var pos  = k % CYCLE_LEN;
+    var pad  = pos / (CYCLE_LEN - 1) * 950;    // 패드 사용량 0 → 950
+    var ch   = chSeq[i];                       // 사전공정 장비·채널
+    var x2   = 30 + rnd() * 40;                // Pre_Oper2 계측값
+
+    W.push({
+      i: i, eq: eq, cyc: cyc, pos: pos, pad: pad, ch: ch, x2: x2,
+      trueBias: TRUE_BIAS[ch],
+      truePre : PRE_TARGET + TRUE_BIAS[ch] + B2_TRUE * (x2 - 50) + gauss(3.5),
+      rrTrue  : RR_BASE[eq] * (1 - 0.04 * (pad / 950)) + gauss(0.08),
+      rrModel : 22.0 * (1 - 0.04 * (pad / 950)),   // APC 가 쓰는 제거율 모델
+      ptNoise : gauss(1.15)                         // 연마 시간 잔여 오차 (제어·계측 오차)
+    });
+  }
+
+  // ══════════════════════════════════════════════════════════
+  //  2. 좌표계 (데이터에 앞서 정의)
+  // ══════════════════════════════════════════════════════════
+  var PL = { x0: 78, x1: 862, y0: 46, y1: 318 };
+
+  function ext(vals, padFrac) {
+    var lo = Math.min.apply(null, vals), hi = Math.max.apply(null, vals);
+    var p = (hi - lo) * (padFrac === undefined ? 0.12 : padFrac);
+    return [lo - p, hi + p];
+  }
+  function mkY(dom) {
+    return function (v) { return PL.y1 - (v - dom[0]) / (dom[1] - dom[0]) * (PL.y1 - PL.y0); };
+  }
+
+  // ══════════════════════════════════════════════════════════
+  //  3. 케이스별 계산
+  //     APPLIED = false : MICO 적용 전 — 입고 두께를 모른 채 고정 시간으로 깎는다
+  //                       → 챔버 차이가 Post 두께에 그대로 남는다
+  //     APPLIED = true  : MICO 적용 중 — VM 으로 입고 두께를 알고 시간을 조절한다
+  //                       → Post 는 다 타겟 근처, 챔버 차이가 Pol_Time 속으로 숨는다
+  //     어느 쪽이든 STEP 2(APC 성분 제거)를 지나면 같은 자리에서 드러난다.
+  // ══════════════════════════════════════════════════════════
+  var APPLIED = false;
+  var FIX, SEGS, VALID, VM, B1, B0;
+  var D_POST, D_UNCTR, D_POL;
+  var yPost, yUnctr, yPol;
+  var D_DET = [-78, 78], yDet = mkY(D_DET);
+  var D_X2, yX2dom;
+
+  function applyCase() {
+    // ── 연마 시간과 후처리 두께 ───────────────────────────
+    W.forEach(function (w) {
+      var target = APPLIED ? (w.truePre - TARGET)      // 입고를 알고 그만큼 깎는다
+                           : (PRE_TARGET - TARGET);    // 모르니 고정 목표량으로 깎는다
+      w.polTime = target / w.rrModel + w.ptNoise;
+      w.post    = w.truePre - w.rrTrue * w.polTime;
+    });
+
+    // ── ① APC 성분 제거 ─────────────────────────────────
+    FIX = W.reduce(function (s, w) { return s + w.polTime; }, 0) / N;
+    W.forEach(function (w) {
+      w.rr    = (PRE_TARGET - w.post) / w.polTime;
+      w.unctr = PRE_TARGET - w.rr * FIX;
+    });
+
+    // ── ② CMP 성분 제거 : eq × pad_cycle 별 rolling(10) ──
+    SEGS = [];
+    EQS.forEach(function (eq) {
+      for (var cyc = 1; cyc <= N_CYC; cyc++) { (function (cyc) {
+        var rows = W.filter(function (w) { return w.eq === eq && w.cyc === cyc; })
+                    .sort(function (a, b) { return a.i - b.i; });
+        rows.forEach(function (w, j) {
+          if (j >= WINDOW - 1) {
+            var acc = 0;
+            for (var t = j - WINDOW + 1; t <= j; t++) { acc += rows[t].unctr; }
+            w.ma = acc / WINDOW;
+            w.detrend = w.unctr - w.ma;
+          } else {
+            w.ma = null; w.detrend = null;   // min_periods 미달 → 잔차 없음
+          }
+        });
+        SEGS.push({ eq: eq, cyc: cyc, rows: rows });
+      })(cyc); }
+    });
+    VALID = W.filter(function (w) { return w.detrend !== null; });
+
+    // ── ③ 사전공정 채널별 moving average → VM ───────────
+    VM = {};
+    CHS.forEach(function (ch) {
+      var v = VALID.filter(function (w) { return w.ch === ch; });
+      VM[ch] = v.length ? v.reduce(function (s, w) { return s + w.detrend; }, 0) / v.length : 0;
+    });
+
+    // ── ④ Pre_Oper2 회귀 ────────────────────────────────
+    var mx = 0, my = 0;
+    VALID.forEach(function (w) { mx += w.x2; my += w.detrend; });
+    mx /= VALID.length; my /= VALID.length;
+    var sxy = 0, sxx = 0;
+    VALID.forEach(function (w) {
+      sxy += (w.x2 - mx) * (w.detrend - my); sxx += (w.x2 - mx) * (w.x2 - mx);
+    });
+    B1 = sxy / sxx; B0 = my - B1 * mx;
+
+    // ── 축 범위 ─────────────────────────────────────────
+    D_POST  = FIXED_DOM ? FIXED_DOM.post  : ext(W.map(function (w) { return w.post; }));
+    D_UNCTR = FIXED_DOM ? FIXED_DOM.unctr : ext(W.map(function (w) { return w.unctr; }));
+    D_POL   = FIXED_DOM ? FIXED_DOM.pol   : ext(W.map(function (w) { return w.polTime; }));
+    yPost   = mkY(D_POST); yUnctr = mkY(D_UNCTR); yPol = mkY(D_POL);
+  }
+
+  D_X2 = ext(W.map(function (w) { return w.x2; }), 0.06);
+
+  // ── 두 케이스를 눈으로 비교하려면 축 범위가 같아야 한다 ──
+  //    (케이스마다 자동 스케일하면 산포가 줄어도 그림이 그대로 보인다)
+  var FIXED_DOM = null;
+  var SIG = {}, SIG_POL = {};                    // 케이스별 Post 두께 / 연마 시간 산포
+  function statOf(vals) {
+    var m = vals.reduce(function (a, b) { return a + b; }, 0) / vals.length;
+    var v = vals.reduce(function (a, b) { return a + (b - m) * (b - m); }, 0) / vals.length;
+    return { mean: m, sd: Math.sqrt(v) };
+  }
+  (function initDomains() {
+    var posts = [], pols = [], unctrs = [];
+    [['before', false], ['after', true]].forEach(function (pair) {
+      APPLIED = pair[1];
+      applyCase();
+      W.forEach(function (w) { posts.push(w.post); pols.push(w.polTime); unctrs.push(w.unctr); });
+      SIG[pair[0]]     = statOf(W.map(function (w) { return w.post; }));
+      SIG_POL[pair[0]] = statOf(W.map(function (w) { return w.polTime; }));
+    });
+    FIXED_DOM = { post: ext(posts), pol: ext(pols), unctr: ext(unctrs) };
+    // ±3σ 밴드와 그 라벨이 축 안에 들어오도록 Post 범위를 넓힌다
+    var edges = [];
+    ['before', 'after'].forEach(function (kk) {
+      edges.push(SIG[kk].mean - 3 * SIG[kk].sd, SIG[kk].mean + 3 * SIG[kk].sd);
+    });
+    FIXED_DOM.post = [
+      Math.min.apply(null, edges.concat([FIXED_DOM.post[0]])) - 14,
+      Math.max.apply(null, edges.concat([FIXED_DOM.post[1]])) + 30   // 위쪽은 라벨 자리
+    ];
+    var pedges = [];
+    ['before', 'after'].forEach(function (kk) {
+      pedges.push(SIG_POL[kk].mean - 3 * SIG_POL[kk].sd, SIG_POL[kk].mean + 3 * SIG_POL[kk].sd);
+    });
+    FIXED_DOM.pol = [
+      Math.min.apply(null, pedges.concat([FIXED_DOM.pol[0]])) - 0.6,
+      Math.max.apply(null, pedges.concat([FIXED_DOM.pol[1]])) + 1.4
+    ];
+    APPLIED = false;
+    applyCase();
+  })();
+
+  // ── x 배치 4종 ──────────────────────────────────────────
+  var xTime = W.map(function (w) { return PL.x0 + w.i / (N - 1) * (PL.x1 - PL.x0); });
+
+  var xSeg = new Array(N), segBox = [];
+  (function () {
+    var gap = 6, sw = (PL.x1 - PL.x0 - gap * (SEGS.length - 1)) / SEGS.length;
+    SEGS.forEach(function (sg, si) {
+      var bx = PL.x0 + si * (sw + gap);
+      segBox.push({ x: bx, w: sw, label: sg.eq.replace('CMP', 'C') + '-' + sg.cyc });
+      sg.rows.forEach(function (w, j) {
+        xSeg[w.i] = bx + (sg.rows.length === 1 ? sw / 2 : j / (sg.rows.length - 1) * sw);
+      });
+    });
+  })();
+
+  var xCh = new Array(N), chBox = [];
+  (function () {
+    var gap = 26, cw = (PL.x1 - PL.x0 - gap * 3) / 4;
+    CHS.forEach(function (ch, ci) {
+      var bx = PL.x0 + ci * (cw + gap);
+      chBox.push({ x: bx, w: cw, ch: ch });
+      var rows = W.filter(function (w) { return w.ch === ch; });
+      rows.forEach(function (w, j) {
+        xCh[w.i] = bx + (rows.length === 1 ? cw / 2 : j / (rows.length - 1) * cw);
+      });
+    });
+  })();
+
+  var xX2 = W.map(function (w) {
+    return PL.x0 + (w.x2 - D_X2[0]) / (D_X2[1] - D_X2[0]) * (PL.x1 - PL.x0);
+  });
+
+  // ══════════════════════════════════════════════════════════
+  //  3. 단계 정의
+  // ══════════════════════════════════════════════════════════
+  var STAGES = [
+    {
+      title: '실측 후처리 두께 — 여기서 시작한다',
+      desc: function () {
+        return APPLIED
+          ? '이미 MICO 가 돌고 있는 공정입니다. APC 가 입고 두께를 알고 연마 시간을 조절해서 ' +
+            '챔버별 차이를 그때그때 상쇄하고 있습니다. 두께는 사전공정 장비와 상관없이 목표 근처로 모였고, ' +
+            '그만큼 산포가 줄었습니다 — 아래 밴드가 얼마나 좁아졌는지 보세요.'
+          : '아직 보정이 들어가지 않은 공정입니다. 모든 웨이퍼를 같은 시간만큼 깎았기 때문에 ' +
+            '입고 두께가 두꺼웠던 웨이퍼는 후처리 두께도 그대로 두껍습니다. ' +
+            '사전공정 장비별로 네 층이 뚜렷하게 갈리고, 그 차이가 곧 두께 산포가 됩니다.';
+      },
+      eq: 'Post_Thk &nbsp;<span style="opacity:.55">(Thk_Para 실측값)</span>',
+      x: function (w) { return xTime[w.i]; }, y: function (w) { return yPost(w.post); },
+      dom: function () { return D_POST; }, unit: 'Å', xlab: '웨이퍼 처리 순서 →',
+      spread: true, padTicks: true,
+      note: function () {
+        return APPLIED ? '두께만 봐서는 챔버 차이를 찾을 수 없다 — 차이가 어디로 갔을까?'
+                       : '색이 층으로 갈린다 — 챔버 차이가 두께 산포의 대부분이다';
+      },
+      op: function () { return 1; }
+    },
+    {
+      title: '산포는 어디에 실려 있나 — 같은 웨이퍼를 연마 시간으로 본다',
+      desc: function () {
+        return APPLIED
+          ? 'APC 가 웨이퍼마다 다른 연마 시간을 줬습니다. 두께에서 사라졌던 사전공정 장비별 차이가 ' +
+            '여기서 층으로 나타납니다 — 산포가 없어진 게 아니라 두께에서 시간으로 옮겨간 것입니다. ' +
+            '두께만 제품 스펙이고 연마 시간은 스펙이 아니므로, 이쪽으로 옮기는 것이 이득입니다.'
+          : '보정이 없으니 모든 웨이퍼를 거의 같은 시간 깎습니다. 이 화면에서 밴드가 좁은 것은 ' +
+            '"좋다"는 뜻이 아니라 "아무것도 제어하지 않고 있다"는 뜻입니다 — ' +
+            '그 대가로 앞 화면(두께)의 산포가 그만큼 큽니다.';
+      },
+      eq: 'Pol_Time &nbsp;<span style="opacity:.55">(APC 파라미터 합 — 실제로 깎은 시간)</span>',
+      x: function (w) { return xTime[w.i]; },
+      y: function (w) { return yPol(w.polTime); },
+      dom: function () { return D_POL; }, unit: 's', xlab: '웨이퍼 처리 순서 →',
+      spreadPol: true, padTicks: true,
+      note: function () {
+        return APPLIED ? '차이는 사라지지 않았다 — 두께에서 시간으로 자리를 옮겼을 뿐이다'
+                       : '연마 시간이 거의 같다 — 아무것도 보정하지 않고 있다는 뜻';
+      },
+      op: function () { return 1; }
+    },
+    {
+      title: 'STEP 1 — APC 성분을 걷어내면 두 경우가 같아진다',
+      desc: '웨이퍼마다 APC가 서로 다른 연마 시간을 줬습니다. 그 효과를 그대로 두면 "두께 차이"인지 "시간 차이"인지 구분되지 않습니다. ' +
+            '각 웨이퍼의 제거율을 구한 뒤 전체 평균 시간(FIX_Time)으로 깎았다면 얼마였을지로 되돌립니다. ' +
+            '차이가 두께에 있었든 시간에 있었든 이 한 번의 환산으로 같은 자리에 모입니다 — ' +
+            '위에서 토글을 바꿔 보면 이 화면부터는 거의 달라지지 않습니다.',
+      eq: '<span class="hl3">RR</span> = (Pre_Target − Post_Thk) / Pol_Time' +
+          '&nbsp;&nbsp;→&nbsp;&nbsp;<span class="hl3">Unctr_Thk</span> = Pre_Target − <span class="hl3">RR</span> × FIX_Time',
+      x: function (w) { return xTime[w.i]; }, y: function (w) { return yUnctr(w.unctr); },
+      dom: function () { return D_UNCTR; }, unit: 'Å', xlab: '웨이퍼 처리 순서 →',
+      note: '적용 전이든 적용 중이든 여기서부터는 같은 그림 — 이후 단계는 케이스와 무관하다',
+      op: function () { return 1; }
+    },
+    {
+      title: 'STEP 2 — CMP 성분을 장비 × 패드 주기로 나눈다',
+      desc: '남은 변동의 대부분은 CMP 자신의 것입니다. 장비마다 다르고, 패드를 갈 때마다 리셋됩니다. ' +
+            '그래서 장비(eqp) × 패드 주기(pad_cycle) 단위로 잘라 각 구간 안에서만 10점 이동평균으로 추세선을 그립니다.',
+      eq: 'for <span class="hl2">eq_rcp</span> : &nbsp; pad_cycle = (Pad_Para.diff() &lt; −0.5).cumsum() + 1 ' +
+          '&nbsp;→&nbsp; <span class="hl2">Unctr_Thk_MA</span> = rolling(10).mean()',
+      x: function (w) { return xSeg[w.i]; }, y: function (w) { return yUnctr(w.unctr); },
+      dom: function () { return D_UNCTR; }, unit: 'Å', xlab: '장비 3대 × 패드 주기 4개 = 12개 구간',
+      seps: true, ma: true,
+      note: '구간을 넘어서는 이동평균은 만들지 않는다 — 패드 교체는 불연속점이기 때문',
+      op: function () { return 1; }
+    },
+    {
+      title: 'STEP 3 — 추세를 빼면 Detrend_Thk 만 남는다',
+      desc: '각 점에서 자기 구간의 이동평균을 뺍니다. CMP 성분이 지워지고 0을 중심으로 흔들리는 잔차만 남습니다. ' +
+            '이 잔차가 바로 우리가 찾던 입고 두께 산포입니다.',
+      eq: '<span class="hl">Detrend_Thk</span> = Unctr_Thk − Unctr_Thk_MA',
+      x: function (w) { return xSeg[w.i]; }, y: function (w) { return w.detrend === null ? yDet(0) : yDet(w.detrend); },
+      dom: function () { return D_DET; }, unit: 'Å', xlab: '장비 3대 × 패드 주기 4개 = 12개 구간',
+      seps: true, zero: true,
+      note: '각 구간 앞 9장은 이동평균이 없어 잔차도 없다 (min_periods) — 회색으로 빠진다',
+      op: function (w) { return w.detrend === null ? 0.07 : 1; }
+    },
+    {
+      title: 'STEP 4 — 사전공정 장비·채널별로 다시 모은다',
+      desc: '같은 잔차를 이번엔 사전공정 장비·채널(pre_eq_ch) 기준으로 다시 배치합니다. ' +
+            'STEP 0에서는 섞여 보이던 색이 여기서 층으로 갈립니다 — 채널별 평균이 그 장비의 입고 두께 편차입니다.',
+      eq: 'df.groupby(<span class="hl">pre_eq_ch</span>).rolling(Pre_Thk_Period).mean()' +
+          ' &nbsp;→&nbsp; <span class="hl">Pre_Thk (VM)</span>',
+      x: function (w) { return xCh[w.i]; }, y: function (w) { return w.detrend === null ? yDet(0) : yDet(w.detrend); },
+      dom: function () { return D_DET; }, unit: 'Å', xlab: '사전공정 장비 · 채널',
+      chBoxes: true, chMeans: true, zero: true,
+      op: function (w) { return w.detrend === null ? 0.07 : 1; }
+    },
+    {
+      title: 'STEP 5 — 2~4번째 사전공정과 회귀한다',
+      desc: '같은 잔차를 이번엔 사전공정의 계측 파라미터(Pre_Oper2~4)에 대해 늘어놓습니다. ' +
+            '기울기가 잡히면 그 파라미터로 입고 두께를 한 번 더 보정할 수 있습니다 — 채널 평균이 잡지 못하는 웨이퍼 단위 변동입니다.',
+      eq: 'LinearRegression().fit( X = <span class="hl">Pre_Oper2 계측값</span>, y = <span class="hl">Detrend_Thk</span> )' +
+          ' &nbsp;→&nbsp; PRE_OPER2_b1 · b0',
+      x: function (w) { return xX2[w.i]; }, y: function (w) { return w.detrend === null ? yDet(0) : yDet(w.detrend); },
+      dom: function () { return D_DET; }, unit: 'Å', xlab: 'Pre_Oper2 계측값',
+      zero: true, reg: true,
+      op: function (w) { return w.detrend === null ? 0.07 : 1; }
+    },
+    {
+      title: '학습 결과 — 채널별로 저장되는 값',
+      desc: '여기까지가 학습입니다. 채널마다 이동평균 한 값(VM)과 회귀계수 b1·b0가 MongoDB에 저장됩니다. ' +
+            '아래는 알고리즘이 복원한 값과 실제로 심어둔 정답의 비교입니다.',
+      eq: 'MICO_PRE_THK_{Lot_Code}_{Oper_Desc}_{Fab}_Period &nbsp;<span style="opacity:.55">← 채널별 1행</span>',
+      final: true,
+      x: function (w) { return xCh[w.i]; }, y: function (w) { return w.detrend === null ? yDet(0) : yDet(w.detrend); },
+      dom: function () { return D_DET; }, unit: 'Å', xlab: '',
+      op: function () { return 0; }
+    },
+    {
+      title: '진행 중인 웨이퍼에 적용 — 학습값이 합쳐지는 순간',
+      desc: '이제 새 웨이퍼가 들어옵니다. 이 웨이퍼의 입고 두께는 측정하지 않았지만, ' +
+            '어느 사전공정 장비에서 왔는지와 그 공정의 계측값은 압니다. ' +
+            '저장된 학습값을 그 두 가지에 맞춰 꺼내 더하면 이 웨이퍼의 입고 두께가 나옵니다. ' +
+            '아래 값을 바꿔 보면 합이 어떻게 달라지는지 보입니다.',
+      eq: '<span class="hl">Pre_Thk</span> = Pre_Target + <span class="hl">moving_avg</span>' +
+          ' + Σ w<tspan>ₙ</tspan> · ( <span class="hl2">계측값</span><tspan>ₙ</tspan>' +
+          ' × <span class="hl">b1</span><tspan>ₙ</tspan> + <span class="hl">b0</span><tspan>ₙ</tspan> )',
+      apply: true,
+      x: function (w) { return xCh[w.i]; }, y: function (w) { return w.detrend === null ? yDet(0) : yDet(w.detrend); },
+      dom: function () { return D_DET; }, unit: 'Å', xlab: '',
+      op: function () { return 0; }
+    }
+  ];
+
+  // ══════════════════════════════════════════════════════════
+  //  4. 렌더링
+  // ══════════════════════════════════════════════════════════
+  var NS = 'http://www.w3.org/2000/svg';
+  var gGrid  = document.getElementById('az-grid');
+  var gSeps  = document.getElementById('az-seps');
+  var gLines = document.getElementById('az-lines');
+  var gPts   = document.getElementById('az-pts');
+  var gFinal = document.getElementById('az-final');
+  var gApply = document.getElementById('az-apply-g');
+
+  function el(tag, attrs, text) {
+    var n = document.createElementNS(NS, tag);
+    for (var a in attrs) { if (attrs[a] !== null) n.setAttribute(a, attrs[a]); }
+    if (text !== undefined) { n.textContent = text; }
+    return n;
+  }
+  function clear(g) { while (g.firstChild) { g.removeChild(g.firstChild); } }
+
+  // 채널별 마커 — 색만으로 구분되지 않도록 모양도 나눈다 (원/사각/삼각/마름모).
+  // 모두 원점 기준이라 transform:translate 로 위치를 옮긴다.
+  function mkMarker(ch, scale) {
+    var k = scale || 1, j = CHS.indexOf(ch), n;
+    if (j === 0)      { n = el('circle',  { r: 2.4 * k }); }
+    else if (j === 1) { n = el('rect',    { x: -2.05 * k, y: -2.05 * k,
+                                            width: 4.1 * k, height: 4.1 * k, rx: 0.5 }); }
+    else if (j === 2) { n = el('polygon', { points: [0, -3.2 * k, 2.9 * k, 2.1 * k,
+                                                     -2.9 * k, 2.1 * k].join(',') }); }
+    else              { n = el('polygon', { points: [0, -3.3 * k, 3.0 * k, 0,
+                                                     0, 3.3 * k, -3.0 * k, 0].join(',') }); }
+    n.setAttribute('fill', CH_COLOR[ch]);
+    return n;
+  }
+
+  // 점 생성 (한 번만)
+  var dots = W.map(function (w) {
+    var c = mkMarker(w.ch);
+    c.setAttribute('transform', 'translate(' + xTime[w.i] + ',' + yPost(w.post) + ')');
+    c.setAttribute('opacity', 0);
+    gPts.appendChild(c);
+    return c;
+  });
+
+  var cur = { x: xTime.slice(), y: W.map(function (w) { return yPost(w.post); }), o: W.map(function () { return 0; }) };
+
+  function drawGrid(dom, unit, xlab, note) {
+    clear(gGrid);
+    var y = mkY(dom);
+    var ticks = 5;
+    for (var t = 0; t < ticks; t++) {
+      var v  = dom[0] + (dom[1] - dom[0]) * t / (ticks - 1);
+      var yy = y(v);
+      gGrid.appendChild(el('line', { x1: PL.x0, x2: PL.x1, y1: yy, y2: yy,
+        stroke: 'currentColor', 'stroke-width': 1, opacity: 0.09 }));
+      var lbl = (dom[1] - dom[0] < 50) ? v.toFixed(1) : String(Math.round(v));
+      gGrid.appendChild(el('text', { x: PL.x0 - 10, y: yy + 3.5, 'text-anchor': 'end',
+        'font-size': 10, 'font-family': 'IBM Plex Mono, monospace', fill: 'currentColor', opacity: 0.55 },
+        lbl + ' ' + unit));
+    }
+    gGrid.appendChild(el('text', { x: PL.x0 - 10, y: PL.y0 - 16, 'text-anchor': 'end',
+      'font-size': 10, 'font-family': 'IBM Plex Mono, monospace', fill: 'currentColor', opacity: 0.5 }, unit));
+    if (xlab) {
+      gGrid.appendChild(el('text', { x: PL.x0, y: PL.y1 + 30, 'font-size': 10.5,
+        'font-family': 'IBM Plex Mono, monospace', fill: 'currentColor', opacity: 0.55 }, xlab));
+    }
+    if (note) {
+      gGrid.appendChild(el('text', { x: PL.x1, y: PL.y1 + 30, 'text-anchor': 'end', 'font-size': 10.5,
+        'font-family': 'IBM Plex Mono, monospace', fill: 'var(--az-trend)', opacity: 0.95 }, '↳ ' + note));
+    }
+    // 범례
+    var lx = PL.x0;
+    CHS.forEach(function (ch) {
+      var m = mkMarker(ch, 1.15);
+      m.setAttribute('transform', 'translate(' + (lx + 4) + ',' + (PL.y0 - 20) + ')');
+      gGrid.appendChild(m);
+      gGrid.appendChild(el('text', { x: lx + 14, y: PL.y0 - 16.5, 'font-size': 10,
+        'font-family': 'IBM Plex Mono, monospace', fill: 'currentColor', opacity: 0.7 }, ch));
+      lx += 118;
+    });
+  }
+
+
+  // ══════════════════════════════════════════════════════════
+  //  STEP 7 — 학습값을 진행 중인 웨이퍼에 합산 (waterfall)
+  //    load_pre_thk_data() 가 하는 계산 그대로:
+  //      _VM  = Pre_Thk(moving avg)
+  //      _VM += weight * (계측값 * PRE_OPERn_b1 + PRE_OPERn_b0)
+  //      Pre_Thk = Pre_Target + _VM
+  // ══════════════════════════════════════════════════════════
+  var applyCh = CHS[0], applyX2 = 62;
+
+  function sgn(v, d) { return (v >= 0 ? '+' : '−') + Math.abs(v).toFixed(d === undefined ? 1 : d); }
+
+  function drawApply() {
+    clear(gApply);
+
+    var ma    = VM[applyCh];
+    var reg   = applyX2 * B1 + B0;
+    var vm    = ma + reg;
+    var pre   = PRE_TARGET + vm;
+    var col   = CH_COLOR[applyCh];
+
+    var AX0 = 336, AX1 = 800, SPAN = 76;
+    function ax(v) { return AX0 + (v - (PRE_TARGET - SPAN)) / (2 * SPAN) * (AX1 - AX0); }
+    var LX = 34, VX = 884, BH = 19;
+    var ROW = [108, 156, 204, 250];
+
+    function label(x, y, t, opts) {
+      var o = opts || {};
+      gApply.appendChild(el('text', {
+        x: x, y: y, 'font-size': o.size || 11.5, 'text-anchor': o.anchor || 'start',
+        'font-family': 'IBM Plex Mono, monospace', fill: o.fill || 'currentColor',
+        'font-weight': o.weight || 400, opacity: o.op === undefined ? 1 : o.op }, t));
+    }
+
+    // ── 웨이퍼 카드 ────────────────────────────────────────
+    gApply.appendChild(el('rect', { x: LX - 12, y: 30, width: 862, height: 42, rx: 5,
+      fill: 'currentColor', opacity: 0.045 }));
+    label(LX, 47, '지금 들어온 웨이퍼', { size: 10, op: 0.55 });
+    var wm = mkMarker(applyCh, 1.25);
+    wm.setAttribute('transform', 'translate(' + (LX + 6) + ',60)');
+    gApply.appendChild(wm);
+    label(LX + 18, 64, applyCh, { fill: col, weight: 600, size: 12 });
+    label(LX + 230, 47, '사전공정 Pre_Oper2 계측값', { size: 10, op: 0.55 });
+    label(LX + 230, 64, applyX2.toFixed(1), { size: 12, weight: 600 });
+    label(LX + 400, 47, '입고 두께 실측', { size: 10, op: 0.55 });
+    label(LX + 400, 64, '없음 — 재지 않았다', { size: 12, op: 0.6 });
+    label(846, 47, '이 웨이퍼에 적용할 값', { size: 10, op: 0.55, anchor: 'end' });
+    label(846, 64, 'Pre_Thk = ?', { size: 12, weight: 600, fill: 'var(--az-learn)', anchor: 'end' });
+
+    // ── Pre_Target 기준선 ─────────────────────────────────
+    gApply.appendChild(el('line', { x1: ax(PRE_TARGET), x2: ax(PRE_TARGET), y1: 92, y2: 292,
+      stroke: 'currentColor', 'stroke-width': 1.2, opacity: 0.3, 'stroke-dasharray': '4 4' }));
+
+    // ── 1행 : Pre_Target (Set-up 고정값) ───────────────────
+    label(LX, ROW[0] + 13, 'Pre_Target', { weight: 600 });
+    label(LX, ROW[0] + 28, 'Set-up 고정값', { size: 10, op: 0.5 });
+    gApply.appendChild(el('rect', { x: ax(PRE_TARGET) - 2.5, y: ROW[0], width: 5, height: BH,
+      rx: 1, fill: 'currentColor', opacity: 0.55 }));
+    label(VX, ROW[0] + 14, PRE_TARGET.toFixed(1) + ' Å', { anchor: 'end', weight: 600, size: 12.5 });
+
+    // ── 2행 : + moving_avg ────────────────────────────────
+    label(LX, ROW[1] + 13, '+ moving_avg', { weight: 600, fill: col });
+    label(LX, ROW[1] + 28, applyCh + ' 채널의 학습값', { size: 10, op: 0.5 });
+    var x0 = ax(PRE_TARGET), x1 = ax(PRE_TARGET + ma);
+    gApply.appendChild(el('rect', { x: Math.min(x0, x1), y: ROW[1], width: Math.abs(x1 - x0) || 2,
+      height: BH, rx: 2, fill: col, opacity: 0.85 }));
+    label(VX, ROW[1] + 14, sgn(ma) + ' Å', { anchor: 'end', weight: 600, size: 12.5, fill: col });
+
+    // ── 3행 : + Pre_Oper2 회귀항 ──────────────────────────
+    label(LX, ROW[2] + 13, '+ Pre_Oper2 회귀항', { weight: 600, fill: 'var(--az-learn)' });
+    label(LX, ROW[2] + 28, applyX2.toFixed(1) + ' × ' + B1.toFixed(3) + ' + (' + B0.toFixed(2) + ')',
+      { size: 10, op: 0.55 });
+    var x2a = ax(PRE_TARGET + ma), x2b = ax(PRE_TARGET + ma + reg);
+    gApply.appendChild(el('rect', { x: Math.min(x2a, x2b), y: ROW[2], width: Math.abs(x2b - x2a) || 2,
+      height: BH, rx: 2, fill: 'var(--az-learn)', opacity: 0.85 }));
+    label(VX, ROW[2] + 14, sgn(reg) + ' Å', { anchor: 'end', weight: 600, size: 12.5,
+      fill: 'var(--az-learn)' });
+
+    // ── 4행 : Pre_Oper3·4 (이 공정은 미설정) ──────────────
+    label(LX, ROW[3] + 13, '+ Pre_Oper3 · Pre_Oper4', { op: 0.4 });
+    label(LX, ROW[3] + 28, '이 공정은 Set-up 없음 → 항 제외', { size: 10, op: 0.35 });
+    gApply.appendChild(el('rect', { x: ax(PRE_TARGET + vm) - 1.5, y: ROW[3], width: 3, height: BH,
+      rx: 1, fill: 'currentColor', opacity: 0.18 }));
+    label(VX, ROW[3] + 14, '0.0 Å', { anchor: 'end', op: 0.35, size: 12 });
+
+    // ── 단계 연결 점선 (waterfall) ────────────────────────
+    [[x0, ROW[0]], [x1, ROW[1]], [x2b, ROW[2]], [ax(PRE_TARGET + vm), ROW[3]]]
+      .forEach(function (pt, i, arr) {
+        if (i === arr.length - 1) { return; }
+        gApply.appendChild(el('line', { x1: pt[0], x2: arr[i + 1][0], y1: pt[1] + BH, y2: arr[i + 1][1],
+          stroke: 'currentColor', 'stroke-width': 1, opacity: 0.28, 'stroke-dasharray': '3 3' }));
+      });
+
+    // ── 합계 ──────────────────────────────────────────────
+    gApply.appendChild(el('line', { x1: LX - 12, x2: 884, y1: 286, y2: 286,
+      stroke: 'currentColor', 'stroke-width': 1, opacity: 0.25 }));
+    label(LX, 312, '= Pre_Thk', { weight: 600, size: 13.5, fill: 'var(--az-learn)' });
+    label(LX, 328, '이 웨이퍼의 입고 두께', { size: 10, op: 0.5 });
+    gApply.appendChild(el('line', { x1: ax(pre), x2: ax(pre), y1: 296, y2: 330,
+      stroke: 'var(--az-learn)', 'stroke-width': 3 }));
+    gApply.appendChild(el('circle', { cx: ax(pre), cy: 296, r: 4, fill: 'var(--az-learn)' }));
+    label(VX, 314, pre.toFixed(1) + ' Å', { anchor: 'end', weight: 600, size: 16,
+      fill: 'var(--az-learn)' });
+
+    // Pre_Target 대비 차이
+    label(ax(pre) + (pre >= PRE_TARGET ? 8 : -8), 345, sgn(vm) + ' Å vs Pre_Target',
+      { size: 10.5, fill: 'var(--az-learn)', op: 0.85,
+        anchor: pre >= PRE_TARGET ? 'start' : 'end' });
+
+    // ── 다음 단계로 ───────────────────────────────────────
+    label(LX, 378, '→ 이 Pre_Thk 가 그대로 ② Removal Rate 학습과 Simulation 의 입력이 된다 :  ' +
+      'RR = ( Pre_Thk − Post_Thk ) / Pol_Time', { size: 11, fill: 'var(--az-learn)', weight: 600 });
+    label(LX, 396, '두께를 재지 않은 웨이퍼인데도, 이 장비에서 온 웨이퍼들의 과거 잔차(moving avg)와 ' +
+      '이 웨이퍼 자신의 사전공정 계측값(회귀항)으로 입고 두께가 정해진다.',
+      { size: 10.5, op: 0.55 });
+  }
+
+  function drawOverlays(st) {
+    clear(gSeps); clear(gLines); clear(gFinal); clear(gApply);
+    var y = mkY(st._dom);
+
+    if (st.zero) {
+      gLines.appendChild(el('line', { x1: PL.x0, x2: PL.x1, y1: y(0), y2: y(0),
+        stroke: 'currentColor', 'stroke-width': 1.4, opacity: 0.4, 'stroke-dasharray': '6 4' }));
+    }
+    // 시간축 화면에 패드 교체 시점을 찍는다 — 이 축이 "시간 순서"임을 분명히 한다
+    if (st.padTicks) {
+      for (var pc = 1; pc < N_CYC; pc++) {
+        var px = PL.x0 + (pc * CYCLE_LEN * 3) / (N - 1) * (PL.x1 - PL.x0);
+        gSeps.appendChild(el('line', { x1: px, x2: px, y1: PL.y0, y2: PL.y1,
+          stroke: 'var(--c4)', 'stroke-width': 1, opacity: 0.28, 'stroke-dasharray': '3 4' }));
+        gSeps.appendChild(el('line', { x1: px, x2: px, y1: PL.y1 - 10, y2: PL.y1 + 4,
+          stroke: 'var(--c4)', 'stroke-width': 1.6, opacity: 0.9 }));
+      }
+      for (var pc2 = 0; pc2 < N_CYC; pc2++) {
+        var mid = PL.x0 + ((pc2 + 0.5) * CYCLE_LEN * 3) / (N - 1) * (PL.x1 - PL.x0);
+        gSeps.appendChild(el('text', { x: mid, y: PL.y1 + 16, 'text-anchor': 'middle',
+          'font-size': 9.5, 'font-family': 'IBM Plex Mono, monospace',
+          fill: 'var(--c4)', opacity: 0.65 }, '패드 주기 ' + (pc2 + 1)));
+      }
+    }
+
+    // 산포 밴드 (±3σ) — 케이스를 바꾸면 밴드가 커지거나 작아진다
+    if (st.spread || st.spreadPol) {
+      var isPol = !!st.spreadPol;
+      var ST    = isPol ? SIG_POL : SIG;
+      var cur3  = ST[APPLIED ? 'after' : 'before'];
+      var oth3  = ST[APPLIED ? 'before' : 'after'];
+      var wide  = cur3.sd > oth3.sd;                 // 지금 밴드가 더 넓은가
+      // 두께는 좁을수록 좋다 / 시간은 좁고 넓고가 좋고 나쁨이 아니다
+      var curCol = isPol ? 'var(--c2)' : (APPLIED ? 'var(--az-learn)' : 'var(--c4)');
+      var dec    = isPol ? 1 : 0;
+      var unit   = isPol ? ' s' : ' Å';
+
+      gSeps.appendChild(el('rect', {
+        x: PL.x0, y: y(oth3.mean + 3 * oth3.sd),
+        width: PL.x1 - PL.x0,
+        height: Math.abs(y(oth3.mean - 3 * oth3.sd) - y(oth3.mean + 3 * oth3.sd)),
+        fill: 'none', stroke: 'currentColor', 'stroke-width': 1,
+        'stroke-dasharray': '5 4', opacity: 0.35 }));
+      gSeps.appendChild(el('rect', {
+        x: PL.x0, y: y(cur3.mean + 3 * cur3.sd),
+        width: PL.x1 - PL.x0,
+        height: Math.abs(y(cur3.mean - 3 * cur3.sd) - y(cur3.mean + 3 * cur3.sd)),
+        fill: curCol, opacity: 0.10 }));
+      [cur3.mean + 3 * cur3.sd, cur3.mean - 3 * cur3.sd].forEach(function (v) {
+        gSeps.appendChild(el('line', { x1: PL.x0, x2: PL.x1, y1: y(v), y2: y(v),
+          stroke: curCol, 'stroke-width': 1.6 }));
+      });
+
+      var w6 = 6 * cur3.sd, o6 = 6 * oth3.sd;
+      gSeps.appendChild(el('text', { x: PL.x1 - 6, y: y(cur3.mean + 3 * cur3.sd) - 8,
+        'text-anchor': 'end', 'font-size': 12, 'font-family': 'IBM Plex Mono, monospace',
+        fill: curCol, 'font-weight': 600 },
+        (APPLIED ? '적용 중' : '적용 전') + '  ' + (isPol ? 'Pol_Time' : 'Post') +
+        ' 3σ 폭 = ' + w6.toFixed(dec) + unit));
+      gSeps.appendChild(el('text', { x: PL.x0, y: PL.y0 - 6, 'font-size': 11,
+        'font-family': 'IBM Plex Mono, monospace', fill: 'currentColor', opacity: 0.55 },
+        '점선 = ' + (APPLIED ? '적용 전' : '적용 중') + ' 밴드 (' + o6.toFixed(dec) + unit + ')'));
+
+      if (isPol) {
+        gSeps.appendChild(el('text', { x: PL.x1 - 6, y: PL.y0 - 6, 'text-anchor': 'end',
+          'font-size': 12, 'font-family': 'IBM Plex Mono, monospace',
+          fill: 'var(--c2)', 'font-weight': 600 },
+          wide ? '시간 산포가 커졌다 — 웨이퍼마다 다르게 깎고 있다는 뜻'
+               : '시간 산포가 작다 — 제어를 안 하고 있다는 뜻 (좋은 게 아니다)'));
+      } else if (APPLIED) {
+        gSeps.appendChild(el('text', { x: PL.x1 - 6, y: PL.y0 - 6, 'text-anchor': 'end',
+          'font-size': 12, 'font-family': 'IBM Plex Mono, monospace',
+          fill: 'var(--az-learn)', 'font-weight': 600 },
+          '두께 산포 ' + o6.toFixed(0) + ' Å → ' + w6.toFixed(0) + ' Å   ' +
+          (100 * (1 - w6 / o6)).toFixed(0) + '% 개선'));
+      }
+    }
+
+    if (st.seps) {
+      segBox.forEach(function (b) {
+        gSeps.appendChild(el('rect', { x: b.x - 6, y: PL.y0, width: b.w + 12, height: PL.y1 - PL.y0,
+          fill: 'currentColor', opacity: 0.035, rx: 4 }));
+        gSeps.appendChild(el('text', { x: b.x + b.w / 2, y: PL.y1 + 16, 'text-anchor': 'middle',
+          'font-size': 9.5, 'font-family': 'IBM Plex Mono, monospace', fill: 'currentColor', opacity: 0.6 }, b.label));
+      });
+    }
+    if (st.ma) {
+      SEGS.forEach(function (sg, si) {
+        var pts = [];
+        sg.rows.forEach(function (w, j) {
+          if (w.ma !== null) { pts.push(xSeg[w.i] + ',' + y(w.ma)); }
+        });
+        if (pts.length > 1) {
+          gLines.appendChild(el('polyline', { points: pts.join(' '), fill: 'none',
+            stroke: 'var(--az-trend)', 'stroke-width': 2.6 }));
+        }
+        if (si === 0) {
+          gLines.appendChild(el('text', { x: segBox[0].x, y: PL.y0 + 2, 'font-size': 10,
+            'font-family': 'IBM Plex Mono, monospace', fill: 'var(--az-trend)', 'font-weight': 600 },
+            'Unctr_Thk_MA — rolling(10)'));
+        }
+      });
+    }
+    if (st.chBoxes) {
+      chBox.forEach(function (b) {
+        gSeps.appendChild(el('rect', { x: b.x - 8, y: PL.y0, width: b.w + 16, height: PL.y1 - PL.y0,
+          fill: 'currentColor', opacity: 0.035, rx: 4 }));
+        gSeps.appendChild(el('text', { x: b.x + b.w / 2, y: PL.y1 + 16, 'text-anchor': 'middle',
+          'font-size': 10, 'font-family': 'IBM Plex Mono, monospace', fill: CH_COLOR[b.ch], 'font-weight': 600 }, b.ch));
+      });
+    }
+    if (st.chMeans) {
+      chBox.forEach(function (b) {
+        var v = VM[b.ch];
+        gLines.appendChild(el('line', { x1: b.x - 8, x2: b.x + b.w + 8, y1: y(v), y2: y(v),
+          stroke: CH_COLOR[b.ch], 'stroke-width': 2.6 }));
+        gLines.appendChild(el('text', { x: b.x + b.w / 2, y: y(v) + (v >= 0 ? -9 : 17), 'text-anchor': 'middle',
+          'font-size': 11, 'font-family': 'IBM Plex Mono, monospace', fill: CH_COLOR[b.ch], 'font-weight': 600 },
+          (v >= 0 ? '+' : '') + v.toFixed(1) + ' Å'));
+      });
+    }
+    if (st.reg) {
+      var xa = PL.x0, xb = PL.x1;
+      var va = B1 * D_X2[0] + B0, vb = B1 * D_X2[1] + B0;
+      gLines.appendChild(el('line', { x1: xa, x2: xb, y1: y(va), y2: y(vb),
+        stroke: 'var(--az-learn)', 'stroke-width': 2.8 }));
+      gLines.appendChild(el('text', { x: PL.x1 - 6, y: y(vb) - 12, 'text-anchor': 'end', 'font-size': 11.5,
+        'font-family': 'IBM Plex Mono, monospace', fill: 'var(--az-learn)', 'font-weight': 600 },
+        'y = ' + B1.toFixed(3) + ' x + ' + B0.toFixed(2)));
+    }
+    if (st.apply) { drawApply(); }
+
+    if (st.final) {
+      // 열 좌표 — 값 열은 모두 오른쪽 정렬(tabular)
+      var COL = { ch: PL.x0 + 16, vm: PL.x0 + 290, tb: PL.x0 + 420,
+                  err: PL.x0 + 530, pre: PL.x0 + 720 };
+      var rowH = 44, top = PL.y0 + 46;
+
+      [['사전공정 채널', COL.ch - 16, 'start'], ['복원한 VM', COL.vm, 'end'],
+       ['실제 편차 (정답)', COL.tb, 'end'], ['차이', COL.err, 'end'],
+       ['Pre_Thk = 5500 + VM', COL.pre, 'end']].forEach(function (h) {
+        gFinal.appendChild(el('text', { x: h[1], y: top - 16, 'text-anchor': h[2], 'font-size': 10,
+          'font-family': 'IBM Plex Mono, monospace', fill: 'currentColor', opacity: 0.5 }, h[0]));
+      });
+      gFinal.appendChild(el('line', { x1: PL.x0, x2: COL.pre, y1: top - 8, y2: top - 8,
+        stroke: 'currentColor', 'stroke-width': 1, opacity: 0.2 }));
+
+      CHS.forEach(function (ch, ci) {
+        var yy = top + ci * rowH + 16;
+        var vm = VM[ch], tb = TRUE_BIAS[ch], err = vm - tb;
+        gFinal.appendChild(el('line', { x1: PL.x0, x2: COL.pre, y1: yy + 12, y2: yy + 12,
+          stroke: 'currentColor', 'stroke-width': 1, opacity: 0.1 }));
+        var rm = mkMarker(ch, 1.3);
+        rm.setAttribute('transform', 'translate(' + (PL.x0 + 5) + ',' + (yy - 4) + ')');
+        gFinal.appendChild(rm);
+        gFinal.appendChild(el('text', { x: COL.ch, y: yy, 'font-size': 12,
+          'font-family': 'IBM Plex Mono, monospace', fill: 'currentColor' }, ch));
+        gFinal.appendChild(el('text', { x: COL.vm, y: yy, 'text-anchor': 'end', 'font-size': 14,
+          'font-family': 'IBM Plex Mono, monospace', fill: CH_COLOR[ch], 'font-weight': 600 },
+          (vm >= 0 ? '+' : '') + vm.toFixed(1) + ' Å'));
+        gFinal.appendChild(el('text', { x: COL.tb, y: yy, 'text-anchor': 'end', 'font-size': 12.5,
+          'font-family': 'IBM Plex Mono, monospace', fill: 'currentColor', opacity: 0.6 },
+          (tb >= 0 ? '+' : '') + tb.toFixed(1) + ' Å'));
+        gFinal.appendChild(el('text', { x: COL.err, y: yy, 'text-anchor': 'end', 'font-size': 12.5,
+          'font-family': 'IBM Plex Mono, monospace', fill: 'var(--az-trend)' },
+          (err >= 0 ? '+' : '') + err.toFixed(1) + ' Å'));
+        gFinal.appendChild(el('text', { x: COL.pre, y: yy, 'text-anchor': 'end', 'font-size': 13.5,
+          'font-family': 'IBM Plex Mono, monospace', fill: 'currentColor', 'font-weight': 600 },
+          (PRE_TARGET + vm).toFixed(1) + ' Å'));
+      });
+      // 네 채널에 공통으로 실린 성분(후행 이동평균의 지연)과, 그것을 뺀 상대 오차
+      var errs   = CHS.map(function (c) { return VM[c] - TRUE_BIAS[c]; });
+      var common = errs.reduce(function (s, e) { return s + e; }, 0) / errs.length;
+      var relErr = Math.max.apply(null, errs.map(function (e) { return Math.abs(e - common); }));
+      gFinal.appendChild(el('text', { x: PL.x0, y: PL.y1 + 26, 'font-size': 10.5,
+        'font-family': 'IBM Plex Mono, monospace', fill: 'var(--az-trend)' },
+        '네 채널의 차이가 모두 ' + (common >= 0 ? '+' : '') + common.toFixed(1) +
+        ' Å 근처로 같다 — 이동평균이 뒤를 보기 때문에 생기는 공통 성분이라 모든 웨이퍼에 동일하게 실린다'));
+      gFinal.appendChild(el('text', { x: PL.x0, y: PL.y1 + 45, 'font-size': 11.5,
+        'font-family': 'IBM Plex Mono, monospace', fill: 'var(--az-learn)', 'font-weight': 600 },
+        '→ 두께를 한 번도 재지 않고, 채널 간 상대 편차를 최대 오차 ' +
+        relErr.toFixed(1) + ' Å 안에서 복원했다'));
+    }
+  }
+
+  // ══════════════════════════════════════════════════════════
+  //  5. 애니메이션 / 컨트롤
+  // ══════════════════════════════════════════════════════════
+  var idx = -1, raf = null, timer = null, playing = false;
+  var speed = 1;
+  var reduce = window.matchMedia && window.matchMedia('(prefers-reduced-motion: reduce)').matches;
+
+  var elStep = document.getElementById('az-step');
+  var elTitle = document.getElementById('az-title');
+  var elDesc = document.getElementById('az-desc');
+  var elEq   = document.getElementById('az-eq');
+  var btnPrev = document.getElementById('az-prev');
+  var btnNext = document.getElementById('az-next');
+  var btnPlay = document.getElementById('az-play');
+  var dotsBox = document.getElementById('az-dots');
+
+  var dotEls = STAGES.map(function (s, i) {
+    var b = document.createElement('button');
+    b.type = 'button'; b.className = 'az-dot'; b.textContent = i;
+    b.title = s.title;
+    b.addEventListener('click', function () { stop(); go(i); });
+    dotsBox.appendChild(b);
+    return b;
+  });
+
+  function easeInOut(t) { return t < 0.5 ? 4 * t * t * t : 1 - Math.pow(-2 * t + 2, 3) / 2; }
+
+  function go(n) {
+    if (n < 0 || n >= STAGES.length) { return; }
+    var prevIdx = idx;
+    idx = n;
+    var st = STAGES[idx];
+
+    elStep.textContent = 'STEP ' + idx + ' / ' + (STAGES.length - 1);
+    elTitle.textContent = st.title;
+    st._dom  = (typeof st.dom  === 'function') ? st.dom()  : st.dom;
+    st._note = (typeof st.note === 'function') ? st.note() : st.note;
+    elDesc.textContent = (typeof st.desc === 'function') ? st.desc() : st.desc;
+    if (st.eq) { elEq.hidden = false; elEq.innerHTML = st.eq; } else { elEq.hidden = true; }
+
+    dotEls.forEach(function (d, i) {
+      d.className = 'az-dot' + (i === idx ? ' on' : (i < idx ? ' done' : ''));
+    });
+    btnPrev.disabled = (idx === 0);
+    btnNext.disabled = (idx === STAGES.length - 1);
+
+    if (st.final || st.apply) { clear(gGrid); } else { drawGrid(st._dom, st.unit, st.xlab, st._note); }
+    document.getElementById('az-apply').hidden = !st.apply;
+    gSeps.style.opacity = gLines.style.opacity = gFinal.style.opacity = gApply.style.opacity = '0';
+
+    var tx = W.map(function (w, i) { return (typeof st.x[i] === 'number') ? st.x[i] : st.x(w); });
+    var ty = W.map(function (w) { return st.y(w); });
+    var to = W.map(function (w) { return st.op(w); });
+
+    var fx = cur.x.slice(), fy = cur.y.slice(), fo = cur.o.slice();
+    var dur = reduce ? 0 : (prevIdx < 0 ? 420 : 950) * speed;
+    var t0 = performance.now();
+
+    if (raf) { cancelAnimationFrame(raf); }
+    function frame(now) {
+      var p = dur === 0 ? 1 : Math.min(1, (now - t0) / dur);
+      var e = easeInOut(p);
+      for (var i = 0; i < N; i++) {
+        var x = fx[i] + (tx[i] - fx[i]) * e;
+        var y = fy[i] + (ty[i] - fy[i]) * e;
+        var o = fo[i] + (to[i] - fo[i]) * e;
+        dots[i].setAttribute('transform', 'translate(' + x.toFixed(1) + ',' + y.toFixed(1) + ')');
+        dots[i].setAttribute('opacity', o.toFixed(3));
+      }
+      if (p < 1) { raf = requestAnimationFrame(frame); }
+      else {
+        cur.x = tx; cur.y = ty; cur.o = to;
+        drawOverlays(st);
+        gSeps.style.transition = gLines.style.transition = gFinal.style.transition =
+          gApply.style.transition = 'opacity ' + (reduce ? 0 : 340) + 'ms ease';
+        gSeps.style.opacity = gLines.style.opacity = gFinal.style.opacity =
+          gApply.style.opacity = '1';
+        raf = null;
+      }
+    }
+    raf = requestAnimationFrame(frame);
+    updatePanels();
+  }
+
+  function updatePanels() {
+    document.getElementById('az-fix').textContent = FIX.toFixed(1) + ' s';
+    var sg = document.getElementById('az-sig');
+    var c3 = SIG[APPLIED ? 'after' : 'before'], o3 = SIG[APPLIED ? 'before' : 'after'];
+    sg.textContent = (6 * c3.sd).toFixed(0) + ' Å' +
+      (APPLIED ? '  (−' + (100 * (1 - c3.sd / o3.sd)).toFixed(0) + '%)' : '');
+    sg.className = 'v' + (APPLIED ? ' ok' : '');
+    var sgp = document.getElementById('az-sigp');
+    var cp = SIG_POL[APPLIED ? 'after' : 'before'];
+    sgp.textContent = (6 * cp.sd).toFixed(1) + ' s';
+    document.getElementById('az-s-apc').textContent = idx >= 2 ? '제거됨' : '남아 있음';
+    document.getElementById('az-s-apc').className = 'v' + (idx >= 2 ? ' ok' : ' dim');
+    document.getElementById('az-s-cmp').textContent = idx >= 4 ? '제거됨' : '남아 있음';
+    document.getElementById('az-s-cmp').className = 'v' + (idx >= 4 ? ' ok' : ' dim');
+    document.getElementById('az-s-valid').textContent =
+      (idx >= 4 ? VALID.length : N) + ' / ' + N;
+
+    var box = document.getElementById('az-vm-list');
+    box.innerHTML = CHS.map(function (ch) {
+      var shown = idx >= 5;
+      var si = CHS.indexOf(ch);
+      var sty = si === 2 ? 'border-bottom-color:' + CH_COLOR[ch] : 'background:' + CH_COLOR[ch];
+      return '<div class="az-kv"><span class="k"><span class="az-swatch s' + si + '" style="' +
+        sty + '"></span>' + ch + '</span><span class="v ' + (shown ? 'ok' : 'dim') + '">' +
+        (shown ? (VM[ch] >= 0 ? '+' : '') + VM[ch].toFixed(1) + ' Å' : '—') + '</span></div>';
+    }).join('');
+
+    var b1 = document.getElementById('az-b1'), b0 = document.getElementById('az-b0');
+    b1.textContent = idx >= 6 ? B1.toFixed(3) : '—';
+    b0.textContent = idx >= 6 ? B0.toFixed(2) : '—';
+    b1.className = 'v' + (idx >= 6 ? ' ok' : ' dim');
+    b0.className = 'v' + (idx >= 6 ? ' ok' : ' dim');
+  }
+
+  function stop() {
+    playing = false;
+    if (timer) { clearTimeout(timer); timer = null; }
+    btnPlay.textContent = '▶ 재생';
+  }
+  function tick() {
+    if (!playing) { return; }
+    if (idx >= STAGES.length - 1) { stop(); return; }
+    go(idx + 1);
+    timer = setTimeout(tick, (1200 + 2600) * speed);
+  }
+
+  btnPlay.addEventListener('click', function () {
+    if (playing) { stop(); return; }
+    if (idx >= STAGES.length - 1) { go(0); }
+    playing = true;
+    btnPlay.textContent = '❚❚ 정지';
+    timer = setTimeout(tick, (1200 + 1400) * speed);
+  });
+  btnPrev.addEventListener('click', function () { stop(); go(idx - 1); });
+  btnNext.addEventListener('click', function () { stop(); go(idx + 1); });
+  document.getElementById('az-spd').addEventListener('change', function (e) {
+    speed = parseFloat(e.target.value);
+  });
+
+  // STEP 7 컨트롤 — 진행 중인 웨이퍼의 채널·계측값을 바꿔 합산 결과를 본다
+  var selCh = document.getElementById('az-w-ch');
+  CHS.forEach(function (ch) {
+    var o = document.createElement('option');
+    o.value = ch; o.textContent = ch;
+    if (ch === applyCh) { o.selected = true; }
+    selCh.appendChild(o);
+  });
+  selCh.addEventListener('change', function (e) { applyCh = e.target.value; drawApply(); });
+  var rngX2 = document.getElementById('az-w-x2');
+  rngX2.addEventListener('input', function (e) {
+    applyX2 = parseFloat(e.target.value);
+    document.getElementById('az-w-x2v').textContent = applyX2.toFixed(1);
+    drawApply();
+  });
+  Array.prototype.forEach.call(document.querySelectorAll('.az-case-btn'), function (b) {
+    b.addEventListener('click', function () {
+      var want = (b.getAttribute('data-applied') === '1');
+      if (want === APPLIED) { return; }
+      stop();
+      APPLIED = want;
+      Array.prototype.forEach.call(document.querySelectorAll('.az-case-btn'), function (o) {
+        o.className = 'az-case-btn' + ((o.getAttribute('data-applied') === '1') === APPLIED ? ' on' : '');
+      });
+      applyCase();          // 같은 웨이퍼로 연마 시간·후처리 두께만 다시 계산
+      go(idx);              // 현재 단계를 새 데이터로 다시 그린다
+    });
+  });
+
+  document.addEventListener('keydown', function (e) {
+    if (e.target.tagName === 'SELECT' || e.target.tagName === 'INPUT') { return; }
+    if (e.key === 'ArrowRight') { stop(); go(idx + 1); }
+    if (e.key === 'ArrowLeft')  { stop(); go(idx - 1); }
+  });
+
+  go(0);
+})();
+</script>
+{% endblock %}

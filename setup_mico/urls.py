@@ -66,6 +66,13 @@ urlpatterns = [
     path('simulation/links/<int:pk>/update/', views.simulation_link_update, name='simulation_link_update'),
     path('simulation/links/<int:pk>/delete/', views.simulation_link_delete, name='simulation_link_delete'),
 
+    # 알고리즘 가이드 (교육 자료)
+    path('guide/animation/', views.guide_animation, name='guide_animation'),
+    path('guide/animation/rr/', views.guide_animation_rr, name='guide_animation_rr'),
+    path('guide/animation/offset/', views.guide_animation_offset, name='guide_animation_offset'),
+    path('guide/animation/pressure/', views.guide_animation_pressure, name='guide_animation_pressure'),
+    path('guide/algorithm/', views.algorithm_guide, name='algorithm_guide'),
+
     # VOC
     path('voc/', views.voc_list, name='voc_list'),
     path('voc/create/', views.voc_create, name='voc_create'),
