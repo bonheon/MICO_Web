@@ -4,7 +4,8 @@ MICO를 HCP → nAPC로 전환하면서, 핵심 알고리즘을 MLflow 기반 AI
 올리기 위한 검토·예제 폴더.
 
 - `MICO MLflow 작업지시서.md` — 원본 작업지시서
-- `simple_example.py` — **여기부터 시작.** 한 파일짜리 최소 예제
+- `mico_upload.py` / `mico_call.py` — **여기부터 시작.** 숫자 배열만 주고받는 업로드/호출 한 쌍
+- `simple_example.py` — MLflow pyfunc 개념 확인용 (로컬 저장까지)
 - `mico_deploy/` — 작업지시서 구조를 그대로 구현한 전체 예제
 
 ---
@@ -78,9 +79,90 @@ python3 test_local.py --serve
 `--env-manager local` 을 빼면 conda 환경을 새로 만들려다 사내망에서 막힌다.
 `gunicorn: not found` (return code 127) 가 나오면 gunicorn 이 PATH에 없는 것.
 
-### 5단계 — tracking 서버 등록
-주소를 받은 뒤 `register_model.py` 의 `TRACKING_URI` 를 채우고 실행.
-받기 전에는 건너뛴다.
+### 5단계 — tracking 서버 업로드 + 호출
+
+```bash
+cd nAPC
+python3 mico_upload.py     # 상단 {TODO} 2개(uri, password) 채우고 실행
+python3 mico_call.py       # url 채우고 실행
+```
+
+사내 예제(ElasticNet + iris)와 **서빙에 관계되는 부분을 전부 같게** 맞췄다.
+다른 건 계산 내용뿐이다.
+
+| 항목 | 값 |
+|---|---|
+| 입력 | 숫자 2차원 배열만, `datatype: "ndarray"` |
+| 출력 | 숫자 1차원 배열만 (순수 `float`) |
+| `input_example` | `log_model` 에 넘긴다 -> `serving_input_example.json` 생성 |
+| `artifacts` | `model.pkl` + `config.json` -> `artifacts` 폴더 생성 |
+| 입력 한 행 | `[a, b, post_thk, pol_time, target]` |
+| 출력 | `[offset, ...]` |
+
+`equipment_id` 는 문자열이라 숫자 배열에 넣지 않는다. 행 순서로 구분하고,
+`mico_call.py` 가 `equipment_ids` 리스트와 zip 해서 보여준다.
+
+#### 반드시 지킬 것 (전부 실제로 깨졌던 것들)
+
+**1. `artifact` 에 직접 만든 클래스를 넣지 말 것.**
+`joblib.dump` 는 클래스를 **이름으로만** 저장한다(`__main__.XXX`). 서빙
+컨테이너에서는 `__main__` 이 gunicorn 이라 그 클래스를 못 찾고 워커가 아예
+못 뜬다.
+
+```
+AttributeError: Can't get attribute 'ArithModel' on <module '__main__' ... gunicorn>
+```
+
+사내 예제가 `joblib.dump(model, ...)` 를 써도 되는 건 `ElasticNet` 이 설치된
+sklearn 모듈의 클래스이기 때문이다. 우리가 만든 클래스는 그렇지 않다.
+artifact 에는 **순수 데이터(dict/json)만** 넣고, 계산은 함수로 두고
+`ModelWrapper` 안에서 부른다. `ModelWrapper` 는 MLflow 가 cloudpickle 로
+'값 자체'를 저장하므로 안전하다.
+
+**2. `input_example` 을 `log_model` 에 반드시 넘길 것.**
+안 넘기면 `serving_input_example.json` 이 안 생긴다. 사내 MLflow 의 다른
+모델에는 전부 있는 파일이다.
+
+**3. `input_example` 과 호출 payload 를 똑같이 맞출 것.**
+`input_example` 에서 signature 가 추론돼 강제된다. 다르면
+`Failed to enforce schema of data` 가 난다.
+`mico_call.py` 는 `input_example.json` 을 그대로 읽어 보내므로 어긋날 일이 없다.
+
+**4. `predict` 와 `predict_stream` 을 둘 다 구현할 것.**
+`predict_stream` 을 안 만들면 MLflow 기본 구현이 `NotImplementedError` 를 내고,
+사내 게이트웨이가 그걸 이렇게 감싸서 돌려준다.
+
+```json
+{"error_code": "15001", "error_type": "NotImplementedError",
+ "hcp_error_type": "NOT_IMPLEMENTED", "error_message": "Inference Error"}
+```
+
+pyfunc 안에서 `NotImplementedError` 를 **직접 던지는 곳은
+`PythonModel.predict_stream` 기본 구현 하나뿐**이다(`predict` 는 본문이 비어 있다).
+실제로 `predict()` 는 되는데 `predict_stream()` 만 이 예외를 내는 것을 확인했다.
+
+**5. 출력은 1차원 순수 `float`.**
+2차원이면 런타임이 결과를 배열에 담다가
+`setting an array element with a sequence` 로 죽을 수 있다.
+
+#### 올린 뒤 확인할 것
+
+MLflow UI 에서 그 모델 artifact 에 아래 두 가지가 보여야 한다.
+
+- `serving_input_example.json` — 이게 곧 POST 할 본문이다. 그대로 복사해 보내도 된다
+- `artifacts/` 폴더 (`model.pkl`, `config.json`)
+
+#### 에러 메시지로 어디까지 갔는지 읽기
+
+| 메시지 | 뜻 |
+|---|---|
+| `NOT_IMPLEMENTED` | 입력조차 처리 못 함 |
+| `Failed to enforce schema of data` | payload 가 모델 signature 와 불일치 |
+| `Inference Error` | 입력은 통과. `predict` 안 또는 결과 처리에서 실패 |
+
+로컬 검증 결과: 서버 기동 `ping 200`, `serving_input_example.json` 을 그대로
+POST -> `[7.0, 12.0, 22.0]`, `mico_call.py` 로도 동일.
+
 
 ---
 

@@ -157,7 +157,23 @@ ADMIN (superuser만 노출)
 MICO를 HCP → nAPC로 전환하면서 핵심 알고리즘을 MLflow 기반 AI Studio에 올리는 작업.
 상세 내용·실행 순서·미해결 항목은 **`nAPC/README.md`** 참고.
 
-- `nAPC/simple_example.py` — 한 파일 최소 예제. pre_thk_vm → removal_rate → offset 3단계 체인을 사칙연산으로 구현
+- `nAPC/mico_upload.py` / `mico_call.py` — **현재 기준 파일.** 숫자 배열만 주고받는 업로드/호출 한 쌍
+  - 사내 예제(ElasticNet+iris)와 서빙 관련 부분을 전부 동일하게 맞춤
+  - 입력 `[a,b,post_thk,pol_time,target]` (datatype `ndarray`) → 출력 `[offset,...]` 1차원 순수 float
+  - `input_example`을 `log_model`에 넘겨 `serving_input_example.json` 생성, `artifacts`(model.pkl+config.json)도 함께
+  - equipment_id는 문자열이라 숫자 배열에서 제외 — 행 순서로 구분
+- 서빙에서 실제로 깨졌던 것들 (mico_upload.py에 전부 반영):
+  - **artifact에 직접 만든 클래스를 넣지 말 것** — joblib(pickle)은 클래스를 이름(`__main__.XXX`)으로만 저장해서
+    서빙 컨테이너(`__main__`=gunicorn)에서 못 찾고 워커가 못 뜬다. artifact는 순수 dict/json만
+  - `input_example`을 안 넘기면 `serving_input_example.json`이 안 생겨 호출이 안 됨
+  - `input_example`과 호출 payload가 다르면 `Failed to enforce schema of data`
+  - `predict_stream`을 구현 안 하면 MLflow 기본 구현이 `NotImplementedError` → 게이트웨이가 `NOT_IMPLEMENTED`로 감쌈
+    (pyfunc에서 이 예외를 직접 던지는 곳은 `PythonModel.predict_stream` 하나뿐. `predict`는 본문이 비어 있음)
+  - 출력이 2차원이면 `setting an array element with a sequence`
+- 에러 단계 읽기: `NOT_IMPLEMENTED`(입력 처리 실패) → `Failed to enforce schema`(payload/signature 불일치)
+  → `Inference Error`(입력 통과, predict 안/출력 처리에서 실패)
+- 모델이 받는 요청 본문은 artifact의 `serving_input_example.json`이 정답 — UI에서 열어 그대로 POST 가능
+- `nAPC/simple_example.py` — MLflow pyfunc 개념 확인용 (로컬 저장까지)
 - `nAPC/mico_deploy/` — 작업지시서 구조 전체 예제 (save/register/test)
 - 핵심: MLflow pyfunc는 ML 모델이 아니어도 됨. `predict()` 메서드만 있으면 임의 파이썬 코드 서빙 가능
 - 구조: 매시간 학습 = 스케줄 실행(타임아웃 없음) / 시뮬레이션 = 엔드포인트(60초 제한) 로 분리
