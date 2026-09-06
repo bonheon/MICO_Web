@@ -146,7 +146,7 @@
   <div class="az-head">
     <div>
       <h1>PRESSURE 학습 — 같은 파이프라인을 zone 하나에 대해 돌린다</h1>
-      <p class="sub">④ 가 만든 BIAS 를 받아 Pre_Thk_VM 과 Removal Rate 를 끝까지 밟습니다. ① · ② 와 어디가 같고 어디가 갈라지는지가 전부입니다.</p>
+      <p class="sub">dep 챔버가 만든 웨이퍼 프로파일 차이에서 출발해, 그것을 학습하고 zone 압력으로 되돌리기까지. 점 색은 끝까지 그 웨이퍼가 거쳐 온 dep 챔버입니다.</p>
     </div>
     <a class="doclink" href="{% url 'algorithm_guide' %}">상세 문서 →</a>
   </div>
@@ -161,18 +161,18 @@
 
   <div class="az-acts">
     <div class="az-act" id="az-actA">
-      <span class="no">A</span> Pre_Thk_VM — detrend 로 입고 두께를 복원한다
-      <span class="rng">STEP 0–9</span>
+      <span class="no">A</span> Pre_Thk_VM — dep 챔버가 남긴 ED 편차를 복원한다
+      <span class="rng">STEP 0–10</span>
     </div>
     <div class="az-act" id="az-actB">
-      <span class="no">B</span> Removal Rate — 복원한 VM 으로 제거율을 학습한다
-      <span class="rng">STEP 10–15</span>
+      <span class="no">B</span> Removal Rate — 제거율을 학습해 압력에 반영한다
+      <span class="rng">STEP 11–17</span>
     </div>
   </div>
 
   <div class="az-stage">
     <div class="az-caption">
-      <div class="step" id="az-step">STEP 0 / 15</div>
+      <div class="step" id="az-step">STEP 0 / 17</div>
       <h2 id="az-title">—</h2>
       <p id="az-desc">—</p>
       <div class="eq" id="az-eq" hidden></div>
@@ -180,7 +180,7 @@
 
     <div class="az-canvas">
       <svg id="az-svg" viewBox="0 0 900 470" role="img"
-           aria-label="PRESSURE 학습: BIAS 에서 출발해 detrend 로 Pre_Thk_VM 을 학습하고, 그 VM 으로 zone 별 Removal Rate 를 학습하는 과정">
+           aria-label="PRESSURE 학습: dep 챔버별 웨이퍼 프로파일 차이에서 출발해, detrend 로 Pre_Thk_VM 을 학습하고, 그 VM 으로 zone 별 Removal Rate 를 학습한 뒤, 챔버 차이가 압력 보정으로 사라지는 것을 확인하는 과정">
         <g id="az-back"></g>
         <g id="az-pts"></g>
         <g id="az-over"></g>
@@ -209,8 +209,10 @@
     B 막은 <code>REMOVAL_RATE._process_models()</code> 의 <code>is_bias_type</code> 분기를 그대로 따라갑니다.
     데이터는 합성이지만 계산식·게이트 상수(<code>rolling(10)</code>, 4분면 <code>&gt; 25</code>,
     IF 4분할 <code>&gt;= 25</code>, <code>RR_Count</code>, 6σ)는 코드의 실제 값입니다.
-    사전공정 채널 집계는 화면에서 채널 평균으로 단순화했습니다 — 실제 코드는
+    dep 챔버 집계는 화면에서 챔버 평균으로 단순화했습니다 — 실제 코드는
     <code>Pre_Thk_Period</code> 일 길이의 시간창 rolling 입니다.
+    STEP 0 의 챔버별 입고 프로파일과 STEP 16 의 압력 보정 결과는 이 페이지가 만든 합성 시나리오로,
+    "면 평균은 목표에 맞는데 ED 만 챔버마다 어긋난다" 는 상황을 그대로 재현한 것입니다.
     개념 설명은 <a href="{% url 'guide_animation_pressure' %}">④ PRESSURE 개념</a>,
     TIME 판 원본은 <a href="{% url 'guide_animation' %}">① Pre_Thk_VM</a> ·
     <a href="{% url 'guide_animation_rr' %}">② Removal Rate</a> 를 보세요.
@@ -241,13 +243,39 @@
                                // — 떨어지면 '날짜와 소모품은 무관하다'가 화면에서 안 보인다
   var NCYC        = NW / CYC;
 
-  // 사전공정 채널 — 이 zone 의 입고 프로파일을 갈라놓는 원인
+  // 사전공정(dep) 챔버 — off = 이 챔버가 만든 웨이퍼의 ED zone 편차 (Å).
+  // 중요 : 웨이퍼 면 평균(13P)은 어느 챔버든 타겟에 맞는다. 갈라지는 것은 프로파일 '모양' 뿐이다.
+  // 그래서 평균만 보는 TIME 루프는 이 차이를 아예 볼 수 없고, zone 별 압력(PRESSURE)만 잡을 수 있다.
   var CH = [
     { id: 'PJ01_1', off:  11.5 }, { id: 'PJ01_2', off:   6.2 },
     { id: 'PJ01_3', off:  -3.0 }, { id: 'PJ01_4', off:  -9.5 },
     { id: 'PJ02_1', off:   8.0 }, { id: 'PJ02_2', off:   1.5 },
     { id: 'PJ02_3', off:  -6.5 }, { id: 'PJ02_4', off: -13.0 }
   ];
+
+  // 반경 방향 zone — 입고 프로파일을 그리기 위한 좌표
+  var ZR = [
+    { id: 'Z1', r:   8 }, { id: 'Z2', r:  42 }, { id: 'Z3', r:  75 },
+    { id: 'Z4', r: 105 }, { id: 'Z5', r: 130 }, { id: 'ED', r: 146 }
+  ];
+  var R_MAX = 150;
+  // 평균이 정확히 0 인 형상 basis → 어떤 챔버든 면 평균(13P)은 타겟 그대로,
+  // ED 에서만 off 만큼 벌어진다
+  // 지수를 조금씩 달리하면 챔버마다 휘는 모양이 달라진다 (한 점에서 교차하지 않는다).
+  // 어떤 지수를 쓰든 평균 0 · ED 에서 1.0 으로 정규화하므로 면 평균은 항상 타겟에 맞는다.
+  function shapeOf(pw) {
+    var f = ZR.map(function (z) { return Math.pow(z.r / R_MAX, pw); });
+    var m = f.reduce(function (a, b) { return a + b; }, 0) / f.length;
+    var c = f.map(function (v) { return v - m; });
+    var ed = c[c.length - 1];
+    return c.map(function (v) { return v / ed; });
+  }
+  var SHAPE = shapeOf(2);
+  // 챔버별 입고 프로파일 (zone 별 두께). 면 평균은 전부 PRE_TARGET.
+  function preProfile(off, k) {
+    var sh = shapeOf(k === undefined ? 2 : 1.5 + (k % 4) * 0.45);
+    return sh.map(function (v) { return PRE_TARGET + v * off; });
+  }
   var CH_COL = ['var(--c1)', 'var(--c2)', 'var(--c3)', 'var(--c4)',
                 '#0e9c86', '#8a6d3b', '#5566cc', '#c0392b'];
 
@@ -289,7 +317,8 @@
       drift += gauss(2.2); drift *= 0.94;
       var t13 = TARGET_13P + drift + gauss(3.0);
 
-      var preTrue = PRE_TARGET + CH[ci].off + gauss(3.0);            // 실제 입고 두께 (정답)
+      // 이 웨이퍼의 ED zone 입고 두께 — 면 평균은 타겟이지만 ED 는 챔버 형상만큼 어긋나 있다
+      var preTrue = PRE_TARGET + CH[ci].off + gauss(3.0);
       // 새 패드는 처음 몇 시간 동안 길들임 구간 — 이래서 IF 모델(초기 구간 전용)이 따로 있다
       var breakin = 0.10 * Math.exp(-padh / 2.5);
       var rrTrue  = 21.90 - 0.010 * padh + breakin + CYC_OFF[cycNo] + gauss(0.035);
@@ -375,9 +404,31 @@
     w.postThk = ED_TGT + w.bias;
     w.cut     = w.preThk - w.postThk;
     w.rrB     = w.cut / w.polt;
-    // VM 보정을 하지 않았다면 — 채널 편차가 그대로 제거율 산포로 남는다
-    w.rrB0    = (PRE_TARGET - w.postThk) / w.polt;
   });
+
+  // PRESSURE 가 학습값을 반영한 뒤 — 그 챔버 몫만큼 zone 압력으로 되돌려 깎는다.
+  // 챔버가 만든 성분이 BIAS 에서 빠지고 나머지(패드 추세 · 계측 산포)만 남는다.
+  W.forEach(function (w) { w.biasAfter = w.bias - w.vm; });
+  function sd3(f) {
+    var v = W.map(f), m = v.reduce(function (a, b) { return a + b; }, 0) / v.length;
+    return 3 * Math.sqrt(v.reduce(function (s, x) {
+      return s + (x - m) * (x - m); }, 0) / (v.length - 1));
+  }
+  var S3_BEFORE = sd3(function (w) { return w.bias; });
+  var S3_AFTER  = sd3(function (w) { return w.biasAfter; });
+  // PRESSURE 가 실제로 없애는 것은 '챔버 사이의 차이' 다.
+  // 전체가 같이 내려앉은 몫(패드 마모)은 Removal Rate 의 일이라 여기서는 안 줄어든다.
+  function chMeans(f) {
+    return CH.map(function (c, k) {
+      var g = W.filter(function (w) { return w.ci === k; });
+      return g.reduce(function (a, w) { return a + f(w); }, 0) / g.length;
+    });
+  }
+  function spread(a) { return Math.max.apply(null, a) - Math.min.apply(null, a); }
+  var CHM_BEFORE = chMeans(function (w) { return w.bias; });
+  var CHM_AFTER  = chMeans(function (w) { return w.biasAfter; });
+  var SP_BEFORE  = spread(CHM_BEFORE);
+  var SP_AFTER   = spread(CHM_AFTER);
 
   var RR_AVG = W.reduce(function (s, w) { return s + w.rrB; }, 0) / NW;
   var RR_SD  = Math.sqrt(W.reduce(function (s, w) {
@@ -542,7 +593,6 @@
   function dotColor(w, st) {
     if (st.colorBy === 'ch')  { return CH_COL[w.ci]; }
     if (st.colorBy === 'cyc') { return w.cyc === 1 ? 'var(--c4)' : 'var(--az-trend)'; }
-    if (st.colorBy === 'cycAlt') { return w.cyc % 2 ? 'var(--c1)' : 'var(--c3)'; }
     if (st.colorBy === 'if')  { return w.padh <= PAD_SEP ? 'var(--c3)' : 'var(--az-dim)'; }
     return st.dotCol || 'var(--c1)';
   }
@@ -650,6 +700,18 @@
       [0, 0.25, 0.5, 0.75, 1].forEach(function (f) {
         var v = P2_DOM[0] + (P2_DOM[1] - P2_DOM[0]) * f;
         txt(gBack, xP2X(v), PL.y1 + 15, v.toFixed(1), { size: 9.5, anchor: 'middle', op: 0.45 });
+      });
+    }
+
+    // dep 챔버 색 범례 — 채널 축 화면은 x축이 이미 이름을 달고 있으니 생략
+    if (st.colorBy === 'ch' && st.xMode !== 'ch') {
+      var lx = PL.x0, ly = 30;
+      txt(gBack, lx, ly, 'dep 챔버', { size: 10, op: 0.5 });
+      lx += 62;
+      CH_STAT.forEach(function (c) {
+        gBack.appendChild(el('circle', { cx: lx, cy: ly - 3.5, r: 3.4, fill: CH_COL[c.k] }));
+        txt(gBack, lx + 8, ly, c.id, { size: 10, fill: CH_COL[c.k], weight: 600 });
+        lx += 8 + tw(c.id, 10) + 16;
       });
     }
 
@@ -828,6 +890,155 @@
       stroke: 'currentColor', 'stroke-width': 1, opacity: op || 0.18 }));
   }
 
+  // STEP 0 — dep 챔버마다 입고 프로파일 모양이 다르다 (면 평균은 같다)
+  var PROF_SHOW = [0, 5, 2, 7];        // 대표 4개 : +11.5 / +1.5 / −3.0 / −13.0
+  function drawProfile() {
+    var PX = { x0: 96, x1: 520, y0: 66, y1: 322 };
+    var DOM = [PRE_TARGET - 20, PRE_TARGET + 20];
+    function yv(v) { return PX.y1 - (v - DOM[0]) / (DOM[1] - DOM[0]) * (PX.y1 - PX.y0); }
+    function xr(r) { return PX.x0 + r / R_MAX * (PX.x1 - PX.x0); }
+
+    txt(gBack, 40, 40, 'dep 챔버별 입고 프로파일 — 웨이퍼 중심에서 엣지까지',
+      { size: 12, weight: 600, fill: 'var(--az-ink)' });
+
+    for (var t = 0; t < 5; t++) {
+      var v = DOM[0] + (DOM[1] - DOM[0]) * t / 4, yy = yv(v);
+      gBack.appendChild(el('line', { x1: PX.x0, x2: PX.x1, y1: yy, y2: yy,
+        stroke: 'currentColor', 'stroke-width': 1, opacity: 0.09 }));
+      txt(gBack, PX.x0 - 8, yy + 3.5, Math.round(v) + ' Å',
+        { size: 10, anchor: 'end', op: 0.55 });
+    }
+    [0, 50, 100, 150].forEach(function (r) {
+      txt(gBack, xr(r), PX.y1 + 15, r + ' mm', { size: 9.5, anchor: 'middle', op: 0.45 });
+    });
+    txt(gBack, PX.x0, PX.y1 + 32, '웨이퍼 중심 → 엣지', { size: 10.5, op: 0.55 });
+
+    // 면 평균(13P) — 어느 챔버든 여기에 맞는다
+    gBack.appendChild(el('line', { x1: PX.x0, x2: PX.x1, y1: yv(PRE_TARGET), y2: yv(PRE_TARGET),
+      stroke: 'var(--az-learn)', 'stroke-width': 2, 'stroke-dasharray': '6 4' }));
+    // 라벨은 선들이 교차하는 자리를 피해 플롯 좌상단에
+    pill(gBack, PX.x0 + 8, PX.y0 + 16,
+      '면 평균 (13P) = 목표 ' + PRE_TARGET + ' Å — 네 챔버 모두 여기에 맞는다',
+      { size: 10.5, fill: 'var(--az-learn)', weight: 600 });
+
+    // ED 위치 표시
+    var edX = xr(ZR[ZR.length - 1].r);
+    gBack.appendChild(el('line', { x1: edX, x2: edX, y1: PX.y0, y2: PX.y1,
+      stroke: 'currentColor', 'stroke-width': 1, opacity: 0.28, 'stroke-dasharray': '4 4' }));
+    txt(gBack, edX, PX.y0 - 8, 'ED zone', { size: 10.5, anchor: 'middle', op: 0.65, weight: 600 });
+
+    PROF_SHOW.forEach(function (k) {
+      var prof = preProfile(CH[k].off, k), col = CH_COL[k];
+      gBack.appendChild(el('polyline', {
+        points: ZR.map(function (z, i) { return xr(z.r) + ',' + yv(prof[i]); }).join(' '),
+        fill: 'none', stroke: col, 'stroke-width': 2.4 }));
+      ZR.forEach(function (z, i) {
+        gBack.appendChild(el('circle', { cx: xr(z.r), cy: yv(prof[i]), r: 3.2, fill: col }));
+      });
+      // ED 에서 목표선까지의 벌어짐
+      gBack.appendChild(el('line', { x1: edX, x2: edX,
+        y1: yv(PRE_TARGET), y2: yv(prof[prof.length - 1]),
+        stroke: col, 'stroke-width': 2.6, opacity: 0.85 }));
+      txt(gBack, edX + 8, yv(prof[prof.length - 1]) + 3.5, CH[k].id + ' ' + sgn(CH[k].off, 1),
+        { size: 10.5, fill: col, weight: 600 });
+    });
+
+    // 오른쪽 : 숫자로 다시 한 번
+    var TX = 630, TY = 96;
+    txt(gBack, TX, TY - 26, '같은 웨이퍼를 두 가지로 재면', { size: 11.5, weight: 600, fill: 'var(--az-ink)' });
+    txt(gBack, TX, TY, '챔버', { size: 10.5, weight: 600, fill: 'var(--az-learn)' });
+    txt(gBack, TX + 96, TY, '면 평균', { size: 10.5, weight: 600, anchor: 'end', fill: 'var(--az-learn)' });
+    txt(gBack, TX + 162, TY, 'ED', { size: 10.5, weight: 600, anchor: 'end', fill: 'var(--az-learn)' });
+    txt(gBack, TX + 228, TY, 'ED − 평균', { size: 10.5, weight: 600, anchor: 'end', fill: 'var(--az-learn)' });
+    rule(gBack, TY + 8, TX, TX + 228);
+    PROF_SHOW.forEach(function (k, i) {
+      var ry = TY + 28 + i * 24, prof = preProfile(CH[k].off, k), col = CH_COL[k];
+      txt(gBack, TX, ry, CH[k].id, { size: 10.5, fill: col, weight: 600 });
+      txt(gBack, TX + 96, ry, PRE_TARGET.toFixed(0), { size: 10.5, anchor: 'end', op: 0.7 });
+      txt(gBack, TX + 162, ry, prof[prof.length - 1].toFixed(1), { size: 10.5, anchor: 'end', fill: col });
+      txt(gBack, TX + 228, ry, sgn(CH[k].off, 1), { size: 11, anchor: 'end', fill: col, weight: 600 });
+    });
+    var by = TY + 28 + PROF_SHOW.length * 24 + 14;
+    rule(gBack, by - 18, TX, TX + 228);
+    txt(gBack, TX, by, '면 평균 열은 전부 같다', { size: 10.5, op: 0.7 });
+    txt(gBack, TX, by + 20, 'ED 열만 24 Å 벌어진다', { size: 11, fill: 'var(--c4)', weight: 600 });
+
+    txt(gBack, 40, PX.y1 + 70,
+      '→ TIME 루프는 면 평균만 본다. 네 웨이퍼가 전부 "정상" 으로 보이므로 연마 시간을 똑같이 준다.',
+      { size: 11, op: 0.8 });
+    txt(gBack, 40, PX.y1 + 92,
+      '→ 그런데 ED 는 24 Å 벌어진 채로 들어온다. 이 차이는 CMP 후에도 ED zone 에 그대로 남는다.',
+      { size: 11, op: 0.8 });
+    txt(gBack, 40, PX.y1 + 114,
+      '→ 그래서 zone 별로 따로 재고(BIAS), zone 별로 따로 압력을 준다. 그것이 FB_Type = PRESSURE 다.',
+      { size: 11.5, weight: 600, fill: 'var(--az-learn)' });
+  }
+
+  // STEP 16 — 학습값을 압력으로 반영한 뒤
+  function drawFix() {
+    var y0 = 58, BW = 386, DOM = [-46, 30];
+    txt(gBack, 40, 34, 'dep 챔버가 만든 몫을 zone 압력으로 되돌리면 — 두 그림의 세로 축은 같다',
+      { size: 12, weight: 600, fill: 'var(--az-ink)' });
+
+    function panel(x0, title, valf, means, col) {
+      var PY0 = y0 + 26, PY1 = y0 + 252;
+      function yv(v) { return PY1 - (v - DOM[0]) / (DOM[1] - DOM[0]) * (PY1 - PY0); }
+      txt(gBack, x0, y0 + 12, title, { size: 11.5, weight: 600, fill: col });
+      gBack.appendChild(el('rect', { x: x0, y: PY0, width: BW, height: PY1 - PY0,
+        rx: 5, fill: 'currentColor', opacity: 0.03 }));
+      gBack.appendChild(el('line', { x1: x0, x2: x0 + BW, y1: yv(0), y2: yv(0),
+        stroke: 'currentColor', 'stroke-width': 1, 'stroke-dasharray': '4 4', opacity: 0.35 }));
+      pill(gBack, x0 + 6, yv(0) - 5, 'BIAS = 0', { size: 9.5, op: 0.6, bgop: 0.85 });
+
+      CH.forEach(function (c, k) {
+        var g = W.filter(function (w) { return w.ci === k; });
+        var cx = x0 + BW * (k + 0.5) / CH.length;
+        g.forEach(function (w, j) {
+          var v = valf(w);
+          if (v < DOM[0] || v > DOM[1]) { return; }
+          gBack.appendChild(el('circle', {
+            cx: cx + (((j * 17) % 23) / 23 - 0.5) * 36, cy: yv(v), r: 1.7,
+            fill: CH_COL[k], opacity: 0.7 }));
+        });
+        gBack.appendChild(el('line', { x1: cx - 21, x2: cx + 21, y1: yv(means[k]), y2: yv(means[k]),
+          stroke: CH_COL[k], 'stroke-width': 3.4 }));
+      });
+
+      // 챔버 평균들이 걸쳐 있는 폭 — 이게 PRESSURE 가 줄이는 값이다
+      var hi = Math.max.apply(null, means), lo = Math.min.apply(null, means);
+      gBack.appendChild(el('rect', { x: x0 + 3, y: yv(hi), width: BW - 6, height: yv(lo) - yv(hi),
+        fill: col, opacity: 0.10 }));
+      pill(gBack, x0 + BW - 8, PY0 + 16, '챔버 평균이 걸친 폭  ' + spread(means).toFixed(1) + ' Å',
+        { size: 11.5, anchor: 'end', fill: col, weight: 600 });
+      txt(gBack, x0, PY1 + 16, 'dep 챔버 8개 →', { size: 10, op: 0.5 });
+    }
+
+    panel(40, '보정 전 — 챔버마다 평균 높이가 다르다',
+      function (w) { return w.bias; }, CHM_BEFORE, 'var(--c4)');
+    panel(476, '압력 반영 후 — 챔버 평균이 한 줄로 모인다',
+      function (w) { return w.biasAfter; }, CHM_AFTER, 'var(--az-learn)');
+
+    var by = y0 + 252 + 46;
+    txt(gBack, 40, by,
+      '→ 왼쪽은 굵은 선(챔버 평균)의 높이가 제각각이다. 어느 dep 챔버를 거쳐 왔는지가 ED 두께에 그대로 남아 있다는 뜻이다.',
+      { size: 11, op: 0.8 });
+    txt(gBack, 40, by + 22,
+      '→ 오른쪽은 그 챔버 몫을 zone 압력으로 되돌린 결과다. 굵은 선이 한 줄로 모인다 — ' +
+      '챔버 간 폭 ' + SP_BEFORE.toFixed(1) + ' Å → ' + SP_AFTER.toFixed(1) + ' Å (' +
+      (-(1 - SP_AFTER / SP_BEFORE) * 100).toFixed(0) + '%).',
+      { size: 11, op: 0.8 });
+    txt(gBack, 40, by + 44,
+      '→ 두 그림이 통째로 0 아래에 있는 것은 패드가 닳아 생긴 공통 처짐이다. PRESSURE 는 챔버 사이의 차이만 없앤다 —',
+      { size: 11, op: 0.8 });
+    txt(gBack, 56, by + 64,
+      '이 공통 몫은 건드리지 않는다. 그건 Removal Rate 와 OFFSET 의 일이다.',
+      { size: 11, op: 0.8 });
+    txt(gBack, 40, by + 90,
+      '→ 폭이 완전히 0 이 되지는 않는다. 이동평균이 자기 자신을 조금 먹어 복원한 VM 이 실제 편차보다 살짝 작기 때문 ' +
+      '(전체 BIAS 3σ ' + S3_BEFORE.toFixed(1) + ' → ' + S3_AFTER.toFixed(1) + ' Å).',
+      { size: 11.5, weight: 600, fill: 'var(--az-learn)' });
+  }
+
   // STEP 8 — compute_pre_thk_vm 이 y 축을 고르는 일곱 갈래
   var VM_BRANCH = [
     ['ITM 있음', 'AUTO', 'PRESSURE', 'BIAS',
@@ -981,80 +1192,91 @@
     // ── A 막 : Pre_Thk_VM ─────────────────────────────────
     {
       act: 0,
-      title: 'STEP 0 — ④ 가 만든 BIAS 에서 출발한다',
-      desc: '④ 에서 웨이퍼 한 장의 BIAS 를 정의했습니다. 이제 그 값을 ' + NW + '장 모았습니다. ' +
-            '13P 성분이 빠져 있으니 TIME 루프가 무엇을 하든 이 트렌드는 흔들리지 않습니다. ' +
-            'A 막의 목표는 이 안에 숨은 "사전공정에서 넘어온 입고 두께 편차"를 끄집어내는 것입니다.',
-      eq: '<span class="hl4">BIAS</span> = ( Thk_Para − Thk_Para_13P ) − ( Post_Target − Target_13P )',
-      xMode: 'i', val: function (w) { return w.bias; }, dom: D_BIAS,
-      unit: 'Å', xlab: XL_I, ref: 0, refLabel: 'BIAS = 0',
-      dotCol: 'var(--c4)',
-      note: '아직은 입고 두께 편차와 패드 마모가 섞여 있다', h: 400
+      title: 'STEP 0 — 왜 zone 을 따로 보는가 : dep 챔버가 웨이퍼 모양을 바꾼다',
+      desc: '사전 증착 공정은 챔버가 여러 대입니다. 어느 챔버를 거쳤든 웨이퍼 면 평균은 목표에 맞게 나옵니다 — ' +
+            '그래서 평균만 보는 TIME 루프에는 전부 정상으로 보입니다. 그런데 프로파일 모양이 챔버마다 다릅니다. ' +
+            '엣지가 두껍게 나오는 챔버가 있고 얇게 나오는 챔버가 있습니다. 이 차이가 CMP 후 ED zone 에 그대로 남습니다.',
+      eq: '면 평균(13P) 은 <span class="hl">모두 같다</span> &nbsp;·&nbsp; ' +
+          'ED 만 챔버마다 <span class="hl4">± 12 Å</span> 어긋난다',
+      view: 'profile', h: 470
     },
     {
       act: 0,
-      title: 'STEP 1 — 후처리 두께 자리에 Post_Target + BIAS 를 넣고 RR 을 만든다',
+      title: 'STEP 1 — ④ 가 만든 BIAS 에서 출발한다',
+      desc: '④ 에서 웨이퍼 한 장의 BIAS 를 정의했습니다. 이제 그 값을 ' + NW + '장 모았습니다. ' +
+            '13P 성분이 빠져 있으니 TIME 루프가 무엇을 하든 이 트렌드는 흔들리지 않습니다. ' +
+            'A 막의 목표는 이 안에 숨은 "dep 챔버가 남긴 ED 편차"를 끄집어내는 것입니다. ' +
+            '점 색이 그 웨이퍼가 거쳐 온 dep 챔버입니다 — 아직은 색이 뒤섞여 보입니다.',
+      eq: '<span class="hl4">BIAS</span> = ( Thk_Para − Thk_Para_13P ) − ( Post_Target − Target_13P )',
+      xMode: 'i', val: function (w) { return w.bias; }, dom: D_BIAS,
+      unit: 'Å', xlab: XL_I, ref: 0, refLabel: 'BIAS = 0', colorBy: 'ch',
+      note: '아직은 챔버 편차와 패드 마모가 섞여 있다', h: 400
+    },
+    {
+      act: 0,
+      title: 'STEP 2 — 후처리 두께 자리에 Post_Target + BIAS 를 넣고 RR 을 만든다',
       desc: 'compute_detrend 의 첫 줄입니다. use_pressure 가 True 면 실측 두께 대신 ' +
             'Post_Target + BIAS 가 들어갑니다. 주황 선은 그 분기를 타지 않았을 때 — ' +
             '13P 의 출렁임이 제거율에 그대로 실려 들어옵니다. 여기서 두 길이 처음 갈라집니다.',
       eq: '<span class="hl">RR</span> = ( Pre_Target − ( <span class="hl4">Post_Target + BIAS</span> ) ) / Pol_Time' +
           ' <span class="dim">← use_pressure=True 일 때만</span>',
       xMode: 'i', val: function (w) { return w.rrP; }, dom: D_RR,
-      unit: 'Å/s', xlab: XL_I, ghost: true, dotCol: 'var(--c1)',
+      unit: 'Å/s', xlab: XL_I, ghost: true, colorBy: 'ch',
       note: 'Pre_Target 은 고정값 — VM 은 아직 모른다', h: 412
     },
     {
       act: 0,
-      title: 'STEP 2 — 연마 시간을 전체 평균으로 고정한다 (Unctr_Thk)',
+      title: 'STEP 3 — 연마 시간을 전체 평균으로 고정한다 (Unctr_Thk)',
       desc: '제거율에 "모두가 같은 시간 동안 깎았다면" 을 곱해 두께로 되돌립니다. ' +
             'FIX_Time 은 EQ · 레시피 구분 없이 전체 평균 한 개입니다. ' +
             'APC 가 연마 시간을 조절해 만든 차이가 지워지고, 두께로 환산된 값만 남습니다.',
       eq: '<span class="hl">Unctr_Thk</span> = Pre_Target − RR × FIX_Time' +
           ' &nbsp;<span class="dim">FIX_Time = ' + FIX_TIME.toFixed(2) + ' s (전체 평균)</span>',
       xMode: 'i', val: function (w) { return w.unctr; }, dom: D_UNC,
-      unit: 'Å', xlab: XL_I, dotCol: 'var(--c1)',
+      unit: 'Å', xlab: XL_I, colorBy: 'ch',
       note: '패드가 닳으며 우상향하는 추세가 그대로 보인다', h: 400
     },
     {
       act: 0,
-      title: 'STEP 3 — 패드를 간 자리에서 구간을 끊는다',
+      title: 'STEP 4 — 패드를 간 자리에서 구간을 끊는다',
       desc: '소모품 사용량이 이전 행보다 0.5 이상 급감하면 패드를 갈았다는 뜻입니다. ' +
             '그 지점마다 번호를 하나씩 올려 pad_cycle 을 만듭니다. ' +
             '코드 규약상 cycle 1 이 가장 최근 주기입니다 — B 막의 current 모델이 이 번호를 씁니다.',
       eq: '<span class="hl">pad_cycle</span> = ( Pad_Para.diff() &lt; −0.5 ).cumsum() + 1' +
           ' &nbsp;<span class="dim">이 화면은 ' + NCYC + '주기 × ' + CYC + '장</span>',
       xMode: 'i', val: function (w) { return w.unctr; }, dom: D_UNC,
-      unit: 'Å', xlab: XL_IC, cyclines: true, colorBy: 'cycAlt',
+      unit: 'Å', xlab: XL_IC, cyclines: true, colorBy: 'ch',
       note: '이동평균은 주기를 넘어가지 않는다', h: 412
     },
     {
       act: 0,
-      title: 'STEP 4 — 주기 안에서만 이동평균을 낸다',
+      title: 'STEP 5 — 주기 안에서만 이동평균을 낸다',
       desc: '각 주기 안에서 rolling(' + WINDOW + ') 이동평균을 구합니다. 이 선이 "패드 마모가 만든 추세" 입니다. ' +
             '주기마다 새로 시작하므로 앞 ' + (WINDOW - 1) + '장은 평균이 없어 학습에서 빠집니다 — 흐린 점들이 그것입니다. ' +
             '후행 평균이라 상승 구간에서는 선이 점들보다 조금 아래에 깔립니다.',
       eq: '<span class="hl">Unctr_Thk_MA</span> = group.rolling(' + WINDOW + ').mean()' +
           ' &nbsp;<span class="dim">groupby(pad_cycle) 안에서</span>',
       xMode: 'i', val: function (w) { return w.unctr; }, dom: D_UNC,
-      unit: 'Å', xlab: XL_IC, cyclines: true, maLine: true, colorBy: 'cycAlt',
+      unit: 'Å', xlab: XL_IC, cyclines: true, maLine: true, colorBy: 'ch',
       dim: function (w) { return w.ma === null ? 0.16 : 1; },
       note: '후행 이동평균이라 상승 구간에서는 조금 늦게 따라온다', h: 424
     },
     {
       act: 0,
-      title: 'STEP 5 — 추세를 빼면 Detrend_Thk 만 남는다',
+      title: 'STEP 6 — 추세를 빼면 Detrend_Thk 만 남는다',
       desc: '점에서 이동평균선을 뺍니다. 패드 마모가 만든 우상향도, 주기끼리의 높이 차이도 통째로 사라지고 ' +
-            '0 을 중심으로 흩어진 값만 남습니다. 이 남은 흩어짐 안에 사전공정 채널이 만든 입고 두께 편차가 들어 있습니다.',
+            '0 을 중심으로 흩어진 값만 남습니다. 이 남은 흩어짐 안에 dep 챔버가 만든 ED 편차가 들어 있습니다 — ' +
+            '색을 따라가면 같은 색이 위아래로 치우쳐 있는 것이 슬슬 보입니다.',
       eq: '<span class="hl">Detrend_Thk</span> = Unctr_Thk − Unctr_Thk_MA' +
           ' &nbsp;<span class="dim">→ 0-centered</span>',
       xMode: 'i', val: function (w) { return w.det; }, dom: D_DET,
       unit: 'Å', xlab: XL_IC, cyclines: true, ref: 0, refLabel: 'Detrend_Thk = 0',
-      dotCol: 'var(--c1)',
+      colorBy: 'ch',
       note: '패드 추세와 주기 레벨이 모두 지워졌다', h: 412
     },
     {
       act: 0,
-      title: 'STEP 6 — IQR 밖으로 튄 값을 버린다',
+      title: 'STEP 7 — IQR 밖으로 튄 값을 버린다',
       desc: '계측 이상치나 사고성 웨이퍼가 회귀를 끌고 가지 않도록 사분위 범위 밖을 잘라냅니다. ' +
             '앞 단계에서 이동평균이 없어 빠진 ' + N_MA_DROP + '장까지 더하면 ' +
             '학습에 실제로 쓰이는 것은 ' + DET_KEEP.n + '장입니다.',
@@ -1062,26 +1284,26 @@
           ' &nbsp;<span class="dim">' + NW + '장 → MA 없음 ' + N_MA_DROP + '장 제외 → IQR 통과 ' + DET_KEEP.n + '장</span>',
       xMode: 'i', val: function (w) { return w.det; }, dom: D_DET,
       unit: 'Å', xlab: XL_I, ref: 0, refLabel: 'Detrend_Thk = 0', iqr: true,
-      dotCol: 'var(--c1)',
+      colorBy: 'ch',
       dim: function (w) { return w.keep ? 1 : 0.18; },
       note: '남은 것만 다음 단계로 간다', h: 412
     },
     {
       act: 0,
-      title: 'STEP 7 — 사전공정 채널별로 모으면 값이 갈라진다',
-      desc: '같은 점을 "어느 사전공정 챔버를 거쳐 왔는가" 로 다시 세웁니다. ' +
-            '채널마다 평균이 뚜렷하게 다릅니다 — 이 차이가 곧 그 채널을 거친 웨이퍼의 입고 두께 편차, ' +
-            '즉 Pre_Thk_VM 입니다. ED · EX zone 은 계측 건수가 적어 min_count 를 10 이 아닌 5 로 낮춥니다.',
+      title: 'STEP 8 — dep 챔버별로 모으면 STEP 0 의 그 차이가 다시 나온다',
+      desc: '같은 점을 "어느 dep 챔버를 거쳐 왔는가" 로 다시 세웁니다. 챔버마다 평균이 뚜렷하게 갈라지고, ' +
+            'STEP 0 에서 프로파일로 봤던 ED 편차가 그대로 다시 나타납니다 — 이것이 Pre_Thk_VM 입니다. ' +
+            'ED · EX zone 은 계측 건수가 적어 min_count 를 10 이 아닌 5 로 낮춥니다.',
       eq: '<span class="hl">Pre_Thk_VM</span> = pre_eq_ch 별 rolling( Pre_Thk_Period 일 ).mean()' +
           ' &nbsp;<span class="dim">화면은 채널 평균으로 단순화</span>',
       xMode: 'ch', val: function (w) { return w.keep ? w.det : null; }, dom: D_DET,
-      unit: 'Å', xlab: '사전공정 장비 _ 챔버', ref: 0, refLabel: '0',
+      unit: 'Å', xlab: 'dep 장비 _ 챔버', ref: 0, refLabel: '0',
       colorBy: 'ch', chMean: true,
-      note: '채널마다 평균이 다르다 = 입고 두께가 다르다', h: 442
+      note: '챔버마다 평균이 다르다 = ED 프로파일이 다르다', h: 442
     },
     {
       act: 0,
-      title: 'STEP 8 — Pre_Oper2 파라미터로 회귀한다',
+      title: 'STEP 9 — Pre_Oper2 파라미터로 회귀한다',
       desc: '채널 평균을 사전공정 설비 파라미터에 대고 직선으로 맞춥니다. ' +
             '이 계수를 저장해 두면 아직 CMP 를 타지 않은 웨이퍼도 사전공정 값만 보고 입고 두께를 예측할 수 있습니다. ' +
             '회귀 y 축은 Detrend_Thk — ITM 경로였다면 같은 자리에 BIAS 가 들어갑니다.',
@@ -1090,11 +1312,11 @@
       xMode: 'p2', val: function (w) { return w.keep ? w.det : null; }, dom: D_DET,
       unit: 'Å', xlab: 'PRE_OPER2 파라미터 값 →', ref: 0, refLabel: '0',
       colorBy: 'ch', fitP2: true,
-      note: '채널이 파라미터 값 순으로 늘어선다', h: 424
+      note: '챔버가 파라미터 값 순으로 늘어선다', h: 424
     },
     {
       act: 0,
-      title: 'STEP 9 — 갈림길 : 어느 y 축으로 학습할 것인가',
+      title: 'STEP 10 — 갈림길 : 어느 y 축으로 학습할 것인가',
       desc: '지금까지 밟은 것은 일곱 갈래 중 하나입니다. Set-up 세 가지(ITM 유무 · Pre_Thk_VM_Source · pre_oper1) 와 ' +
             'FB_Type 이 조합돼 y 축과 0-centering 식이 정해집니다. ' +
             '갈라지는 것은 y 를 만드는 식뿐이고, 그 뒤 IQR · 채널 rolling · 회귀는 모두 같은 코드입니다.',
@@ -1105,7 +1327,7 @@
     // ── B 막 : Removal Rate ───────────────────────────────
     {
       act: 1,
-      title: 'STEP 10 — B 막 시작 : 학습한 VM 을 어디서 읽어오는가',
+      title: 'STEP 11 — B 막 시작 : 학습한 VM 을 어디서 읽어오는가',
       desc: 'Removal Rate 는 A 막이 저장한 Pre_Thk_VM 을 되받아 씁니다. ' +
             '그런데 컬럼 이름이 경로마다 다릅니다. Set-up 만 보고 고르면 Pre_Thk_VM_Source = POST 인 공정에서 ' +
             '존재하지 않는 컬럼을 찾게 되므로, 코드는 merge_df 에 실제로 만들어진 컬럼을 보고 정합니다.',
@@ -1114,32 +1336,32 @@
     },
     {
       act: 1,
-      title: 'STEP 11 — 두 두께를 세운다 : 여기가 PRESSURE 의 유일한 차이',
+      title: 'STEP 12 — 두 두께를 세운다 : 여기가 PRESSURE 의 유일한 차이',
       desc: '입고 두께는 Pre_Target 에 A 막이 학습한 VM 을 더한 값입니다 — TIME 과 완전히 같습니다. ' +
             '후처리 두께 자리에만 is_bias_type 분기가 걸려 Post_Target + BIAS 가 들어갑니다. ' +
             '이 화면은 그 둘의 차이, 즉 실제로 깎아낸 두께입니다.',
       eq: 'pre_thk = Pre_Target + <span class="hl">VM</span> &nbsp;·&nbsp; ' +
           'post_thk = is_bias_type ? <span class="hl4">Post_Target + BIAS</span> : <span class="hl2">Thk_Para</span>',
       xMode: 'i', val: function (w) { return w.cut; }, dom: D_CUT,
-      unit: 'Å', xlab: XL_IC, cyclines: true, dotCol: 'var(--c1)',
-      note: 'VM 을 더한 덕분에 채널 편차가 이미 빠져 있다', h: 400
+      unit: 'Å', xlab: XL_IC, cyclines: true, colorBy: 'ch',
+      note: '챔버 색이 고르게 섞여 있다 = VM 이 챔버 몫을 이미 빼 갔다', h: 400
     },
     {
       act: 1,
-      title: 'STEP 12 — 연마 시간으로 나누고 6σ 밖을 버린다',
+      title: 'STEP 13 — 연마 시간으로 나누고 6σ 밖을 버린다',
       desc: '깎아낸 두께를 연마 시간으로 나누면 제거율입니다. ' +
             '평균에서 6σ 를 벗어난 점만 걷어냅니다 — 아주 느슨한 그물이라 정상 데이터는 거의 그대로 남습니다. ' +
             'EQ · 레시피 조합별 건수가 10 미만이면 그 조합은 통째로 건너뜁니다.',
       eq: '<span class="hl">RR</span> = ( pre_thk − post_thk ) / Pol_Time' +
           ' &nbsp;<span class="dim">이후 |RR − mean| &lt; 6σ 만 유지 · Count &lt; 10 이면 스킵</span>',
       xMode: 'i', val: function (w) { return w.rrB; }, dom: D_RRB,
-      unit: 'Å/s', xlab: XL_IC, cyclines: true, sigma: true, dotCol: 'var(--c1)',
+      unit: 'Å/s', xlab: XL_IC, cyclines: true, sigma: true, colorBy: 'ch',
       dim: function (w) { return w.pass6 ? 1 : 0.18; },
       note: '패드를 갈 때마다 회복됐다 떨어지는 톱니', h: 412
     },
     {
       act: 1,
-      title: 'STEP 13 — 소모품 축으로 옮기고 게이트를 확인한다',
+      title: 'STEP 14 — 소모품 축으로 옮기고 게이트를 확인한다',
       desc: '같은 점을 "패드가 얼마나 닳았을 때 깎았나" 로 다시 세우면 주기들이 한자리에 겹칩니다. ' +
             '학습을 시작하기 전에 소모품 4분면에 각각 25건을 넘게 갖고 있는지 봅니다. ' +
             '한 칸이라도 비면 직선이 그 구간을 지어내게 되므로 아예 학습하지 않습니다.',
@@ -1151,7 +1373,7 @@
     },
     {
       act: 1,
-      title: 'STEP 14 — 네 종류의 직선을 각각 학습한다',
+      title: 'STEP 15 — 네 종류의 직선을 각각 학습한다',
       desc: '같은 점 구름에 조건을 달리해 네 번 직선을 맞춥니다. 전체는 항상, weighted 는 최근 구간에 가중치를 주고, ' +
             'current 는 현재 주기(분홍)만, IF 는 패드 초기 ' + PAD_SEP + '시간 이내만 씁니다. ' +
             'current 는 표본이 적어 튀기 쉬우므로 b1 은 기준선의 두 배까지, b0 는 ±10% 로 잘라냅니다.',
@@ -1165,7 +1387,19 @@
     },
     {
       act: 1,
-      title: 'STEP 15 — 우선순위로 하나를 고르고, 정리한다',
+      title: 'STEP 16 — 챔버 차이를 압력으로 되돌린다',
+      desc: 'A 막이 배운 것은 "이 dep 챔버를 거친 웨이퍼는 ED 가 이만큼 두껍다" 이고, ' +
+            'B 막이 배운 것은 "지금 이 패드로는 초당 이만큼 깎인다" 입니다. 둘을 합치면 ' +
+            '그 웨이퍼의 ED zone 에 압력을 얼마나 더 주고 덜 줄지가 나옵니다. ' +
+            'STEP 0 에서 본 챔버 간 차이가 실제로 사라지는지 같은 축에서 확인합니다. ' +
+            'PRESSURE 가 없애는 것은 챔버 사이의 차이지 전체 평균이 아니라는 점도 같이 보입니다.',
+      eq: '재는 것은 <span class="hl">챔버 평균이 걸친 폭</span> — ' +
+          '<span class="hl4">보정 전</span> 대비 <span class="hl">압력 반영 후</span> 가 얼마나 좁아지는가',
+      view: 'fix', h: 502
+    },
+    {
+      act: 1,
+      title: 'STEP 17 — 우선순위로 하나를 고르고, 정리한다',
       desc: '네 직선 중 조건을 통과한 것을 IF → current → weighted → 전체 순으로 하나 고릅니다. ' +
             '이 전체 과정을 zone 마다 따로 돌립니다. ' +
             'TIME 과 비교하면 실제로 코드가 갈라지는 곳은 두 줄뿐입니다.',
@@ -1211,8 +1445,10 @@
       drawFrame(st);
       anim(st, animate);
       drawOver(st);
-    } else if (st.view === 'branch')  { drawBranch(); }
+    } else if (st.view === 'profile') { drawProfile(); }
+      else if (st.view === 'branch')  { drawBranch(); }
       else if (st.view === 'vmcol')   { drawVmCol(); }
+      else if (st.view === 'fix')     { drawFix(); }
       else if (st.view === 'summary') { drawSummary(); }
   }
 
