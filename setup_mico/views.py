@@ -2238,3 +2238,15 @@ def guide_animation_pressure(request):
     그 값이 Pre_Thk / Removal Rate 계산에 어떻게 들어가는지 보인다. DB 조회 없음.
     """
     return render(request, 'setup_mico/guide_animation_pressure.html')
+
+
+@login_required
+def guide_animation_pressure_learn(request):
+    """핵심 알고리즘 애니메이션 ⑤ — PRESSURE 학습 (Pre_Thk_VM · Removal Rate).
+
+    ④ 가 정의한 BIAS 를 받아 PRE_THK_VM.compute_detrend(use_pressure=True) 와
+    REMOVAL_RATE._process_models() 의 is_bias_type 분기를 단계별로 재현한다.
+    A 막(detrend → 채널 집계 → Pre_Oper2 회귀), B 막(VM 되받기 → 6σ → 게이트 → 4모델)
+    두 흐름으로 나눠 보여준다. DB 조회 없음.
+    """
+    return render(request, 'setup_mico/guide_animation_pressure_learn.html')

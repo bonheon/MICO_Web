@@ -96,7 +96,8 @@ ADMIN (superuser만 노출)
 | `/guide/animation/` | guide_animation | 핵심 알고리즘 애니메이션 ① Pre_Thk_VM |
 | `/guide/animation/rr/` | guide_animation_rr | 핵심 알고리즘 애니메이션 ② Removal Rate |
 | `/guide/animation/offset/` | guide_animation_offset | 핵심 알고리즘 애니메이션 ③ OFFSET |
-| `/guide/animation/pressure/` | guide_animation_pressure | 핵심 알고리즘 애니메이션 ④ PRESSURE (BIAS) |
+| `/guide/animation/pressure/` | guide_animation_pressure | 핵심 알고리즘 애니메이션 ④ PRESSURE 개념 (BIAS) |
+| `/guide/animation/pressure/learn/` | guide_animation_pressure_learn | 핵심 알고리즘 애니메이션 ⑤ PRESSURE 학습 (Pre_Thk_VM · Removal Rate) |
 | `/guide/algorithm/` | algorithm_guide | 알고리즘 가이드 (교육 시각자료, 정적) |
 | `/voc/` | voc_list | VOC 게시판 |
 | `/admin-stats/` | access_stats | 접속 현황 (superuser only) |

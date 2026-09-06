@@ -140,7 +140,7 @@
   <div class="az-head">
     <div>
       <h1>PRESSURE — 웨이퍼 안의 두께 차이를 어떻게 잡는가</h1>
-      <p class="sub">웨이퍼 한 장으로 BIAS 를 이해하고, 대표 zone 하나를 뽑아 200장의 트렌드로 Removal Rate 까지 이어갑니다.</p>
+      <p class="sub">웨이퍼 한 장으로 BIAS 를 이해하고, 대표 zone 하나를 뽑아 여러 장의 트렌드로 확인합니다. 학습 과정은 ⑤ 로 이어집니다.</p>
     </div>
     <a class="doclink" href="{% url 'algorithm_guide' %}">상세 문서 →</a>
   </div>
@@ -149,7 +149,8 @@
     <a class="az-tab" href="{% url 'guide_animation' %}">① Pre_Thk_VM</a>
     <a class="az-tab" href="{% url 'guide_animation_rr' %}">② Removal Rate</a>
     <a class="az-tab" href="{% url 'guide_animation_offset' %}">③ OFFSET</a>
-    <a class="az-tab on" href="#">④ PRESSURE</a>
+    <a class="az-tab on" href="#">④ PRESSURE 개념</a>
+    <a class="az-tab" href="{% url 'guide_animation_pressure_learn' %}">⑤ PRESSURE 학습</a>
   </div>
 
   <div class="az-stage">
@@ -162,7 +163,7 @@
 
     <div class="az-canvas">
       <svg id="az-svg" viewBox="0 0 900 470" role="img"
-           aria-label="PRESSURE 모드 설명: 웨이퍼 평면도와 반경별 두께 프로파일로 BIAS 를 정의하고, Post_Target + BIAS 를 후처리 두께로 써서 Pre_Thk 와 Removal Rate 를 계산하는 과정">
+           aria-label="PRESSURE 모드 설명: 웨이퍼 평면도와 반경별 두께 프로파일로 BIAS 를 정의하고, 여러 장의 트렌드에서 13P 성분이 사라지는 것을 확인하는 과정">
         <g id="az-wafer"></g>
         <g id="az-chart"></g>
         <g id="az-table"></g>
@@ -207,7 +208,9 @@
     <code>FB_Type = PRESSURE</code> 인 Detail 행에만 적용되며, 같은 레시피의
     <code>FB_Type = TIME</code> 행(13P)이 기준이 됩니다.
     이 값이 <a href="{% url 'guide_animation' %}" style="color:var(--az-learn)">① Pre_Thk_VM</a> 의 detrend 와
-    <a href="{% url 'guide_animation_rr' %}" style="color:var(--az-learn)">② Removal Rate</a> 에 그대로 들어갑니다.
+    <a href="{% url 'guide_animation_rr' %}" style="color:var(--az-learn)">② Removal Rate</a> 에 그대로 들어갑니다 —
+    그 두 학습을 zone 하나에 대해 끝까지 밟는 과정은
+    <a href="{% url 'guide_animation_pressure_learn' %}" style="color:var(--az-learn)">⑤ PRESSURE 학습</a> 에 있습니다.
   </p>
 
 </div>
@@ -498,15 +501,6 @@
       if (st.showPost) { item('var(--c4)', 'Post_Target + BIAS'); }
     })();
 
-    // 입고 두께 표시 (스케일 밖이라 화면 위쪽에 별도 표기)
-    if (st.showPre) {
-      gChart.appendChild(el('rect', { x: PL.x0, y: PL.y0 - 34, width: PL.x1 - PL.x0, height: 24,
-        rx: 4, fill: 'var(--az-learn)', opacity: 0.10 }));
-      txt(gChart, PL.x0 + 10, PL.y0 - 18,
-        'Pre_Thk = Pre_Target ' + PRE_TARGET + ' + VM ' + sgn(VM) + '  =  ' +
-        (PRE_TARGET + VM).toFixed(1) + ' Å   (① 이 학습한 값 — zone 공통)',
-        { size: 10.5, fill: 'var(--az-learn)', weight: 600 });
-    }
   }
 
   // ══════════════════════════════════════════════════════════
@@ -564,14 +558,11 @@
   var D_ABS  = ext(WT.map(function (w) { return w.meas; })
                    .concat(WT.map(function (w) { return w.t13; })));
   var D_BIAS = ext(WT.map(function (w) { return w.bias; }), 0.25);
-  var D_PST  = ext(WT.map(function (w) { return w.post; }), 0.25);
-  var D_RRW  = ext(WT.map(function (w) { return w.rr; }), 0.22);
 
   function mkY2(dom) {
     return function (v) { return TL.y1 - (v - dom[0]) / (dom[1] - dom[0]) * (TL.y1 - TL.y0); };
   }
   function xTw(i)  { return TL.x0 + i / (NW - 1) * (TL.x1 - TL.x0); }
-  function xPw(p)  { return TL.x0 + p / PAD_MAX_W * (TL.x1 - TL.x0); }
 
   // ED 점 (한 zone) — 애니메이션 대상
   var tDots = WT.map(function () {
@@ -586,7 +577,7 @@
   function trendTargets(st) {
     var y = mkY2(st.dom2);
     return {
-      x: WT.map(function (w) { return st.xPad ? xPw(w.pad) : xTw(w.i); }),
+      x: WT.map(function (w) { return xTw(w.i); }),
       y: WT.map(function (w) { return y(st.val(w)); }),
       o: WT.map(function () { return 1; })
     };
@@ -610,13 +601,11 @@
         { size: 10.5, anchor: 'end', fill: 'var(--az-learn)', op: 0.95 });
     }
 
-    // 패드 교체 눈금 (시간축일 때)
-    if (!st.xPad) {
-      for (var c = 1; c * CYC_W < NW; c++) {
-        var px = xTw(c * CYC_W);
-        gTrend.appendChild(el('line', { x1: px, x2: px, y1: TL.y0, y2: TL.y1,
-          stroke: 'var(--c4)', 'stroke-width': 1, opacity: 0.16, 'stroke-dasharray': '3 4' }));
-      }
+    // 패드 교체 눈금
+    for (var c = 1; c * CYC_W < NW; c++) {
+      var px = xTw(c * CYC_W);
+      gTrend.appendChild(el('line', { x1: px, x2: px, y1: TL.y0, y2: TL.y1,
+        stroke: 'var(--c4)', 'stroke-width': 1, opacity: 0.16, 'stroke-dasharray': '3 4' }));
     }
 
     // 기준선
@@ -641,40 +630,6 @@
         fill: 'var(--c4)' }));
       txt(gTrend, TL.x0 + 216, TL.y0 + 15, 'ED zone 실측',
         { size: 10.5, fill: 'var(--c4)', weight: 600 });
-    }
-
-    // 소모품 축일 때 회귀선
-    if (st.xPad && st.fit) {
-      var mx = 0, my = 0;
-      WT.forEach(function (w) { mx += w.pad; my += w.rr; });
-      mx /= NW; my /= NW;
-      var sxy = 0, sxx = 0;
-      WT.forEach(function (w) { sxy += (w.pad - mx) * (w.rr - my); sxx += (w.pad - mx) * (w.pad - mx); });
-      var b1 = sxy / sxx, b0 = my - b1 * mx;
-      gTrend.appendChild(el('line', { x1: xPw(0), x2: xPw(PAD_MAX_W),
-        y1: y(b0), y2: y(b1 * PAD_MAX_W + b0),
-        stroke: 'var(--az-learn)', 'stroke-width': 3 }));
-      // 라벨은 회귀선 끝(점이 몰리는 곳)이 아니라 플롯 안쪽 우상단에 — 우하향 추세라 이 구석이 비어 있다
-      var fitLab = 'RR = ' + b1.toFixed(5) + ' × 소모품 + ' + b0.toFixed(3);
-      var fitW = 0;
-      for (var li = 0; li < fitLab.length; li++) {
-        fitW += (fitLab.charCodeAt(li) > 0x2000) ? 11.5 : 6.9;
-      }
-      var fitX = TL.x1 - 8, fitY = TL.y0 + 16;
-      gTrend.appendChild(el('rect', { x: fitX - fitW - 8, y: fitY - 13,
-        width: fitW + 16, height: 20, rx: 4,
-        fill: 'var(--az-surface)', opacity: 0.92 }));
-      txt(gTrend, fitX, fitY, fitLab,
-        { size: 11.5, anchor: 'end', fill: 'var(--az-learn)', weight: 600 });
-    }
-
-    if (st.showPre) {
-      gTrend.appendChild(el('rect', { x: TL.x0, y: TL.y0 - 36, width: TL.x1 - TL.x0, height: 24,
-        rx: 4, fill: 'var(--az-learn)', opacity: 0.10 }));
-      txt(gTrend, TL.x0 + 10, TL.y0 - 20,
-        'Pre_Thk = Pre_Target ' + PRE_TARGET + ' + VM ' + sgn(VM) + '  =  ' + PRE_THK.toFixed(1) +
-        ' Å   (① 이 학습한 값 — zone 과 무관하게 공통)',
-        { size: 10.5, fill: 'var(--az-learn)', weight: 600 });
     }
 
     if (st.trendNote) {
@@ -798,48 +753,10 @@
       h: 428
     },
     {
-      title: 'STEP 6 — Post_Target + BIAS 가 후처리 두께 자리에 들어간다',
-      desc: 'BIAS 에 그 zone 의 목표를 더하면 학습 코드가 받을 후처리 두께가 됩니다. ' +
-            '입고 두께는 TIME 과 똑같이 Pre_Target + VM 을 씁니다 — zone 과 무관한 값입니다. ' +
-            '이제 두께 두 개가 모두 준비됐습니다.',
-      eq: '<span class="hl">Pre_Thk</span> = Pre_Target + VM' +
-          ' &nbsp;·&nbsp; post_thk = <span class="hl4">Post_Target + BIAS</span>',
-      view: 'trend', showPre: true,
-      dom2: D_PST, unit2: 'Å', xlab2: '웨이퍼 처리 순서 →',
-      val: function (w) { return w.post; }, ref: ED_TGT, refLabel: 'ED 목표 ' + ED_TGT,
-      note2: 'BIAS 트렌드가 ED 목표 높이로 올라온 것 — 모양은 같다',
-      h: 400
-    },
-    {
-      title: 'STEP 7 — 두 두께를 나누면 zone 별 제거율이 나온다',
-      desc: '깎아낸 두께를 연마 시간으로 나눕니다. TIME 과 완전히 같은 식이고, ' +
-            '후처리 두께 자리에 Post_Target + BIAS 가 들어간 것만 다릅니다. ' +
-            '시간순으로 보면 패드를 갈 때마다 회복됐다 떨어지는 톱니가 보입니다.',
-      eq: '<span class="hl">RR</span> = ( Pre_Thk − ( <span class="hl4">Post_Target + BIAS</span> ) ) / Pol_Time',
-      view: 'trend',
-      dom2: D_RRW, unit2: 'Å/s', xlab2: '웨이퍼 처리 순서 →  (세로 점선 = 패드 교체)',
-      val: function (w) { return w.rr; },
-      note2: '패드를 갈 때마다 제거율이 회복됐다가 다시 떨어진다',
-      h: 400
-    },
-    {
-      title: 'STEP 8 — 소모품 축으로 옮기면 ② 와 같은 그림이 된다',
-      desc: '같은 점을 "패드가 얼마나 닳았을 때 깎았나"로 다시 세우면 하나의 직선 구름으로 겹칩니다. ' +
-            '여기서부터는 ② Removal Rate 와 글자 그대로 같은 코드입니다 — ' +
-            '4분면 게이트, 네 종류의 직선, 우선순위 선택까지 그대로 돕니다. zone 마다 이 과정을 따로 돌립니다.',
-      eq: 'x축 : <span class="hl2">소모품 사용량</span> &nbsp;→&nbsp; ' +
-          '<span class="hl">RR = b1 · 소모품 + b0</span>  (zone 별로 따로 학습·저장)',
-      view: 'trend', xPad: true, fit: true,
-      dom2: D_RRW, unit2: 'Å/s', xlab2: '소모품 사용량 →  마모',
-      val: function (w) { return w.rr; },
-      note2: '패드 주기 4개가 같은 자리에 겹친다',
-      trendNote: '→ 이 뒤는 ② Removal Rate 와 동일 : 게이트 확인 → 4모델 학습 → 우선순위로 선택',
-      h: 428
-    },
-    {
       title: '정리 — TIME 과 PRESSURE 는 딱 한 자리만 다르다',
       desc: '학습 파이프라인은 하나입니다. detrend · 이동평균 · 회귀 · 소모품 회귀 · OFFSET 모두 같은 코드를 탑니다. ' +
-            '갈라지는 곳은 "후처리 두께 자리에 무엇을 넣는가" 한 군데뿐입니다.',
+            '갈라지는 곳은 "후처리 두께 자리에 무엇을 넣는가" 한 군데뿐입니다. ' +
+            '이 BIAS 를 받아 Pre_Thk_VM 과 Removal Rate 를 끝까지 학습하는 과정은 ⑤ PRESSURE 학습에서 이어집니다.',
       eq: 'post_thk = ( FB_Type == PRESSURE ) ? <span class="hl4">Post_Target + BIAS</span> : <span class="hl2">Thk_Para 실측</span>',
       view: 'summary', showPost: true, waferBias: true, summary: true, h: 495
     }
@@ -863,7 +780,7 @@
       ['후처리 두께 자리', 'Thk_Para 실측값',           'Post_Target + BIAS'],
       ['제어 변수',     'Pol_Time (연마 시간)',        'Pressure (존별 압력)'],
       ['입고 두께',     'Pre_Target + VM',            'Pre_Target + VM  (같다)'],
-      ['그 뒤 과정',    '소모품 회귀 · 4모델 · OFFSET', '완전히 같은 코드']
+      ['그 뒤 과정',    '소모품 회귀 · 4모델 · OFFSET', '완전히 같은 코드  → ⑤ 에서 단계별로']
     ].forEach(function (r, i) {
       var ry = TY + 28 + i * 22;
       txt(gTable, LX, ry, r[0], { size: 10.5, op: 0.7 });
@@ -874,6 +791,9 @@
     txt(gTable, LX, TY + 28 + 5 * 22 + 12,
       '→ PRESSURE 를 이해한다는 것은 결국 BIAS 한 줄을 이해하는 것이다',
       { size: 11.5, weight: 600, fill: 'var(--az-learn)' });
+    txt(gTable, LX, TY + 28 + 5 * 22 + 34,
+      '→ 학습 과정 전체는 ⑤ PRESSURE 학습 에서 A 막(Pre_Thk_VM) · B 막(Removal Rate) 으로 이어진다',
+      { size: 11, op: 0.75 });
   }
 
   var idx = -1, timer = null, playing = false, speed = 1;
