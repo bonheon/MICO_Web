@@ -349,8 +349,9 @@
     'Idle_1': 2.80, 'Idle_2': 1.75, 'Idle_3': 0.95, 'Idle_4': 0.40,
     'Layer_1': 2.10, 'Layer_2': 1.30, 'Layer_3': 0.65, 'Layer_4': 0.25,
     // LC = 다른 공정을 돌다가 이어서 진행하는 첫 장, 또는 rework 웨이퍼 뒤 첫 장.
-    // 직전에 무엇이 지나갔느냐에 따라 패드가 남긴 상태가 달라 device 마다 값이 갈린다.
-    'LC:E2': 1.55, 'LC:E9': 0.80, 'LC:ES': -1.35,
+    // device 가 달라도 "직전 상태가 끊겼다" 는 사정은 같아서 값이 비슷한 높이에 모인다.
+    // Offset_Group='Y' 로 묶을 수 있는 근거가 바로 이것이다.
+    'LC:E2': 1.55, 'LC:E9': 1.30, 'LC:ES': 1.05,
     // TB = Trouble lot 을 흘린 뒤의 첫 장. 그 lot 은 웨이퍼마다 조건이 제각각이라
     // 여기서 나온 값을 학습하면 엉뚱한 보정값이 된다 → 코드가 계산 결과와 무관하게 0 으로 덮어쓴다
     'TB':   -0.30
@@ -714,8 +715,8 @@
       title: 'STEP 4 — 두 시간의 차이가 OFFSET 이다',
       desc: '모델선을 0 으로 놓고 점들을 그 차이만큼만 남깁니다. 정상 구간은 0 근처에 눌어붙고, ' +
             '라벨이 붙은 점만 위아래로 떨어져 나옵니다. 색이 진한 순번(1)일수록 위쪽에, ' +
-            '옅은 순번(4)일수록 0 에 가깝게 층을 이루는 것이 보입니다. LC 는 직전에 무엇이 지나갔느냐에 따라 ' +
-            '위로도 아래로도 떨어지고, 순번 없이 한 장씩 흩어져 있습니다.',
+            '옅은 순번(4)일수록 0 에 가깝게 층을 이루는 것이 보입니다. LC 는 순번 없이 한 장씩 흩어져 있고, ' +
+            'device 가 달라도 비슷한 높이에 모입니다 — 뒤에서 셋을 묶는 근거가 됩니다.',
       eq: '<span class="hl">OFFSET</span> = Δ / RR − Δ / RR_Pad' +
           ' &nbsp;<span style="opacity:.55">· 양수 = 모델보다 덜 깎였다 (시간을 더 줬어야 했다)</span>',
       x: xTime, y: function (w) { return yOff(w.offRaw); },
@@ -799,8 +800,8 @@
       title: 'STEP 10 — LC 계열은 다른 길로 간다',
       desc: 'LC 라벨은 device 마다 따로 생깁니다 — 같은 공정이라도 LC_E2_M2CU · LC_E9_M2CU · LC_ES_M2CU 로 갈립니다. ' +
             '그래서 별도 함수가 처리하고 5건 게이트도 없습니다. 대신 항상 레시피 그룹 평균으로 덮어써서 저장합니다. ' +
-            'Offset_Group 을 켜면 라벨에서 device 자리가 사라져 셋이 LC_M2CU 한 칸으로 합쳐집니다 — ' +
-            '아래 체크박스로 직접 바꿔 보세요.',
+            '세 값이 서로 비슷하다면 굳이 나눠 둘 이유가 없습니다 — Offset_Group 을 켜면 device 자리가 사라져 ' +
+            'LC_M2CU 한 칸으로 합쳐지고 표본이 그만큼 늘어납니다. 아래 체크박스로 직접 바꿔 보세요.',
       eq: 'Offset_Group = <span class="hl3">\'Y\'</span> &nbsp;→&nbsp; ' +
           'LC_<span style="opacity:.45">{device}_</span>M2CU &nbsp;·&nbsp; ' +
           'OFFSET = groupby([ <span class="hl3">recipe_group</span>, IDLE ]).transform(\'mean\')',
@@ -1223,8 +1224,8 @@
       { size: 10.5, op: 0.6 });
     txt(gApply, 6, yS + RH + 44,
       groupY
-        ? '→ device 가 한 칸으로 합쳐지므로 저장값이 하나가 된다. device 고유 특성은 포기하고 표본 수를 얻는 선택이다'
-        : '→ device 마다 라벨이 다르므로 각 device 가 자기 값을 그대로 받는다. 대신 칸마다 표본이 적다',
+        ? '→ 한 칸으로 합쳐져 표본이 네 배로 늘고 값이 안정된다. 세 device 값이 애초에 비슷했으니 잃는 것도 거의 없다'
+        : '→ device 마다 자기 값을 그대로 받는다. 세 값이 0.5 초 안에 모여 있다 — 묶어도 된다고 보는 근거다',
       { size: 12, weight: 600, fill: groupY ? C_LC : 'var(--az-learn)' });
     if (groupY) {
       txt(gApply, 6, yS + RH + 66,
