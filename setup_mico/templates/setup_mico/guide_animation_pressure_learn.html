@@ -279,9 +279,19 @@
   var CH_COL = ['var(--c1)', 'var(--c2)', 'var(--c3)', 'var(--c4)',
                 '#0e9c86', '#8a6d3b', '#5566cc', '#c0392b'];
 
-  // 주기별 제거율 레벨 — 최근 주기일수록 낮다 (전체 회귀가 최근을 못 따라가는 이유)
-  var CYC_OFF = { 1: -0.25, 2: -0.17, 3: -0.10, 4: -0.06,
-                  5: -0.03, 6: -0.015, 7: 0.00 };
+  // ── 제거율 구조 ───────────────────────────────────────
+  //  웨이퍼 면 평균(13P)의 제거율은 TIME 루프가 모델로 알고 있어서 연마 시간으로 보상한다.
+  //  ED zone 은 그 평균보다 조금 더 깎이고, 그 '더 깎이는 몫'이 패드 상태에 따라 변한다.
+  //  BIAS 에 남는 것은 바로 이 zone 고유 몫이다 — 면 평균 성분은 전부 상쇄된다.
+  var RR_BASE   = 21.90;
+  var PAD_SLOPE = -0.010;    // 면 평균 제거율의 패드 마모 (TIME 루프가 아는 몫)
+  var Z0        = 0.168;     // ED zone 이 면 평균보다 더 깎는 기본량
+  var Z1        = -0.006;    // 패드가 닳을수록 그 차이가 줄어든다
+  var Z_BREAK   = 0.10;      // 새 패드 길들임 구간 — IF 모델이 따로 배우는 거동
+  // 주기별 zone 레벨 — 최근 주기일수록 낮다 (전체 회귀가 최근을 못 따라가는 이유).
+  // 평균이 0 이라 BIAS 를 한쪽으로 밀지 않는다.
+  var ZCYC = { 1: -0.075, 2: -0.045, 3: -0.015, 4: 0.000,
+               5: 0.015, 6: 0.030, 7: 0.045 };
 
   function mulberry32(a) {
     return function () {
@@ -302,10 +312,19 @@
   //     (화면 계산이 코드와 정확히 일치하도록)
   // ══════════════════════════════════════════════════════════
   var W = (function () {
-    var out = [], ci = 0, run = 0, drift = 0;
+    var out = [], ci = 0, run = 0, drift = 0, bag = [];
     for (var i = 0; i < NW; i++) {
-      if (run <= 0) {                       // 채널은 1~3장 짧은 런으로 바뀐다
-        ci  = Math.floor(rnd() * CH.length);
+      if (run <= 0) {
+        // 챔버는 1~3장 짧은 런으로 바뀐다 (같은 챔버가 10장 넘게 이어지면 이동평균이 그 신호까지 먹는다).
+        // 다만 순서는 무작위가 아니라 8개를 섞어 한 바퀴씩 돌린다 — 그래야 어느 챔버든
+        // 패드 구간·주기에 고르게 흩어져, 챔버 사이 비교가 표본 위치 때문에 어긋나지 않는다.
+        if (!bag.length) {
+          bag = CH.map(function (c, k) { return k; });
+          for (var b = bag.length - 1; b > 0; b--) {
+            var j2 = Math.floor(rnd() * (b + 1)), tmp = bag[b]; bag[b] = bag[j2]; bag[j2] = tmp;
+          }
+        }
+        ci  = bag.pop();
         run = 1 + Math.floor(rnd() * 3);
       }
       run--;
@@ -313,23 +332,30 @@
       var padh  = (i % CYC) / (CYC - 1) * PAD_MAX;      // 이 주기의 패드 사용 시간
       var cycNo = NCYC - Math.floor(i / CYC);           // cycle 1 = 가장 최근 (코드 규약)
 
-      // 13P : TIME 루프의 잔여 오차 — 느리게 떠돈다
-      drift += gauss(2.2); drift *= 0.94;
-      var t13 = TARGET_13P + drift + gauss(3.0);
+      // ── 웨이퍼 면 평균(13P) 층 : TIME 루프가 맡는다 ──
+      drift += gauss(1.0); drift *= 0.90;
+      var pre13   = PRE_TARGET + drift + gauss(1.5);   // 면 평균 입고 두께 (로트마다 떠돈다)
+      var rrModel = RR_BASE + PAD_SLOPE * padh;        // TIME 루프가 아는 제거율 모델
+      var polt    = (pre13 - TARGET_13P) / rrModel;    // 목표만큼 깎이도록 정한 연마 시간
+      var rrWafer = rrModel + gauss(0.16);             // 실제 면 평균 제거율 — 모델과 어긋난 만큼이 13P 잔여 오차
 
-      // 이 웨이퍼의 ED zone 입고 두께 — 면 평균은 타겟이지만 ED 는 챔버 형상만큼 어긋나 있다
-      var preTrue = PRE_TARGET + CH[ci].off + gauss(3.0);
-      // 새 패드는 처음 몇 시간 동안 길들임 구간 — 이래서 IF 모델(초기 구간 전용)이 따로 있다
-      var breakin = 0.10 * Math.exp(-padh / 2.5);
-      var rrTrue  = 21.90 - 0.010 * padh + breakin + CYC_OFF[cycNo] + gauss(0.035);
-      var polt    = POL_TIME + gauss(0.5);
-      var post    = preTrue - rrTrue * polt;                          // = Post_Target + BIAS
-      var bias    = post - ED_TGT;
-      var meas    = t13 + (ED_TGT - TARGET_13P) + bias;               // ED 절대 실측
+      // ── ED zone 층 : PRESSURE 가 맡는다 ──
+      // 입고는 면 평균에 챔버가 만든 ED 편차가 얹힌다. 제거율은 챔버와 무관하다.
+      var preED  = pre13 + CH[ci].off + gauss(2.2);
+      var zoneRR = Z0 + Z1 * padh + Z_BREAK * Math.exp(-padh / 2.5)
+                 + ZCYC[cycNo] + gauss(0.02);
+      var rrED   = rrWafer + zoneRR;
+
+      var meas13 = pre13 - rrWafer * polt;             // CMP 후 면 평균 실측
+      var measED = preED  - rrED   * polt;             // CMP 후 ED 실측
+      // 코드의 BIAS 정의 그대로 — 면 평균 성분(입고 산포·연마 시간)이 여기서 통째로 상쇄된다
+      var bias   = (measED - meas13) - (ED_TGT - TARGET_13P);
+      var post   = ED_TGT + bias;                      // = Post_Target + BIAS
 
       out.push({ i: i, ci: ci, ch: CH[ci].id, padh: padh, cyc: cycNo,
-                 t13: t13, preTrue: preTrue, rrTrue: rrTrue, polt: polt,
-                 post: post, bias: bias, meas: meas });
+                 pre13: pre13, preED: preED, zoneRR: zoneRR, rrED: rrED,
+                 polt: polt, meas13: meas13, meas: measED,
+                 post: post, bias: bias });
     }
     return out;
   })();
@@ -344,6 +370,18 @@
     w.rrT = (PRE_TARGET - w.meas) / w.polt;
     w.unctr = PRE_TARGET - w.rrP * FIX_TIME;
   });
+
+  // STEP 2 인셋용 — 챔버별 평균.
+  //  rrED(실제 제거율)는 챔버와 무관하게 만들어졌으므로 여덟 점이 겹친다.
+  //  rrP(코드가 계산한 RR)는 입고를 Pre_Target 고정값으로 놓은 탓에 챔버 몫이 섞여 벌어진다.
+  function chMeanOf(f) {
+    return CH.map(function (c, k) {
+      var g = W.filter(function (w) { return w.ci === k; });
+      return g.reduce(function (a, w) { return a + f(w); }, 0) / g.length;
+    });
+  }
+  var CH_RR_TRUE = chMeanOf(function (w) { return w.rrED; });
+  var CH_RR_CALC = chMeanOf(function (w) { return w.rrP; });
 
   // pad_cycle 별 rolling(WINDOW) — 앞 WINDOW-1 장은 MA 가 없어 학습에서 빠진다
   (function () {
@@ -737,6 +775,34 @@
       pill(gOver, PL.x0 + 10, PL.y0 + 16,
         'use_pressure=False 였다면 ( 절대 실측을 그대로 ) — 13P 출렁임이 그대로 실린다',
         { size: 10.5, fill: 'var(--c2)', weight: 600 });
+    }
+
+    // 실제 제거율 vs 코드가 계산한 RR — 챔버별 평균을 같은 자로 나란히
+    if (st.rrSplit) {
+      var IX = PL.x0 + 96, IW = 380, IY = PL.y1 + 62;
+      var all = CH_RR_TRUE.concat(CH_RR_CALC);
+      var lo = Math.min.apply(null, all), hi = Math.max.apply(null, all);
+      var pd = (hi - lo) * 0.16;
+      lo -= pd; hi += pd;
+      function ix(v) { return IX + (v - lo) / (hi - lo) * IW; }
+      function strip(yy, label, vals, col) {
+        txt(gOver, PL.x0, yy + 4, label, { size: 10.5, fill: col, weight: 600 });
+        gOver.appendChild(el('line', { x1: IX, x2: IX + IW, y1: yy, y2: yy,
+          stroke: 'currentColor', 'stroke-width': 1, opacity: 0.18 }));
+        vals.forEach(function (v, k) {
+          gOver.appendChild(el('circle', { cx: ix(v), cy: yy, r: 4, fill: CH_COL[k],
+            stroke: 'var(--az-surface)', 'stroke-width': 1.2 }));
+        });
+        var w = Math.max.apply(null, vals) - Math.min.apply(null, vals);
+        txt(gOver, IX + IW + 12, yy + 4, '폭 ' + w.toFixed(3) + ' Å/s',
+          { size: 10.5, fill: col, weight: 600 });
+      }
+      strip(IY, '실제 제거율', CH_RR_TRUE, 'var(--az-learn)');
+      strip(IY + 26, '계산한 RR', CH_RR_CALC, 'var(--c4)');
+      txt(gOver, PL.x0, IY + 52,
+        '실제 제거율은 어느 dep 챔버를 거쳐 왔든 같다 — 여덟 점이 거의 한자리에 모인다. ' +
+        '갈라지는 것은 계산한 RR 뿐이고, 그 벌어진 폭이 곧 챔버 편차 ÷ Pol_Time 이다.',
+        { size: 10.5, op: 0.75 });
     }
 
     // 주기별 이동평균선
@@ -1204,37 +1270,39 @@
       act: 0,
       title: 'STEP 1 — ④ 가 만든 BIAS 에서 출발한다',
       desc: '④ 에서 웨이퍼 한 장의 BIAS 를 정의했습니다. 이제 그 값을 ' + NW + '장 모았습니다. ' +
-            '13P 성분이 빠져 있으니 TIME 루프가 무엇을 하든 이 트렌드는 흔들리지 않습니다. ' +
-            'A 막의 목표는 이 안에 숨은 "dep 챔버가 남긴 ED 편차"를 끄집어내는 것입니다. ' +
-            '점 색이 그 웨이퍼가 거쳐 온 dep 챔버입니다 — 아직은 색이 뒤섞여 보입니다.',
+            'BIAS 는 면 평균 성분을 빼고 만든 값이라 0 을 기준으로 위아래로 갈립니다 — ' +
+            'ED 가 두껍게 들어오는 챔버(파랑)는 위, 얇게 들어오는 챔버(빨강)는 아래입니다. ' +
+            '다만 패드 마모와 주기 차이가 함께 실려 있어 아직 챔버 값을 숫자로 뽑을 수는 없습니다.',
       eq: '<span class="hl4">BIAS</span> = ( Thk_Para − Thk_Para_13P ) − ( Post_Target − Target_13P )',
       xMode: 'i', val: function (w) { return w.bias; }, dom: D_BIAS,
       unit: 'Å', xlab: XL_I, ref: 0, refLabel: 'BIAS = 0', colorBy: 'ch',
-      note: '아직은 챔버 편차와 패드 마모가 섞여 있다', h: 400
+      note: '색은 이미 위아래로 갈려 있다 — 다만 패드 마모가 함께 실려 있다', h: 400
     },
     {
       act: 0,
-      title: 'STEP 2 — 후처리 두께 자리에 Post_Target + BIAS 를 넣고 RR 을 만든다',
-      desc: 'compute_detrend 의 첫 줄입니다. use_pressure 가 True 면 실측 두께 대신 ' +
-            'Post_Target + BIAS 가 들어갑니다. 주황 선은 그 분기를 타지 않았을 때 — ' +
-            '13P 의 출렁임이 제거율에 그대로 실려 들어옵니다. 여기서 두 길이 처음 갈라집니다.',
+      title: 'STEP 2 — 제거율로 바꾼다 : 실제 제거율은 챔버와 무관하다',
+      desc: 'compute_detrend 의 첫 줄입니다. use_pressure 가 True 면 실측 두께 대신 Post_Target + BIAS 가 들어갑니다. ' +
+            'CMP 가 얼마나 깎는지는 dep 챔버와 아무 상관이 없습니다 — 아래 띠에서 실제 제거율 여덟 점이 한자리에 모이는 것이 그것입니다. ' +
+            '그런데 이 식은 입고 두께를 모르니 Pre_Target 고정값으로 놓습니다. ' +
+            '그래서 챔버 편차가 Pol_Time 으로 나뉜 만큼 계산한 RR 에 섞여 들어옵니다 — A 막이 뽑아낼 신호가 바로 이것입니다.',
       eq: '<span class="hl">RR</span> = ( Pre_Target − ( <span class="hl4">Post_Target + BIAS</span> ) ) / Pol_Time' +
-          ' <span class="dim">← use_pressure=True 일 때만</span>',
+          ' &nbsp;=&nbsp; <span class="dim">zone 제거율 −</span> <span class="hl4">챔버 편차</span><span class="dim"> / Pol_Time</span>',
       xMode: 'i', val: function (w) { return w.rrP; }, dom: D_RR,
-      unit: 'Å/s', xlab: XL_I, ghost: true, colorBy: 'ch',
-      note: 'Pre_Target 은 고정값 — VM 은 아직 모른다', h: 412
+      unit: 'Å/s', xlab: XL_I, ghost: true, colorBy: 'ch', rrSplit: true,
+      note: 'Pre_Target 은 고정값 — VM 은 아직 모른다', h: 500
     },
     {
       act: 0,
       title: 'STEP 3 — 연마 시간을 전체 평균으로 고정한다 (Unctr_Thk)',
       desc: '제거율에 "모두가 같은 시간 동안 깎았다면" 을 곱해 두께로 되돌립니다. ' +
-            'FIX_Time 은 EQ · 레시피 구분 없이 전체 평균 한 개입니다. ' +
-            'APC 가 연마 시간을 조절해 만든 차이가 지워지고, 두께로 환산된 값만 남습니다.',
+            'FIX_Time 은 EQ · 레시피 구분 없이 전체 평균 한 개라, 연마 시간이 달라서 생긴 차이가 여기서 지워집니다. ' +
+            'Å/s 에서는 소수점 셋째 자리이던 챔버 편차가 Å 로 돌아오면서 다시 두께 값이 됩니다 — ' +
+            '챔버별로 색이 층을 이루는 것이 눈에 들어옵니다.',
       eq: '<span class="hl">Unctr_Thk</span> = Pre_Target − RR × FIX_Time' +
           ' &nbsp;<span class="dim">FIX_Time = ' + FIX_TIME.toFixed(2) + ' s (전체 평균)</span>',
       xMode: 'i', val: function (w) { return w.unctr; }, dom: D_UNC,
       unit: 'Å', xlab: XL_I, colorBy: 'ch',
-      note: '패드가 닳으며 우상향하는 추세가 그대로 보인다', h: 400
+      note: '챔버별 층 + 패드 마모 추세 — 이 둘을 갈라내는 것이 다음 세 단계다', h: 400
     },
     {
       act: 0,
