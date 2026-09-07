@@ -1,4 +1,5 @@
 {% extends 'setup_mico/base.html' %}
+{% load static %}
 
 {% block title %}| 알고리즘 가이드{% endblock %}
 {% block nav_algorithm_guide %}active{% endblock %}
@@ -9,7 +10,7 @@
 {% endblock %}
 
 {% block content %}
-<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=IBM+Plex+Sans+KR:wght@300;400;500;600;700&family=IBM+Plex+Mono:wght@400;500;600&display=swap">
+<link rel="stylesheet" href="{% static 'setup_mico/fonts/ibm-plex.css' %}">
 
 <style>
 /* ══════════════════════════════════════════════════════════════
