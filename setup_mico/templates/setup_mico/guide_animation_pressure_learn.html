@@ -304,13 +304,18 @@
   //  ED zone 은 그 평균보다 조금 더 깎이고, 그 '더 깎이는 몫'이 패드 상태에 따라 변한다.
   //  BIAS 에 남는 것은 바로 이 zone 고유 몫이다 — 면 평균 성분은 전부 상쇄된다.
   // zone 압력 — PRESSURE 가 실제로 돌리는 손잡이. TIME 의 Pol_Time 자리에 해당한다.
-  var P0    = 3.00;      // 레시피 기본 압력 (psi)
-  var K_P   = 0.35;      // 압력 1 psi 당 zone 제거율 변화 (Å/s)
+  //  MICO 이전에도 이 손잡이에는 FB 가 걸려 있었다. 패드가 닳는 만큼 압력을 올려 주는 루프다.
+  //  계측을 보고 미는 루프라 지연이 있어 완전히 따라가지 못하고, 웨이퍼마다 조금씩 흔들린다.
+  //  다만 dep 챔버를 구분하지는 못한다 — 그 몫이 MICO 가 새로 얹는 부분이다.
+  var P0        = 3.00;   // 레시피 기본 압력 (psi) — 패드를 갈면 여기서 다시 시작한다
+  var K_P       = 0.35;   // 압력 1 psi 당 zone 제거율 변화 (Å/s)
+  var FB_LAG    = 0.06;   // 기존 FB 의 따라가는 속도 (1 이면 한 장 만에 따라잡는다)
+  var MICO_GAIN = 0.55;   // 학습값을 한 번에 다 넣지 않는다 — 계측 지연·학습 오차를 감안한 보정 게인
 
   var RR_BASE   = 21.90;
   var PAD_SLOPE = -0.010;    // 면 평균 제거율의 패드 마모 (TIME 루프가 아는 몫)
-  var Z0        = 0.168;     // ED zone 이 면 평균보다 더 깎는 기본량
-  var Z1        = -0.006;    // 패드가 닳을수록 그 차이가 줄어든다
+  var Z0        = 0.104;     // ED zone 이 면 평균보다 더 깎는 기본량
+  var Z1        = -0.012;    // 패드가 닳을수록 그 차이가 줄어든다 — 기존 FB 가 압력으로 이걸 보상한다
   var Z_BREAK   = 0.10;      // 새 패드 길들임 구간 — IF 모델이 따로 배우는 거동
   // 주기별 zone 레벨 — 최근 주기일수록 낮다 (전체 회귀가 최근을 못 따라가는 이유).
   // 평균이 0 이라 BIAS 를 한쪽으로 밀지 않는다.
@@ -337,6 +342,7 @@
   // ══════════════════════════════════════════════════════════
   var W = (function () {
     var out = [], ci = 0, run = 0, drift = 0, bag = [];
+    var pFB = P0, prevCyc = null;
     for (var i = 0; i < NW; i++) {
       if (run <= 0) {
         // 챔버는 1~3장 짧은 런으로 바뀐다 (같은 챔버가 10장 넘게 이어지면 이동평균이 그 신호까지 먹는다).
@@ -368,7 +374,15 @@
       var preED  = pre13 + CH[ci].off + gauss(2.2);
       var zoneRR = Z0 + Z1 * padh + Z_BREAK * Math.exp(-padh / 2.5)
                  + ZCYC[cycNo] + gauss(0.02);
-      var rrED   = rrWafer + zoneRR;
+
+      // 기존 FB : 패드 마모(Z1·padh) 만큼 압력을 올리는 것이 목표치.
+      // 길들임·주기 편차는 모델에 없어 못 잡고, 1차 지연이라 목표치를 늘 조금 뒤따라간다.
+      if (cycNo !== prevCyc) { pFB = P0; prevCyc = cycNo; }   // 패드를 갈면 처음부터 다시
+      var pIdeal = P0 - Z1 * padh / K_P;
+      pFB += FB_LAG * (pIdeal - pFB) + gauss(0.012);
+
+      var zoneEff = zoneRR + K_P * (pFB - P0);   // 압력이 실제로 바꾼 zone 제거율
+      var rrED    = rrWafer + zoneEff;
 
       var meas13 = pre13 - rrWafer * polt;             // CMP 후 면 평균 실측
       var measED = preED  - rrED   * polt;             // CMP 후 ED 실측
@@ -378,7 +392,7 @@
 
       out.push({ i: i, ci: ci, ch: CH[ci].id, padh: padh, cyc: cycNo,
                  pre13: pre13, preED: preED, zoneRR: zoneRR, rrED: rrED,
-                 polt: polt, meas13: meas13, meas: measED,
+                 polt: polt, meas13: meas13, meas: measED, pFB: pFB,
                  post: post, bias: bias });
     }
     return out;
@@ -454,14 +468,13 @@
   //   압력을 정하려면 VM 이 먼저 있어야 하므로 이 계산은 학습이 끝난 뒤에 온다.
   // ══════════════════════════════════════════════════════════
   W.forEach(function (w) {
-    w.press0 = P0;
+    // 적용 전 : 기존 FB 가 만든 궤적 그대로 — 패드 주기를 따라 올라갔다가 교체하면 돌아온다
+    w.press0 = w.pFB;
     w.bias0  = w.bias;
-    // BIAS = 0 이 되려면 zone 이 초당 이만큼 더(덜) 깎아야 한다
-    var need  = (w.vm + (TARGET_13P - ED_TGT)) / w.polt;
-    // 모델이 예상하는 zone 고유 제거율 (학습으로 알고 있는 몫)
-    var model = Z0 + Z1 * w.padh + Z_BREAK * Math.exp(-w.padh / 2.5) + ZCYC[w.cyc];
-    w.press1  = P0 + (need - model) / K_P;
-    w.bias1   = w.bias - (w.press1 - P0) * K_P * w.polt;
+    // 적용 중 : 그 위에 챔버별 VM 만큼을 얹는다. 한 번에 다 넣지 않고 게인만큼만 반영한다
+    var add  = MICO_GAIN * w.vm;                 // 이번에 잡아 줄 두께 (Å)
+    w.press1 = w.pFB + add / (K_P * w.polt);
+    w.bias1  = w.bias - add;
   });
   var APPLIED = false;
   function biasOf(w)  { return APPLIED ? w.bias1  : w.bias0; }
@@ -659,7 +672,6 @@
   var D_UNC   = ext(pick(function (w) { return w.unctr; })
                     .concat(pick(function (w) { return w.unctrT; })), 0.10);
   var D_DET   = ext(pick(function (w) { return w.det; }), 0.18);
-  var D_CUT   = ext(pick(function (w) { return w.cut; }), 0.16);
   var D_RRB   = ext(pick(function (w) { return w.rrB; }), 0.16);
 
   function mkY(dom) {
@@ -822,6 +834,23 @@
   function drawOver(st) {
     var y = mkY(st.dom);
 
+    // 입고 두께(Pre_Target + VM) — 챔버마다 값 하나씩, 웨이퍼가 흘러도 변하지 않는다.
+    // 챔버가 1~3장마다 바뀌어 계단선으로 그리면 빗살이 되므로 챔버별 수평선으로 놓는다.
+    if (st.vmLine) {
+      CH_STAT.forEach(function (c) {
+        gOver.appendChild(el('line', { x1: PL.x0, x2: PL.x1 - 46, y1: y(c.vm), y2: y(c.vm),
+          stroke: CH_COL[c.k], 'stroke-width': 2, opacity: 0.9 }));
+        txt(gOver, PL.x1 - 42, y(c.vm) + 3.5, sgn(c.vm, 1),
+          { size: 10, fill: CH_COL[c.k], weight: 600 });
+      });
+      pill(gOver, PL.x0 + 10, PL.y0 + 16,
+        '가로선 = pre_thk − Pre_Target = VM   — 챔버마다 값 하나, 패드와 무관하다',
+        { size: 11, fill: 'var(--az-learn)', weight: 600 });
+      pill(gOver, PL.x1 - 8, PL.y1 - 12,
+        '점 = post_thk − Post_Target = BIAS   — 패드 추세가 얹혀 있다',
+        { size: 11, anchor: 'end', fill: 'var(--c4)', weight: 600 });
+    }
+
     // MICO 적용 전/중 비교 밴드 — 지금 케이스는 채우고, 다른 케이스는 점선으로 남긴다
     if (st.mico) {
       var isB = (st.mico === 'bias');
@@ -845,9 +874,9 @@
       if (APPLIED) {
         var base = isB ? BIAS3.before : PRESS_W.before;
         var now  = isB ? BIAS3.after  : PRESS_W.after;
-        lab += isB ? '   ( 적용 전 ' + base.toFixed(1) + ' → −' +
-                     (100 * (1 - now / base)).toFixed(0) + '% )'
-                   : '   ( 적용 전에는 모두 같은 압력이었다 )';
+        lab += '   ( 적용 전 ' + base.toFixed(isB ? 1 : 2) + (isB ? ' Å → −' : ' psi → +') +
+               (isB ? (100 * (1 - now / base)).toFixed(0) + '% )'
+                    : (now - base).toFixed(2) + ' psi )');
       }
       pill(gOver, PL.x0 + 10, PL.y0 + 16, (APPLIED ? '적용 중 · ' : '적용 전 · ') + lab,
         { size: 11.5, fill: col, weight: 600 });
@@ -1337,7 +1366,7 @@
             '두께만 봐서는 알 수 없습니다 — 차이가 사라진 걸까요? 다음 화면을 보세요.'
           : '④ 에서 정의한 BIAS 를 ' + NW + '장 모았습니다. 면 평균 성분을 빼고 만든 값이라 0 을 기준으로 갈립니다 — ' +
             'ED 가 두껍게 들어오는 챔버(파랑)는 위, 얇게 들어오는 챔버(빨강)는 아래입니다. ' +
-            '아직 zone 압력은 모든 웨이퍼가 똑같이 받고 있어서, 입고 편차가 그대로 두께에 남습니다.';
+            '기존 FB 가 패드 마모는 이미 잡아 주고 있지만 dep 챔버는 구분하지 못하므로, 입고 편차가 그대로 두께에 남습니다.';
       },
       eq: '<span class="hl4">BIAS</span> = ( Thk_Para − Thk_Para_13P ) − ( Post_Target − Target_13P )',
       xMode: 'i', val: function (w) { return biasOf(w); }, dom: D_BIAS,
@@ -1354,13 +1383,15 @@
       title: 'STEP 2 — 차이는 사라진 게 아니라 압력으로 옮겨갔다',
       desc: function () {
         return APPLIED
-          ? '같은 웨이퍼의 zone 압력입니다. 앞 화면에서 두께가 깨끗해진 만큼 이 화면이 갈라졌습니다 — ' +
-            '두껍게 들어오는 챔버(파랑)에는 압력을 더 주고, 얇게 들어오는 챔버(빨강)에는 덜 줍니다. ' +
-            'TIME 이 Pol_Time 을 돌리듯 PRESSURE 는 이 손잡이를 돌립니다. ' +
-            '필요한 제거율은 ( VM + ( Target_13P − Post_Target ) ) / Pol_Time 로 구합니다.'
-          : '같은 웨이퍼의 zone 압력입니다. 아직은 어느 챔버를 거쳐 왔든 레시피 값 그대로 ' + P0.toFixed(2) + ' psi 를 줍니다. ' +
-            '장비는 입고 두께가 얼마인지 모르니 조절할 근거가 없습니다. ' +
-            '위 버튼을 눌러 MICO 를 켜 보세요 — 앞 화면의 두께와 이 화면을 번갈아 보면 됩니다.';
+          ? '패드 주기를 따라 올라가는 톱니는 그대로 두고, 그 위에 챔버별 보정이 얹혔습니다 — ' +
+            '같은 시점이라도 두껍게 들어오는 챔버(파랑)에는 압력을 더, 얇게 들어오는 챔버(빨강)에는 덜 줍니다. ' +
+            '앞 화면에서 두께가 좁아진 만큼 이 화면이 세로로 벌어졌습니다. ' +
+            '학습값을 한 번에 다 넣지는 않습니다 — 계측 지연과 학습 오차를 감안해 ' +
+            (MICO_GAIN * 100).toFixed(0) + '% 만 반영하고 다음 로트에서 다시 봅니다.'
+          : '같은 웨이퍼의 zone 압력입니다. MICO 이전에도 이 손잡이에는 FB 가 걸려 있었습니다 — ' +
+            '패드가 닳아 덜 깎이는 만큼 압력을 올려 주고, 패드를 갈면 ' + P0.toFixed(2) + ' psi 로 돌아갑니다. ' +
+            '주기마다 톱니가 보이는 것이 그것입니다. 다만 이 루프는 어느 dep 챔버를 거쳐 왔는지는 모릅니다 — ' +
+            '그래서 같은 시점의 웨이퍼는 챔버와 무관하게 같은 압력을 받습니다. 위 버튼으로 MICO 를 켜 보세요.';
       },
       eq: 'zone 압력 = P0 + ( <span class="hl">필요한 제거율</span> − 모델이 아는 제거율 ) / k' +
           ' &nbsp;<span class="dim">k = ' + K_P.toFixed(2) + ' Å/s per psi</span>',
@@ -1368,13 +1399,13 @@
       unit: 'psi', xlab: XL_I, colorBy: 'ch',
       mico: 'press', ctrl: 'mico',
       note: function () {
-        return APPLIED ? '챔버별로 압력이 갈렸다 — 두께에서 옮겨온 그 차이다'
-                       : '모두 같은 압력 — 조절할 근거(VM)가 아직 없다';
+        return APPLIED ? '톱니 위에 챔버별로 갈라졌다 — 두께에서 옮겨온 그 차이다'
+                       : '패드 주기 톱니만 있다 — 챔버를 구분할 근거(VM)가 아직 없다';
       },
       trendNote: function () {
         return APPLIED
           ? '→ 산포는 없어지지 않는다. 두께에 있던 것이 압력으로 자리를 옮겼을 뿐이고, 제품 스펙은 두께 쪽이다'
-          : '→ 이 손잡이를 근거 있게 돌리려면 챔버별 입고 편차를 알아야 한다 — 그것을 배우는 것이 A 막이다';
+          : '→ 이 톱니 위에 챔버별 보정을 얹으려면 챔버 입고 편차를 알아야 한다 — 그것을 배우는 것이 A 막이다';
       },
       h: 424
     },
@@ -1494,14 +1525,16 @@
     {
       act: 1,
       title: 'STEP 12 — 두 두께를 세운다 : 여기가 PRESSURE 의 유일한 차이',
-      desc: '입고 두께는 Pre_Target 에 A 막이 학습한 VM 을 더한 값입니다 — TIME 과 완전히 같습니다. ' +
-            '후처리 두께 자리에만 is_bias_type 분기가 걸려 Post_Target + BIAS 가 들어갑니다. ' +
-            '이 화면은 그 둘의 차이, 즉 실제로 깎아낸 두께입니다.',
+      desc: '두 두께를 각자의 목표에서 얼마나 벗어났는지로 나란히 놓았습니다. ' +
+            '입고 쪽은 Pre_Target + VM 인데, VM 은 챔버마다 학습값 하나씩이라 패드가 닳든 말든 변하지 않습니다 — ' +
+            '굵은 선이 챔버가 바뀔 때만 계단으로 움직이는 이유입니다. ' +
+            '후처리 쪽에만 is_bias_type 분기가 걸려 Post_Target + BIAS 가 들어가고, 여기에는 패드 추세가 얹혀 있습니다. ' +
+            '다음 단계에서 두 값의 차이를 연마 시간으로 나눕니다.',
       eq: 'pre_thk = Pre_Target + <span class="hl">VM</span> &nbsp;·&nbsp; ' +
           'post_thk = is_bias_type ? <span class="hl4">Post_Target + BIAS</span> : <span class="hl2">Thk_Para</span>',
-      xMode: 'i', val: function (w) { return w.cut; }, dom: D_CUT,
-      unit: 'Å', xlab: XL_IC, cyclines: true, colorBy: 'ch',
-      note: '챔버 색이 고르게 섞여 있다 = VM 이 챔버 몫을 이미 빼 갔다', h: 400
+      xMode: 'i', val: function (w) { return w.bias0; }, dom: D_BIAS,
+      unit: 'Å', xlab: XL_IC, cyclines: true, colorBy: 'ch', vmLine: true,
+      note: '입고 쪽은 챔버 계단만 — 패드 추세는 후처리 쪽에만 있다', h: 412
     },
     {
       act: 1,
