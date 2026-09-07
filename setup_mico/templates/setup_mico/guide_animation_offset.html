@@ -168,6 +168,7 @@
 .az-foot b.i { color:var(--i2); }
 .az-foot b.l { color:var(--l2); }
 .az-foot b.p { color:var(--c3); }
+.az-foot b.t { color:var(--tru); }
 
 @media (prefers-reduced-motion:reduce) { .az * { transition:none !important; } }
 </style>
@@ -201,7 +202,7 @@
 
     <div class="az-canvas">
       <svg id="az-svg" viewBox="0 0 900 348" role="img"
-           aria-label="OFFSET 학습 과정 애니메이션: 장비가 재개한 뒤 순번대로 붙는 Idle 라벨과 공정이 바뀐 뒤 붙는 Layer 라벨의 제거율을 패드 모델과 비교해 필요 시간 차이를 구하고, 범위를 자르고 Truing 구간을 0으로 만든 뒤 라벨별로 모아 평균을 내어 저장하고, 적용 시점에 라벨로 조회해 연마 시간에 더한다">
+           aria-label="OFFSET 학습 과정 애니메이션: 장비가 재개한 뒤 순번대로 붙는 Idle 라벨과 공정이 바뀐 뒤 붙는 Layer 라벨의 제거율을 패드 모델과 비교해 필요 시간 차이를 구하고, 범위를 자르고 Trouble lot 뒤 구간을 0으로 만든 뒤 라벨별로 모아 평균을 내어 저장하고, 적용 시점에 라벨로 조회해 연마 시간에 더한다">
         <g id="az-legend"></g>
         <g id="az-grid"></g>
         <g id="az-seps"></g>
@@ -255,7 +256,7 @@
         <div class="h">계산 중 걸러진 것</div>
         <div class="az-kv"><span class="k">정상 구간 평균</span><span class="v dim" id="az-c-norm">—</span></div>
         <div class="az-kv"><span class="k">clip(−5, +3) 적용</span><span class="v dim" id="az-c-clip">—</span></div>
-        <div class="az-kv"><span class="k">Truing 강제 0</span><span class="v dim" id="az-c-tru">—</span></div>
+        <div class="az-kv"><span class="k">TB 강제 0</span><span class="v dim" id="az-c-tru">—</span></div>
         <div class="az-kv"><span class="k">5건 미달 탈락</span><span class="v dim" id="az-c-drop">—</span></div>
       </div>
       <div class="az-panel">
@@ -281,13 +282,16 @@
     구조는 Idle 과 같습니다.<br>
     <b class="p">LC_*</b> : 다른 공정을 돌다가 이어서 진행할 때의 <b>첫 번째 slot</b>, 또는 rework 웨이퍼를 흘린 뒤의
     <b>첫 번째 slot</b> 입니다. 앞의 두 라벨과 달리 순번이 따라붙지 않고 그 한 장에만 붙습니다.
-    라벨 안에 <b>device</b> 가 들어 있어(<code>LC_{device}_{공정}</code>) 처리 경로가 다릅니다.
+    라벨 안에 <b>device</b> 가 들어 있어(<code>LC_{device}_{공정}</code>) 처리 경로가 다릅니다.<br>
+    <b class="t">LC_TB_*</b> : 그중 <b>Trouble lot</b> 을 흘린 뒤에 진행된 웨이퍼입니다.
+    그 lot 은 웨이퍼마다 조건이 제각각이라 남기는 영향도 매번 달라서, 학습하면 오히려 틀린 보정값이 됩니다.
+    그래서 계산 결과와 무관하게 <b>0</b> 으로 덮어씁니다.
   </p>
 
   <p class="az-foot">
     데이터는 <code>compute_offset()</code> · <code>compute_lc_offset()</code> · <code>_build_idle_table()</code> 의
     실제 계산식으로 브라우저에서 생성·처리한 <b>예시</b>입니다.
-    상수(<code>clip(−5, 3)</code>, 그룹당 <code>5건 이상</code>, <code>LC_T_</code>·<code>LC_TB_</code> 강제 0,
+    상수(<code>clip(−5, 3)</code>, 그룹당 <code>5건 이상</code>, <code>LC_T_</code>·<code>LC_TB_</code>(Trouble lot 뒤) 강제 0,
     <code>Idle_</code>·<code>Layer_</code> 만 일반 경로, <code>recipe_group = recipe_id.split('_')[:3]</code>)는 코드와 같습니다.
     RR 계수 <code>b1</code>·<code>b0</code> 는 <a href="{% url 'guide_animation_rr' %}" style="color:var(--az-learn)">② Removal Rate</a> 가 학습해 둔 값을 그대로 가져옵니다.
   </p>
@@ -347,7 +351,9 @@
     // LC = 다른 공정을 돌다가 이어서 진행하는 첫 장, 또는 rework 웨이퍼 뒤 첫 장.
     // 직전에 무엇이 지나갔느냐에 따라 패드가 남긴 상태가 달라 device 마다 값이 갈린다.
     'LC:E2': 1.55, 'LC:E9': 0.80, 'LC:ES': -1.35,
-    'TRU':  -0.30                     // Truing 으로 표면이 잡혀 거의 정상 — 그래도 코드가 0 으로 강제한다
+    // TB = Trouble lot 을 흘린 뒤의 첫 장. 그 lot 은 웨이퍼마다 조건이 제각각이라
+    // 여기서 나온 값을 학습하면 엉뚱한 보정값이 된다 → 코드가 계산 결과와 무관하게 0 으로 덮어쓴다
+    'TB':   -0.30
   };
   var EQ_BIAS = { CMP01: -0.45, CMP02: 0, CMP03: 0.55 };   // 장비 고유 편차
 
@@ -357,10 +363,10 @@
   // LC 라벨은 LC_{device}_{공정} 꼴이다. device 가 갈리면 라벨도 갈린다.
   // Offset_Group='Y' 는 이 device 자리를 떼어 LC_{공정} 하나로 합친다.
   var LC_DEV = ['E2', 'E9', 'ES'], LC_PROC = 'M2CU';
-  function lcLabel(dev, tru) {
-    return (tru ? 'LC_T_' : 'LC_') + dev + '_' + LC_PROC;
+  function lcLabel(dev, tb) {
+    return (tb ? 'LC_TB_' : 'LC_') + dev + '_' + LC_PROC;
   }
-  function lcKind(dev, tru) { return tru ? 'TRU' : 'LC:' + dev; }
+  function lcKind(dev, tb) { return tb ? 'TB' : 'LC:' + dev; }
 
   var W = [], uid = 0;
 
@@ -490,7 +496,7 @@
     w.offClip = clamp(w.offRaw, CLIP_LO, CLIP_HI);
     w.clipped = Math.abs(w.offClip - w.offRaw) > 1e-9;
     if (w.clipped) { nClip++; }
-    w.isTru = /LC_T_|LC_TB_/.test(w.label);         // Truing 은 강제 0
+    w.isTru = /LC_T_|LC_TB_/.test(w.label);         // Trouble lot 뒤 첫 장은 강제 0
     w.off = w.isTru ? 0 : w.offClip;
     if (w.isTru) { nTru++; }
   });
@@ -538,7 +544,7 @@
     // (코드가 실제로 떼는 자리가 device 자리다 : LC_E2_M2CU · LC_E9_M2CU · LC_ES_M2CU → LC_M2CU)
     if (!groupOn) { return w.label; }
     var p = w.label.split('_');
-    return w.kind === 'TRU' ? p[0] + '_' + p[3] : p[0] + '_' + p[2];
+    return w.kind === 'TB' ? p[0] + '_' + p[3] : p[0] + '_' + p[2];
   }
   function lcLanes(groupOn) {
     var seen = [];
@@ -730,10 +736,11 @@
       zeroLine: true, clipLines: true, clipVerdict: true, h: 420
     },
     {
-      title: 'STEP 6 — Truing 을 한 구간은 0 으로 못 박는다',
-      desc: '패드를 갈면서 Truing(표면 다듬기)까지 했다면 표면이 새로 잡혀 정상 모델이 다시 맞습니다. ' +
-            '그래서 이 라벨은 계산 결과가 얼마든 상관없이 0 으로 덮어씁니다 — ' +
-            '보정하지 않는다는 결정을 값으로 저장해 두는 것입니다.',
+      title: 'STEP 6 — Trouble lot 뒤의 첫 장은 0 으로 못 박는다',
+      desc: 'LC_TB_ 는 Trouble lot 을 흘린 뒤에 진행된 웨이퍼라는 뜻입니다. ' +
+            '그 lot 은 웨이퍼마다 조건이 제각각이라 뒤에 남는 영향도 매번 다릅니다. ' +
+            '이걸 평균 내어 학습하면 다음 웨이퍼에 엉뚱한 보정값이 붙습니다. ' +
+            '그래서 계산 결과가 얼마든 0 으로 덮어씁니다 — 배우지 않겠다는 결정을 값으로 저장하는 것입니다.',
       eq: 'IDLE.str.contains( <span class="hl3">\'LC_T_|LC_TB_\'</span> ) &nbsp;→&nbsp; OFFSET = <span class="hl3">0</span>',
       x: xTime, y: function (w) { return yOff(w.off); },
       fill: fillByLabel,
@@ -858,8 +865,8 @@
     norm: { w: 88,  cols: [C_NORM],    t: '정상 연속 생산' },
     idle: { w: 182, cols: IDLE_COLS,   t: 'Idle_1→4 (재개 후 순번)' },
     lay:  { w: 192, cols: LAYER_COLS,  t: 'Layer_1→4 (전환 후 순번)' },
-    lc:   { w: 168, cols: [C_LC],      t: 'LC (전환·rework 후 첫 장)' },
-    tru:  { w: 112, cols: [C_TRU],     t: 'Truing (값 0)' },
+    lc:   { w: 130, cols: [C_LC],      t: 'LC (전환·rework 뒤)' },
+    tru:  { w: 128, cols: [C_TRU],     t: 'TB (Trouble lot · 0)' },
     sp:   { w: 88,  cols: [C_SPIKE],   t: '계측 이상치' }
   };
   var LEG_SETS = {
@@ -1127,13 +1134,13 @@
       { size: 11, op: 0.55 });
   }
 
-  // STEP 6 — Truing 판정
+  // STEP 6 — Trouble lot(TB) 강제 0 판정
   function drawTruVerdict() {
     var Y = PL.y1 + 52;
     var truRows = MAIN.filter(function (w) { return w.isTru; });
     var before = mean(truRows.map(function (w) { return w.offClip; }));
     txt(gApply, PL.x0, Y,
-      'CMP02 의 Truing 웨이퍼 ' + truRows.length + '건 — 계산 결과는 평균 ' +
+      'CMP02 의 TB 웨이퍼 ' + truRows.length + '건 — 계산 결과는 평균 ' +
       (before === null ? '—' : sgn(before) + ' s') + ' 였지만 전부 0 으로 덮어쓴다',
       { size: 11.5, weight: 600, fill: C_TRU });
     txt(gApply, PL.x0, Y + 22,
@@ -1221,7 +1228,7 @@
       { size: 12, weight: 600, fill: groupY ? C_LC : 'var(--az-learn)' });
     if (groupY) {
       txt(gApply, 6, yS + RH + 66,
-        '주의 — device 를 떼면 LC_T_{device}_M2CU 도 LC_M2CU 가 된다. 강제 0 인 Truing 이 같은 칸에 섞여 평균을 0 쪽으로 당긴다',
+        '주의 — device 를 떼면 LC_TB_{device}_M2CU 도 LC_M2CU 가 된다. 강제 0 인 TB 가 같은 칸에 섞여 평균을 0 쪽으로 당긴다',
         { size: 10.5, fill: C_TRU, op: 0.95 });
     }
   }
