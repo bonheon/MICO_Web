@@ -1,0 +1,147 @@
+"MICO 학습 파이프라인 코드 구조" PPT를 최신 코드에 맞게 갱신해줘.
+
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+0. 대상 파일
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+- 갱신할 PPT : MICO_학습_파이프라인_코드구조.pptx  (15장, PART 0~4 구성)
+- 원본 프롬프트: ppt_prompt_module_code_structure.txt
+  → PPT 를 고친 뒤 이 프롬프트 파일의 해당 문단도 같이 고쳐서
+    "프롬프트 = 현재 PPT" 상태를 유지할 것. (다음 갱신 때 기준이 되는 파일임)
+- 근거 코드   : MICO_Web 리포의 algorithm_new/Common/ (Module.py, Get_Data.py,
+                REMOVAL_RATE.py, OFFSET.py)
+
+[전제]
+기존 자료의 구성·디자인·관통 메시지 2개("3층 구조" / "컬렉션 사슬")는 그대로 둔다.
+이번 작업은 **재제작이 아니라 부분 갱신**이다. 슬라이드를 새로 추가하지 말고,
+아래 3건을 해당 장의 표·모식도 안에 녹여 넣어라. 폰트·색·도형 스타일은 기존 장과 동일하게.
+
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+1. [PART 1 / 5장] compute_pre_thk_vm 경로 플래그 — use_itm 판정 근거 변경
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+근거 코드: Common/Module.py:160~167, 182 / Common/Get_Data.py:95
+
+[무엇이 바뀌었나]
+예전에는 Set-up 의 Pre_Thk_Para_ITM 존재 여부 하나가 use_itm 을 결정했다.
+Set-up(Detail 모델)에 Pre_Thk_VM_Source 필드(AUTO / POST, 기본 AUTO)가 추가되어
+판정식이 아래로 바뀌었다.
+
+  force_post = (key_df['Pre_Thk_VM_Source'] == 'POST').any()   # 컬럼 없으면 False
+  use_itm    = len(itm_paras) > 0 and not force_post
+
+[5장 플래그 표를 이렇게 고칠 것]
+  | 플래그 | 판정 근거 (Set-up 컬럼) | True면 |
+  | use_itm | Pre_Thk_Para_ITM 있음 **AND Pre_Thk_VM_Source != 'POST'** | ITM 경로 |
+  | use_moving_avg | ITM 경로 아님 + Pre_Oper_Code 있음 | Detrend 경로 |
+  | has_regression | Pre_Oper_Code2 있음 | 회귀계수 산출 추가 |
+  → use_itm 행의 바뀐 조건을 강조색으로 표시하고 "신규" 뱃지를 달 것
+
+[같은 장에 작은 박스 하나 추가 — 왜 필드가 생겼나 (이 자료의 교육 포인트)]
+  "ITM 계측값이 **존재하는가**" 와 "VM 회귀의 y 를 **무엇으로 학습할 것인가**" 는
+  원래 별개 판단인데, 예전에는 Pre_Thk_Para_ITM 한 필드가 두 역할을 겸했다.
+  사전공정 zone 차이가 입고 두께가 아니라 **removal rate** 에 영향을 주는 공정
+  (예: CBL HM NIT CMP)에서는 ITM BIAS 를 y 로 회귀해도 zone 파라미터와 상관이
+  나오지 않는다. → 두 판단을 분리하는 Set-up 플래그를 추가.
+
+  | Pre_Thk_VM_Source | 동작 |
+  | AUTO (기본) | 기존과 동일 — ITM 있으면 ITM 경로 |
+  | POST | ITM 이 있어도 **detrend(post thk) 경로로 강제** |
+
+  ★ 반드시 같이 넣을 문장 (오해 방지):
+    "Pre_Thk_Para_ITM Set-up 자체는 유지된다 → Simulation 베이스와 RR 학습의
+     ITM 사용은 영향 없음. 바뀌는 것은 VM 회귀의 y 축뿐이다."
+
+[6장 3열 비교 모식도] — 경로 자체는 그대로. 다만 [Detrend 경로] 열 머리에
+  "ITM 없음 **또는** Pre_Thk_VM_Source='POST'" 로 진입 조건 한 줄만 갱신.
+  (로그에는 경로명이 'Detrend(POST 강제)' 로 찍힌다는 각주 한 줄 추가)
+
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+2. [PART 2 / 9장] compute_rr 준비 단계 — RR_Para 4종 + vm_col 결정 기준
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+근거 코드: Common/Get_Data.py:173~180 / Common/REMOVAL_RATE.py:165~166, 183~185, 282~291
+
+[2-1] "compute_rr()의 역할은 준비만" 시퀀스의 ①②번을 갱신
+  ① Get_data.APCParaGet / HeadParaGet / PadParaGet / DiskParaGet
+     **/ DresserParaGet**  ← 신규
+  ② Set-up RR_Para 값(HEAD / PAD / DISK **/ DRESSER_CUTTING_RATE**)으로
+     consumable_Para(회귀 x축) 선택
+  → DresserParaGet 은 P1/P2/P3 → DRESSER_CUTTING_RATE_1/2/3 매핑 (기본값 _3)
+
+[2-2] 같은 장에 "숨은 함정" 캘아웃 박스 하나 추가 (실무자용 — 이 자료 성격상 가치 큼)
+  _process_models() 의 col_list 는 기본 소모품 3종(Pad/Head/Disk)만 고정으로 담는다.
+  DRESSER_CUTTING_RATE 를 고르면 x축 컬럼이 col_list 밖이라 그대로 잘려나가고,
+  뒤의 dropna(subset=[..., consumable_Para]) 에서 KeyError 가 난다.
+  → 지금은 `if consumable_Para not in col_list: col_list.append(...)` 로 방어한다.
+  교훈 한 줄: "선택지(RR_Para)를 늘릴 때는 컬럼 선별 목록도 같이 늘려야 한다"
+
+[2-3] vm_col 결정 기준 — 1번 항목과 짝이 되는 변경 (반드시 1번과 연결지어 설명)
+  기존 서술: vm_col = (ITM 있으면 ITM 파라, 없으면 Thk_Para) + '_VM'   ← Set-up 기준
+  변경 후  : merge_df 에 **실제로 만들어진 _VM 컬럼**을 보고 결정
+             itm_vm_col = Pre_Thk_Para + '_VM'
+             vm_col = itm_vm_col if itm_vm_col in temp_data3.columns else Thk_Para + '_VM'
+  이유: Pre_Thk_VM_Source='POST' 는 ITM Set-up 을 **남긴 채** detrend 로 학습한다.
+        1단계가 _Period 컬렉션에 저장하는 이름은 학습 경로를 따라가므로
+        (ITM 경로 → {ITM 파라}_VM / detrend 경로 → {Thk_Para}_VM),
+        Set-up 의 ITM 유무만 보면 **존재하지 않는 컬럼 이름**을 찾게 된다.
+  → 슬라이드에는 "Set-up 기준 ✗ → 실제 적재 결과 기준 ✓" 대비 화살표로 표현.
+  → 이 자료의 관통 메시지 ②("컬렉션 사슬")와 이어붙일 것:
+     "모듈 간 연결이 컬렉션이므로, 뒤 단계는 Set-up 이 아니라 **앞 단계가 실제로
+      남긴 결과**를 기준으로 읽어야 한다" — 사슬 구조가 만드는 규칙의 실제 사례.
+
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+3. [PART 3 / 12장] compute_offset 내부 시퀀스 — IDLE 정규화 방어 코드
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+근거 코드: Common/OFFSET.py:80, 204
+
+compute_offset() 와 compute_lc_offset() 둘 다, 데이터를 slice 한 직후에
+IDLE 컬럼을 문자열로 정규화하는 한 줄이 들어갔다.
+
+  temp_data['IDLE'] = temp_data['IDLE'].fillna('').astype(str)
+
+[12장 compute_offset() 내부 시퀀스에 ②-1 단계로 삽입]
+  ② operation_id + recipe_id 필터 → 비면 return None
+  **②-1 IDLE 컬럼 정규화 fillna('').astype(str)**   ← 신규
+  ③ B1/B0 결측 보충 ...
+
+  옆에 짧은 사유:
+  "조회 기간에 idle 이벤트가 하나도 없으면 IDLE 컬럼이 전부 NaN → float64 dtype 이
+   되어, 뒤의 .str.contains('LC_T_|LC_TB_') 가 'Can only use .str accessor with
+   string values' 로 터진다. 빈 문자열을 Normal 로 취급하는 기존 관례에 맞춰 정규화."
+
+[13장 수정 가이드에 한 줄 추가]
+  기존 "OFFSET 산식·클리핑 → compute_offset 과 compute_offset_group 둘 다
+  (동일 로직 2벌 존재 주의!)" 항목에 이번 사례를 근거로 덧붙일 것:
+  "이번 IDLE 정규화도 2벌 모두에 넣어야 했던 케이스 — 2벌 구조의 실제 비용"
+
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+4. [PART 4 / 15장] 치트시트 표 갱신
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+"무엇을 고치려면 어디를 보나" 표에 아래 2행을 추가하고,
+기존 "VM 경로 조건 변경" 행의 설명을 갱신할 것.
+
+  | VM 경로 조건 변경 | Module.py compute_pre_thk_vm 플래그부
+                       (+ 공정별 전환은 코드가 아니라 **웹 Set-up 의
+                          Pre_Thk_VM_Source** 로) |                 ← 갱신
+  | RR 회귀 x축(소모품) 종류 추가 | Get_Data.py 의 xxxParaGet 매핑 +
+                                    REMOVAL_RATE.py 의 RR_Para 분기 + col_list |  ← 신규
+  | 학습 y축을 공정별로 바꾸고 싶다 | 코드 수정 아님 — 웹 Set-up 의
+                                      Detail.pre_thk_vm_source (AUTO/POST) |      ← 신규
+
+마무리 배너 아래에 이번 갱신의 교훈 한 줄 추가:
+  "공정 특수 케이스는 코드 하드코딩이 아니라 Set-up 필드로 흡수한다 —
+   그래야 공통 코드가 공정 이름을 몰라도 된다"
+
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+5. 작업 시 지켜야 할 것
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+- 슬라이드 장수는 15장 유지 (신규 장 만들지 말 것). 기존 장 안에 녹여 넣는다.
+- 함수명·파일명·컬럼명·컬렉션명은 기존과 동일하게 고정폭 폰트.
+- 신규/변경 부분은 강조색 + "신규" 또는 "변경" 뱃지로 구분해, 기존 자료를 이미 본
+  사람이 **바뀐 곳만 훑어도 되게** 할 것.
+- 각 변경의 근거 코드 위치(파일:행)를 슬라이드 하단 각주로 남길 것.
+- 작업 후, 위 [0. 대상 파일]에 적은 대로 ppt_prompt_module_code_structure.txt 의
+  PART 1 / PART 2 / PART 3 / PART 4 해당 문단도 동일 내용으로 갱신할 것.
+
+[참고 — 같은 변경이 반영된 교육용 노트북]
+notebooks/Pre_thickness_VM.ipynb · Removal_Rate.ipynb · Offset.ipynb 가
+위 3건을 이미 반영해 두었으니, 표현이 헷갈리면 그쪽 셀의 주석 문구를 참고할 것.
+(커밋: "교육 노트북 3종에 algorithm_new 변경사항 반영")
