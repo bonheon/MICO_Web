@@ -495,6 +495,15 @@ def _attach_ref_lots(df, ref_lot_df, sk, mode, Thk_Para_13P, ITM_PRE_Para, pol_t
     # 적재되어야 하므로, 필수 컬럼(required_cols)에 대해서만 dropna 적용
     ref_data.dropna(subset=required_cols, inplace=True)
 
+    # Pre_ITM 결측 보정용: lot id(substrate_id 에서 슬롯 제외) 별 ITM 평균
+    lot_itm_mean = None
+    if ITM_PRE_Para is not None:
+        itm_lot = df[['substrate_id', ITM_PRE_Para]].dropna()
+        if not itm_lot.empty:
+            lot_itm_mean = (
+                itm_lot.groupby(itm_lot['substrate_id'].str.split('.').str[0])[ITM_PRE_Para].mean()
+            )
+
     if mode == 'TIME':
         base_cols = ['{}_Date', '{}', '{}_Post', '{}_Pre_VM', '{}_APC', '{}_OFFSET']
     else:
@@ -509,6 +518,14 @@ def _attach_ref_lots(df, ref_lot_df, sk, mode, Thk_Para_13P, ITM_PRE_Para, pol_t
         r = ref_data.copy()
         r.columns = [c.format(merge_col) for c in base_cols]
         ref_temp_df = pd.merge(ref_temp_df, r, on=merge_col, how='left')
+
+        # Pre_ITM 이 결측인 ref wafer 는 같은 lot(슬롯 제외)의 ITM 평균값으로 보정
+        if lot_itm_mean is not None:
+            itm_col   = f'{merge_col}_Pre_ITM'
+            null_mask = ref_temp_df[itm_col].isna() & ref_temp_df[merge_col].notna()
+            if null_mask.any():
+                lot_ids = ref_temp_df.loc[null_mask, merge_col].str.split('.').str[0]
+                ref_temp_df.loc[null_mask, itm_col] = lot_ids.map(lot_itm_mean)
 
     final_cols = ['substrate_id']
     for i in range(1, 5):
