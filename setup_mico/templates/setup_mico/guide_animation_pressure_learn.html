@@ -114,6 +114,21 @@
 .az-btn.primary:hover { filter:brightness(1.08); color:#fff; }
 .az-btn:focus-visible { outline:2px solid var(--az-learn); outline-offset:2px; }
 
+.az-case { display:flex; align-items:center; gap:0.35rem; margin-left:1rem;
+           padding-left:1rem; border-left:1px solid var(--az-rule); }
+.az-case .cl { font-family:'IBM Plex Mono',monospace; font-size:0.68rem; font-weight:600;
+               letter-spacing:0.08em; color:var(--az-muted); margin-right:0.25rem; }
+.az-case-btn {
+  font-family:'IBM Plex Sans KR',sans-serif; font-size:0.76rem; font-weight:500;
+  padding:0.3rem 0.6rem; border-radius:5px; cursor:pointer;
+  border:1px solid var(--az-rule); background:var(--az-surface); color:var(--az-body);
+  transition:all .15s;
+}
+.az-case-btn:hover { border-color:var(--az-learn); color:var(--az-learn); }
+.az-case-btn.on { border-color:var(--az-learn); background:var(--az-learn-w);
+                  color:var(--az-learn); font-weight:600; }
+.az-case-btn:focus-visible { outline:2px solid var(--az-learn); outline-offset:2px; }
+
 .az-dots { display:flex; gap:0.3rem; margin-left:0.4rem; flex-wrap:wrap; }
 .az-dot {
   width:26px; height:26px; border-radius:50%; border:1px solid var(--az-rule);
@@ -162,17 +177,17 @@
   <div class="az-acts">
     <div class="az-act" id="az-actA">
       <span class="no">A</span> Pre_Thk_VM — dep 챔버가 남긴 ED 편차를 복원한다
-      <span class="rng">STEP 0–9</span>
+      <span class="rng">STEP 0–10</span>
     </div>
     <div class="az-act" id="az-actB">
       <span class="no">B</span> Removal Rate — 제거율을 학습해 압력에 반영한다
-      <span class="rng">STEP 10–16</span>
+      <span class="rng">STEP 11–17</span>
     </div>
   </div>
 
   <div class="az-stage">
     <div class="az-caption">
-      <div class="step" id="az-step">STEP 0 / 16</div>
+      <div class="step" id="az-step">STEP 0 / 17</div>
       <h2 id="az-title">—</h2>
       <p id="az-desc">—</p>
       <div class="eq" id="az-eq" hidden></div>
@@ -192,6 +207,11 @@
       <button class="az-btn primary" id="az-play" type="button">▶ 재생</button>
       <button class="az-btn" id="az-next" type="button">다음 ▶</button>
       <div class="az-dots" id="az-dots"></div>
+      <div class="az-case" id="az-case" hidden>
+        <span class="cl">공정 상태</span>
+        <button type="button" class="az-case-btn on" data-applied="0">MICO 적용 전</button>
+        <button type="button" class="az-case-btn" data-applied="1">MICO 적용 중</button>
+      </div>
       <div class="az-speed">
         <label for="az-spd">속도</label>
         <select id="az-spd">
@@ -283,6 +303,10 @@
   //  웨이퍼 면 평균(13P)의 제거율은 TIME 루프가 모델로 알고 있어서 연마 시간으로 보상한다.
   //  ED zone 은 그 평균보다 조금 더 깎이고, 그 '더 깎이는 몫'이 패드 상태에 따라 변한다.
   //  BIAS 에 남는 것은 바로 이 zone 고유 몫이다 — 면 평균 성분은 전부 상쇄된다.
+  // zone 압력 — PRESSURE 가 실제로 돌리는 손잡이. TIME 의 Pol_Time 자리에 해당한다.
+  var P0    = 3.00;      // 레시피 기본 압력 (psi)
+  var K_P   = 0.35;      // 압력 1 psi 당 zone 제거율 변화 (Å/s)
+
   var RR_BASE   = 21.90;
   var PAD_SLOPE = -0.010;    // 면 평균 제거율의 패드 마모 (TIME 루프가 아는 몫)
   var Z0        = 0.168;     // ED zone 이 면 평균보다 더 깎는 기본량
@@ -422,6 +446,41 @@
   })();
 
   // ══════════════════════════════════════════════════════════
+  //  2-b. MICO 적용 전 / 적용 중
+  //   TIME 이 Pol_Time 을 돌리듯 PRESSURE 는 zone 압력을 돌린다.
+  //   적용 전 : 압력은 레시피 값 그대로 — 챔버가 만든 입고 편차가 ED 두께(BIAS)에 그대로 남는다.
+  //   적용 중 : 학습한 VM 과 zone 제거율 모델로 압력을 정한다 — BIAS 는 0 으로 모이고
+  //             챔버 차이는 압력 지령값으로 자리를 옮긴다. 차이가 사라진 게 아니다.
+  //   압력을 정하려면 VM 이 먼저 있어야 하므로 이 계산은 학습이 끝난 뒤에 온다.
+  // ══════════════════════════════════════════════════════════
+  W.forEach(function (w) {
+    w.press0 = P0;
+    w.bias0  = w.bias;
+    // BIAS = 0 이 되려면 zone 이 초당 이만큼 더(덜) 깎아야 한다
+    var need  = (w.vm + (TARGET_13P - ED_TGT)) / w.polt;
+    // 모델이 예상하는 zone 고유 제거율 (학습으로 알고 있는 몫)
+    var model = Z0 + Z1 * w.padh + Z_BREAK * Math.exp(-w.padh / 2.5) + ZCYC[w.cyc];
+    w.press1  = P0 + (need - model) / K_P;
+    w.bias1   = w.bias - (w.press1 - P0) * K_P * w.polt;
+  });
+  var APPLIED = false;
+  function biasOf(w)  { return APPLIED ? w.bias1  : w.bias0; }
+  function pressOf(w) { return APPLIED ? w.press1 : w.press0; }
+  function sd3of(f) {
+    var v = W.map(f), m = v.reduce(function (a, b) { return a + b; }, 0) / v.length;
+    return 3 * Math.sqrt(v.reduce(function (s, x) {
+      return s + (x - m) * (x - m); }, 0) / (v.length - 1));
+  }
+  var BIAS3 = { before: sd3of(function (w) { return w.bias0; }),
+                after:  sd3of(function (w) { return w.bias1; }) };
+  function pressRange(f) {
+    var v = W.map(f);
+    return Math.max.apply(null, v) - Math.min.apply(null, v);
+  }
+  var PRESS_W = { before: pressRange(function (w) { return w.press0; }),
+                  after:  pressRange(function (w) { return w.press1; }) };
+
+  // ══════════════════════════════════════════════════════════
   //  3. B 막 — 학습한 VM 을 되받아 제거율을 다시 계산한다
   //     pre_thk  = Pre_Target + VM
   //     post_thk = Post_Target + BIAS   ← is_bias_type 이 바꾸는 유일한 자리
@@ -433,9 +492,8 @@
     w.rrB     = w.cut / w.polt;
   });
 
-  // PRESSURE 가 학습값을 반영한 뒤 — 그 챔버 몫만큼 zone 압력으로 되돌려 깎는다.
-  // 챔버가 만든 성분이 BIAS 에서 빠지고 나머지(패드 추세 · 계측 산포)만 남는다.
-  W.forEach(function (w) { w.biasAfter = w.bias - w.vm; });
+  // 앞의 두 케이스와 같은 값을 쓴다 — 같은 사실을 시간축(STEP 1·2)과 챔버축(STEP 16)에서 두 번 본다
+  W.forEach(function (w) { w.biasAfter = w.bias1; });
   function sd3(f) {
     var v = W.map(f), m = v.reduce(function (a, b) { return a + b; }, 0) / v.length;
     return 3 * Math.sqrt(v.reduce(function (s, x) {
@@ -578,6 +636,9 @@
     txt(g, x, y, s, o);
   }
 
+  // 단계 문구는 케이스에 따라 달라질 수 있어 함수도 받는다
+  function val_(v) { return (typeof v === 'function') ? v() : v; }
+
   function ext(vals, pad) {
     var lo = Math.min.apply(null, vals), hi = Math.max.apply(null, vals);
     var p = (hi - lo) * (pad === undefined ? 0.14 : pad);
@@ -588,7 +649,11 @@
   }
 
   // 축 도메인 — 비교하는 화면끼리는 반드시 같은 도메인을 쓴다
-  var D_BIAS  = ext(pick(function (w) { return w.bias; }), 0.2);
+  // 두 케이스를 같은 자로 재야 한다 — 케이스별 자동 스케일은 개선을 지워버린다
+  var D_BIAS  = ext(pick(function (w) { return w.bias0; })
+                    .concat(pick(function (w) { return w.bias1; })), 0.2);
+  var D_PRESS = ext(pick(function (w) { return w.press0; })
+                    .concat(pick(function (w) { return w.press1; })), 0.35);
   // ghost(use_pressure=False)와 나란히 보려면 같은 도메인이어야 한다 —
   // 한쪽만 자동 스케일하면 "얼마나 더 흔들리는가" 가 안 보인다
   var D_UNC   = ext(pick(function (w) { return w.unctr; })
@@ -692,7 +757,7 @@
     var labY = (st.xMode === 'ch') ? PL.y1 + 48 : PL.y1 + 30;
     txt(gBack, PL.x0, labY, st.xlab, { size: 10.5, op: 0.55 });
     if (st.note) {
-      txt(gBack, PL.x1, labY, '↳ ' + st.note,
+      txt(gBack, PL.x1, labY, '↳ ' + val_(st.note),
         { size: 10.5, anchor: 'end', fill: 'var(--az-learn)', op: 0.95 });
     }
 
@@ -756,6 +821,40 @@
   // ══════════════════════════════════════════════════════════
   function drawOver(st) {
     var y = mkY(st.dom);
+
+    // MICO 적용 전/중 비교 밴드 — 지금 케이스는 채우고, 다른 케이스는 점선으로 남긴다
+    if (st.mico) {
+      var isB = (st.mico === 'bias');
+      var vals = W.map(isB ? biasOf : pressOf);
+      var mu = vals.reduce(function (a, b) { return a + b; }, 0) / vals.length;
+      var half = isB ? (APPLIED ? BIAS3.after : BIAS3.before) / 2
+                     : Math.max(0.02, (APPLIED ? PRESS_W.after : PRESS_W.before) / 2);
+      var oHalf = isB ? (APPLIED ? BIAS3.before : BIAS3.after) / 2
+                      : Math.max(0.02, (APPLIED ? PRESS_W.before : PRESS_W.after) / 2);
+      var col = APPLIED ? 'var(--az-learn)' : 'var(--c4)';
+      gOver.appendChild(el('rect', { x: PL.x0, y: y(mu + half),
+        width: PL.x1 - PL.x0, height: Math.max(2, y(mu - half) - y(mu + half)),
+        fill: col, opacity: 0.10 }));
+      [mu + oHalf, mu - oHalf].forEach(function (v) {
+        gOver.appendChild(el('line', { x1: PL.x0, x2: PL.x1, y1: y(v), y2: y(v),
+          stroke: 'currentColor', 'stroke-width': 1, opacity: 0.35, 'stroke-dasharray': '5 4' }));
+      });
+      var lab = isB
+        ? 'BIAS 3σ  ' + (2 * half).toFixed(1) + ' Å'
+        : 'zone 압력 폭  ' + (2 * half).toFixed(2) + ' psi';
+      if (APPLIED) {
+        var base = isB ? BIAS3.before : PRESS_W.before;
+        var now  = isB ? BIAS3.after  : PRESS_W.after;
+        lab += isB ? '   ( 적용 전 ' + base.toFixed(1) + ' → −' +
+                     (100 * (1 - now / base)).toFixed(0) + '% )'
+                   : '   ( 적용 전에는 모두 같은 압력이었다 )';
+      }
+      pill(gOver, PL.x0 + 10, PL.y0 + 16, (APPLIED ? '적용 중 · ' : '적용 전 · ') + lab,
+        { size: 11.5, fill: col, weight: 600 });
+      txt(gOver, PL.x1 - 4, PL.y0 + 16,
+        '점선 = ' + (APPLIED ? '적용 전' : '적용 중') + ' 밴드',
+        { size: 10.5, anchor: 'end', op: 0.5 });
+    }
 
     // use_pressure=False 였다면 — 같은 자로 겹쳐 놓는다.
     // 챔버 색이 주인공인 화면이라 비교선은 점 뒤(gBack)에 옅게 깐다.
@@ -898,7 +997,7 @@
     }
 
     if (st.trendNote) {
-      txt(gOver, PL.x0, PL.y1 + 56, st.trendNote,
+      txt(gOver, PL.x0, PL.y1 + 56, val_(st.trendNote),
         { size: 11.5, fill: 'var(--az-learn)', weight: 600 });
     }
   }
@@ -1231,23 +1330,62 @@
     },
     {
       act: 0,
-      title: 'STEP 1 — ④ 가 만든 BIAS 에서 출발한다',
-      desc: '④ 에서 웨이퍼 한 장의 BIAS 를 정의했습니다. 이제 그 값을 ' + NW + '장 모았습니다. ' +
-            'BIAS 는 면 평균 성분을 빼고 만든 값이라 0 을 기준으로 위아래로 갈립니다 — ' +
+      title: 'STEP 1 — 챔버 차이는 지금 두께에 남아 있다',
+      desc: function () {
+        return APPLIED
+          ? 'zone 압력을 조절하니 BIAS 가 0 근처로 모입니다. 색이 뒤섞여 어느 dep 챔버를 거쳐 왔는지 ' +
+            '두께만 봐서는 알 수 없습니다 — 차이가 사라진 걸까요? 다음 화면을 보세요.'
+          : '④ 에서 정의한 BIAS 를 ' + NW + '장 모았습니다. 면 평균 성분을 빼고 만든 값이라 0 을 기준으로 갈립니다 — ' +
             'ED 가 두껍게 들어오는 챔버(파랑)는 위, 얇게 들어오는 챔버(빨강)는 아래입니다. ' +
-            '다만 패드 마모와 주기 차이가 함께 실려 있어 아직 챔버 값을 숫자로 뽑을 수는 없습니다.',
+            '아직 zone 압력은 모든 웨이퍼가 똑같이 받고 있어서, 입고 편차가 그대로 두께에 남습니다.';
+      },
       eq: '<span class="hl4">BIAS</span> = ( Thk_Para − Thk_Para_13P ) − ( Post_Target − Target_13P )',
-      xMode: 'i', val: function (w) { return w.bias; }, dom: D_BIAS,
+      xMode: 'i', val: function (w) { return biasOf(w); }, dom: D_BIAS,
       unit: 'Å', xlab: XL_I, ref: 0, refLabel: 'BIAS = 0', colorBy: 'ch',
-      note: '색은 이미 위아래로 갈려 있다 — 다만 패드 마모가 함께 실려 있다', h: 400
+      mico: 'bias', ctrl: 'mico',
+      note: function () {
+        return APPLIED ? '색이 섞였다 — 두께만으로는 챔버를 구분할 수 없다'
+                       : '색이 위아래로 갈려 있다 — 다만 패드 마모가 함께 실려 있다';
+      },
+      h: 412
     },
     {
       act: 0,
-      title: 'STEP 2 — 곧바로 Unctr_Thk 로 환산한다',
+      title: 'STEP 2 — 차이는 사라진 게 아니라 압력으로 옮겨갔다',
+      desc: function () {
+        return APPLIED
+          ? '같은 웨이퍼의 zone 압력입니다. 앞 화면에서 두께가 깨끗해진 만큼 이 화면이 갈라졌습니다 — ' +
+            '두껍게 들어오는 챔버(파랑)에는 압력을 더 주고, 얇게 들어오는 챔버(빨강)에는 덜 줍니다. ' +
+            'TIME 이 Pol_Time 을 돌리듯 PRESSURE 는 이 손잡이를 돌립니다. ' +
+            '필요한 제거율은 ( VM + ( Target_13P − Post_Target ) ) / Pol_Time 로 구합니다.'
+          : '같은 웨이퍼의 zone 압력입니다. 아직은 어느 챔버를 거쳐 왔든 레시피 값 그대로 ' + P0.toFixed(2) + ' psi 를 줍니다. ' +
+            '장비는 입고 두께가 얼마인지 모르니 조절할 근거가 없습니다. ' +
+            '위 버튼을 눌러 MICO 를 켜 보세요 — 앞 화면의 두께와 이 화면을 번갈아 보면 됩니다.';
+      },
+      eq: 'zone 압력 = P0 + ( <span class="hl">필요한 제거율</span> − 모델이 아는 제거율 ) / k' +
+          ' &nbsp;<span class="dim">k = ' + K_P.toFixed(2) + ' Å/s per psi</span>',
+      xMode: 'i', val: function (w) { return pressOf(w); }, dom: D_PRESS,
+      unit: 'psi', xlab: XL_I, colorBy: 'ch',
+      mico: 'press', ctrl: 'mico',
+      note: function () {
+        return APPLIED ? '챔버별로 압력이 갈렸다 — 두께에서 옮겨온 그 차이다'
+                       : '모두 같은 압력 — 조절할 근거(VM)가 아직 없다';
+      },
+      trendNote: function () {
+        return APPLIED
+          ? '→ 산포는 없어지지 않는다. 두께에 있던 것이 압력으로 자리를 옮겼을 뿐이고, 제품 스펙은 두께 쪽이다'
+          : '→ 이 손잡이를 근거 있게 돌리려면 챔버별 입고 편차를 알아야 한다 — 그것을 배우는 것이 A 막이다';
+      },
+      h: 424
+    },
+    {
+      act: 0,
+      title: 'STEP 3 — 곧바로 Unctr_Thk 로 환산한다',
       desc: 'compute_detrend 는 두께를 제거율로 바꿨다가 곧바로 두께로 되돌립니다. ' +
             '중간의 제거율은 연마 시간 차이를 털어내기 위한 경유지일 뿐이고, 학습이 실제로 쓰는 것은 ' +
             '되돌아온 두께 Unctr_Thk 입니다. use_pressure 가 True 면 실측 두께 자리에 Post_Target + BIAS 가 들어갑니다. ' +
-            '주황 선은 그 분기를 타지 않았을 때 — 13P 출렁임이 그대로 실려 들어옵니다.',
+            '주황 선은 그 분기를 타지 않았을 때 — 13P 출렁임이 그대로 실려 들어옵니다. ' +
+            '여기서부터는 학습 과정이라 항상 보정 전 데이터를 따라갑니다 — 학습이 봐야 하는 것이 아직 잡히지 않은 그 잔차이기 때문입니다.',
       eq: 'RR = ( Pre_Target − ( <span class="hl4">Post_Target + BIAS</span> ) ) / Pol_Time' +
           ' &nbsp;→&nbsp; <span class="hl">Unctr_Thk</span> = Pre_Target − RR × FIX_Time' +
           ' &nbsp;<span class="dim">FIX_Time = ' + FIX_TIME.toFixed(2) + ' s (전체 평균)</span>',
@@ -1257,7 +1395,7 @@
     },
     {
       act: 0,
-      title: 'STEP 3 — 패드를 간 자리에서 구간을 끊는다',
+      title: 'STEP 4 — 패드를 간 자리에서 구간을 끊는다',
       desc: '소모품 사용량이 이전 행보다 0.5 이상 급감하면 패드를 갈았다는 뜻입니다. ' +
             '그 지점마다 번호를 하나씩 올려 pad_cycle 을 만듭니다. ' +
             '코드 규약상 cycle 1 이 가장 최근 주기입니다 — B 막의 current 모델이 이 번호를 씁니다.',
@@ -1269,7 +1407,7 @@
     },
     {
       act: 0,
-      title: 'STEP 4 — 주기 안에서만 이동평균을 낸다',
+      title: 'STEP 5 — 주기 안에서만 이동평균을 낸다',
       desc: '각 주기 안에서 rolling(' + WINDOW + ') 이동평균을 구합니다. 이 선이 "패드 마모가 만든 추세" 입니다. ' +
             '주기마다 새로 시작하므로 앞 ' + (WINDOW - 1) + '장은 평균이 없어 학습에서 빠집니다 — 흐린 점들이 그것입니다. ' +
             '후행 평균이라 상승 구간에서는 선이 점들보다 조금 아래에 깔립니다.',
@@ -1282,7 +1420,7 @@
     },
     {
       act: 0,
-      title: 'STEP 5 — 추세를 빼면 Detrend_Thk 만 남는다',
+      title: 'STEP 6 — 추세를 빼면 Detrend_Thk 만 남는다',
       desc: '점에서 이동평균선을 뺍니다. 패드 마모가 만든 우상향도, 주기끼리의 높이 차이도 통째로 사라지고 ' +
             '0 을 중심으로 흩어진 값만 남습니다. 이 남은 흩어짐 안에 dep 챔버가 만든 ED 편차가 들어 있습니다 — ' +
             '색을 따라가면 같은 색이 위아래로 치우쳐 있는 것이 슬슬 보입니다.',
@@ -1295,7 +1433,7 @@
     },
     {
       act: 0,
-      title: 'STEP 6 — IQR 밖으로 튄 값을 버린다',
+      title: 'STEP 7 — IQR 밖으로 튄 값을 버린다',
       desc: '계측 이상치나 사고성 웨이퍼가 회귀를 끌고 가지 않도록 사분위 범위 밖을 잘라냅니다. ' +
             '앞 단계에서 이동평균이 없어 빠진 ' + N_MA_DROP + '장까지 더하면 ' +
             '학습에 실제로 쓰이는 것은 ' + DET_KEEP.n + '장입니다.',
@@ -1309,7 +1447,7 @@
     },
     {
       act: 0,
-      title: 'STEP 7 — dep 챔버별로 모으면 STEP 0 의 그 차이가 다시 나온다',
+      title: 'STEP 8 — dep 챔버별로 모으면 STEP 0 의 그 차이가 다시 나온다',
       desc: '같은 점을 "어느 dep 챔버를 거쳐 왔는가" 로 다시 세웁니다. 챔버마다 평균이 뚜렷하게 갈라지고, ' +
             'STEP 0 에서 프로파일로 봤던 ED 편차가 그대로 다시 나타납니다 — 이것이 Pre_Thk_VM 입니다. ' +
             'ED · EX zone 은 계측 건수가 적어 min_count 를 10 이 아닌 5 로 낮춥니다.',
@@ -1322,7 +1460,7 @@
     },
     {
       act: 0,
-      title: 'STEP 8 — Pre_Oper2 파라미터로 회귀한다',
+      title: 'STEP 9 — Pre_Oper2 파라미터로 회귀한다',
       desc: '채널 평균을 사전공정 설비 파라미터에 대고 직선으로 맞춥니다. ' +
             '이 계수를 저장해 두면 아직 CMP 를 타지 않은 웨이퍼도 사전공정 값만 보고 입고 두께를 예측할 수 있습니다. ' +
             '회귀 y 축은 Detrend_Thk — ITM 경로였다면 같은 자리에 BIAS 가 들어갑니다.',
@@ -1335,7 +1473,7 @@
     },
     {
       act: 0,
-      title: 'STEP 9 — 갈림길 : 어느 y 축으로 학습할 것인가',
+      title: 'STEP 10 — 갈림길 : 어느 y 축으로 학습할 것인가',
       desc: '지금까지 밟은 것은 일곱 갈래 중 하나입니다. Set-up 세 가지(ITM 유무 · Pre_Thk_VM_Source · pre_oper1) 와 ' +
             'FB_Type 이 조합돼 y 축과 0-centering 식이 정해집니다. ' +
             '갈라지는 것은 y 를 만드는 식뿐이고, 그 뒤 IQR · 채널 rolling · 회귀는 모두 같은 코드입니다.',
@@ -1346,7 +1484,7 @@
     // ── B 막 : Removal Rate ───────────────────────────────
     {
       act: 1,
-      title: 'STEP 10 — B 막 시작 : 학습한 VM 을 어디서 읽어오는가',
+      title: 'STEP 11 — B 막 시작 : 학습한 VM 을 어디서 읽어오는가',
       desc: 'Removal Rate 는 A 막이 저장한 Pre_Thk_VM 을 되받아 씁니다. ' +
             '그런데 컬럼 이름이 경로마다 다릅니다. Set-up 만 보고 고르면 Pre_Thk_VM_Source = POST 인 공정에서 ' +
             '존재하지 않는 컬럼을 찾게 되므로, 코드는 merge_df 에 실제로 만들어진 컬럼을 보고 정합니다.',
@@ -1355,7 +1493,7 @@
     },
     {
       act: 1,
-      title: 'STEP 11 — 두 두께를 세운다 : 여기가 PRESSURE 의 유일한 차이',
+      title: 'STEP 12 — 두 두께를 세운다 : 여기가 PRESSURE 의 유일한 차이',
       desc: '입고 두께는 Pre_Target 에 A 막이 학습한 VM 을 더한 값입니다 — TIME 과 완전히 같습니다. ' +
             '후처리 두께 자리에만 is_bias_type 분기가 걸려 Post_Target + BIAS 가 들어갑니다. ' +
             '이 화면은 그 둘의 차이, 즉 실제로 깎아낸 두께입니다.',
@@ -1367,7 +1505,7 @@
     },
     {
       act: 1,
-      title: 'STEP 12 — 연마 시간으로 나누고 6σ 밖을 버린다',
+      title: 'STEP 13 — 연마 시간으로 나누고 6σ 밖을 버린다',
       desc: '깎아낸 두께를 연마 시간으로 나누면 제거율입니다. ' +
             '평균에서 6σ 를 벗어난 점만 걷어냅니다 — 아주 느슨한 그물이라 정상 데이터는 거의 그대로 남습니다. ' +
             'EQ · 레시피 조합별 건수가 10 미만이면 그 조합은 통째로 건너뜁니다.',
@@ -1380,7 +1518,7 @@
     },
     {
       act: 1,
-      title: 'STEP 13 — 소모품 축으로 옮기고 게이트를 확인한다',
+      title: 'STEP 14 — 소모품 축으로 옮기고 게이트를 확인한다',
       desc: '같은 점을 "패드가 얼마나 닳았을 때 깎았나" 로 다시 세우면 주기들이 한자리에 겹칩니다. ' +
             '학습을 시작하기 전에 소모품 4분면에 각각 25건을 넘게 갖고 있는지 봅니다. ' +
             '한 칸이라도 비면 직선이 그 구간을 지어내게 되므로 아예 학습하지 않습니다.',
@@ -1392,7 +1530,7 @@
     },
     {
       act: 1,
-      title: 'STEP 14 — 네 종류의 직선을 각각 학습한다',
+      title: 'STEP 15 — 네 종류의 직선을 각각 학습한다',
       desc: '같은 점 구름에 조건을 달리해 네 번 직선을 맞춥니다. 전체는 항상, weighted 는 최근 구간에 가중치를 주고, ' +
             'current 는 현재 주기(분홍)만, IF 는 패드 초기 ' + PAD_SEP + '시간 이내만 씁니다. ' +
             'current 는 표본이 적어 튀기 쉬우므로 b1 은 기준선의 두 배까지, b0 는 ±10% 로 잘라냅니다.',
@@ -1406,7 +1544,7 @@
     },
     {
       act: 1,
-      title: 'STEP 15 — 챔버 차이를 압력으로 되돌린다',
+      title: 'STEP 16 — 챔버 차이를 압력으로 되돌린다',
       desc: 'A 막이 배운 것은 "이 dep 챔버를 거친 웨이퍼는 ED 가 이만큼 두껍다" 이고, ' +
             'B 막이 배운 것은 "지금 이 패드로는 초당 이만큼 깎인다" 입니다. 둘을 합치면 ' +
             '그 웨이퍼의 ED zone 에 압력을 얼마나 더 주고 덜 줄지가 나옵니다. ' +
@@ -1418,7 +1556,7 @@
     },
     {
       act: 1,
-      title: 'STEP 16 — 우선순위로 하나를 고르고, 정리한다',
+      title: 'STEP 17 — 우선순위로 하나를 고르고, 정리한다',
       desc: '네 직선 중 조건을 통과한 것을 IF → current → weighted → 전체 순으로 하나 고릅니다. ' +
             '이 전체 과정을 zone 마다 따로 돌립니다. ' +
             'TIME 과 비교하면 실제로 코드가 갈라지는 곳은 두 줄뿐입니다.',
@@ -1441,6 +1579,20 @@
   var btnPlay = document.getElementById('az-play');
   var dotsBox = document.getElementById('az-dots');
   var actEls  = [document.getElementById('az-actA'), document.getElementById('az-actB')];
+
+  var caseBox = document.getElementById('az-case');
+  Array.prototype.forEach.call(document.querySelectorAll('.az-case-btn'), function (b) {
+    b.addEventListener('click', function () {
+      var want = (b.getAttribute('data-applied') === '1');
+      if (want === APPLIED) { return; }
+      stop();
+      APPLIED = want;
+      Array.prototype.forEach.call(document.querySelectorAll('.az-case-btn'), function (o) {
+        o.className = 'az-case-btn' + ((o.getAttribute('data-applied') === '1') === APPLIED ? ' on' : '');
+      });
+      go(idx);              // 같은 웨이퍼, 압력 결정 방식만 바꿔 다시 그린다
+    });
+  });
 
   var dotEls = STAGES.map(function (s, i) {
     var b = document.createElement('button');
@@ -1476,9 +1628,18 @@
     idx = n;
     var st = STAGES[idx];
     elStep.textContent = 'STEP ' + idx + ' / ' + (STAGES.length - 1);
-    elTitle.textContent = st.title;
-    elDesc.textContent = st.desc;
-    if (st.eq) { elEq.hidden = false; elEq.innerHTML = st.eq; } else { elEq.hidden = true; }
+    elTitle.textContent = val_(st.title);
+    elDesc.textContent = val_(st.desc);
+    var eqv = val_(st.eq);
+    if (eqv) { elEq.hidden = false; elEq.innerHTML = eqv; } else { elEq.hidden = true; }
+    // 케이스 토글이 없는 단계는 학습 과정이다 — 항상 보정 전(미적용) 데이터를 따라간다
+    if (st.ctrl !== 'mico' && APPLIED) {
+      APPLIED = false;
+      Array.prototype.forEach.call(document.querySelectorAll('.az-case-btn'), function (o) {
+        o.className = 'az-case-btn' + (o.getAttribute('data-applied') === '0' ? ' on' : '');
+      });
+    }
+    caseBox.hidden = (st.ctrl !== 'mico');
     dotEls.forEach(function (d, i) {
       d.className = 'az-dot' + (STAGES[i].act === 1 ? ' actb' : '') +
                     (i === idx ? ' on' : (i < idx ? ' done' : ''));
