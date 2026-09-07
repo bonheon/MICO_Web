@@ -215,7 +215,7 @@
       <span class="lbl" id="az-apply-lbl">설정</span>
       <label for="az-grp">
         <input type="checkbox" id="az-grp" checked>
-        Offset_Group = 'Y' (라벨에서 장비 번호 제거)
+        Offset_Group = 'Y' (라벨에서 device 자리 제거)
       </label>
       <span class="grp" id="az-apply-only" hidden>
         <label for="az-idle">IDLE 라벨
@@ -279,7 +279,9 @@
     2 → 3 → 4 로 갈수록 정상 상태로 돌아옵니다.<br>
     <b class="l">Layer_1 → Layer_4</b> : 다른 공정을 돌다가 공정이 바뀌어 dummy 를 흘린 뒤, 웨이퍼가 흐른 순서입니다.
     구조는 Idle 과 같습니다.<br>
-    <b class="p">LC_*</b> : 패드를 교체(Life Cycle)한 직후 구간. 라벨 안에 장비 이름이 들어 있어 처리 경로가 다릅니다.
+    <b class="p">LC_*</b> : 다른 공정을 돌다가 이어서 진행할 때의 <b>첫 번째 slot</b>, 또는 rework 웨이퍼를 흘린 뒤의
+    <b>첫 번째 slot</b> 입니다. 앞의 두 라벨과 달리 순번이 따라붙지 않고 그 한 장에만 붙습니다.
+    라벨 안에 <b>device</b> 가 들어 있어(<code>LC_{device}_{공정}</code>) 처리 경로가 다릅니다.
   </p>
 
   <p class="az-foot">
@@ -342,19 +344,23 @@
   var OFF_TARGET = {
     'Idle_1': 2.80, 'Idle_2': 1.75, 'Idle_3': 0.95, 'Idle_4': 0.40,
     'Layer_1': 2.10, 'Layer_2': 1.30, 'Layer_3': 0.65, 'Layer_4': 0.25,
-    'M2CU': -2.60, 'M3CU': -1.50,     // 패드를 새로 걸면 더 깎인다 → 시간이 덜 필요 → 음수
+    // LC = 다른 공정을 돌다가 이어서 진행하는 첫 장, 또는 rework 웨이퍼 뒤 첫 장.
+    // 직전에 무엇이 지나갔느냐에 따라 패드가 남긴 상태가 달라 device 마다 값이 갈린다.
+    'LC:E2': 1.55, 'LC:E9': 0.80, 'LC:ES': -1.35,
     'TRU':  -0.30                     // Truing 으로 표면이 잡혀 거의 정상 — 그래도 코드가 0 으로 강제한다
   };
-  var EQ_BIAS = { CMP01: -0.45, CMP02: 0, CMP03: 0.55 };   // 장비 고유 편차 (Offset_Group 의 트레이드오프)
+  var EQ_BIAS = { CMP01: -0.45, CMP02: 0, CMP03: 0.55 };   // 장비 고유 편차
 
   var IDLE_LANES = ['Idle_1', 'Idle_2', 'Idle_3', 'Idle_4',
                     'Layer_1', 'Layer_2', 'Layer_3', 'Layer_4'];
 
-  // 패드 사이클마다 첫 3장은 LC 라벨
-  var LC_BY_CYCLE = ['M2CU', 'M3CU', 'TRU', 'M2CU'];
-  function lcLabel(eq, kind) {
-    return kind === 'TRU' ? 'LC_T_' + eq + '_M2CU' : 'LC_' + eq + '_' + kind;
+  // LC 라벨은 LC_{device}_{공정} 꼴이다. device 가 갈리면 라벨도 갈린다.
+  // Offset_Group='Y' 는 이 device 자리를 떼어 LC_{공정} 하나로 합친다.
+  var LC_DEV = ['E2', 'E9', 'ES'], LC_PROC = 'M2CU';
+  function lcLabel(dev, tru) {
+    return (tru ? 'LC_T_' : 'LC_') + dev + '_' + LC_PROC;
   }
+  function lcKind(dev, tru) { return tru ? 'TRU' : 'LC:' + dev; }
 
   var W = [], uid = 0;
 
@@ -377,11 +383,8 @@
   //  Idle / Layer 는 "이벤트"다 — 재개(또는 전환) 한 번에 1,2,3,4 가 연속으로 붙는다.
   //  재개 후 몇 장을 연속으로 돌렸느냐에 따라 뒤쪽 순번은 아예 생기지 않는다
   //  → 순번이 뒤로 갈수록 표본이 줄어드는 것이 이 라벨 체계의 자연스러운 성질이다.
-  var used = {}, blocked = {};
+  var used = {}, blocked = {}, lcAt = {};
   function busy(t) { return used[t] !== undefined || blocked[t]; }
-  for (var c = 0; c < N_CYC; c++) {
-    for (var s = 0; s < 3; s++) { used[c * PER_CYC + s] = 'LC:' + LC_BY_CYCLE[c]; }
-  }
   var EVENTS = [];
   function putBlock(prefix, len, st, show) {
     for (var k = 0; k < len; k++) { used[st + k] = prefix + '_' + (k + 1); }
@@ -415,24 +418,41 @@
   IDLE_EV.slice(1).forEach(function (n) { placeBlock('Idle', n); });
   LAYER_EV.slice(1).forEach(function (n) { placeBlock('Layer', n); });
 
+  // ── LC 는 블록이 아니라 한 장짜리다 ───────────────────
+  //  공정이 바뀌어 이어 돌린 첫 장, rework 웨이퍼 뒤의 첫 장 — 그 한 장에만 라벨이 붙는다.
+  //  그래서 Idle_ · Layer_ 처럼 1→4 순번이 따라붙지 않는다.
+  function placeLc(dev, tru) {
+    for (var tries = 0; tries < 900; tries++) {
+      var st = 6 + Math.floor(rnd() * (PER_EQ - 12));
+      if (busy(st) || busy(st - 1) || busy(st + 1)) { continue; }
+      used[st] = 'LC';
+      lcAt[st] = { dev: dev, tru: !!tru };
+      return true;
+    }
+    return false;
+  }
+  LC_DEV.forEach(function (d) { for (var q = 0; q < 5; q++) { placeLc(d, false); } });
+  for (var q1 = 0; q1 < 5; q1++) { placeLc('E2', true); }
+
   for (var t1 = 0; t1 < PER_EQ; t1++) {
-    var mark = used[t1];
-    if (mark && mark.indexOf('LC:') === 0) {
-      var kind = mark.slice(3);
-      W.push(makeWafer(MAIN_EQ, t1, lcLabel(MAIN_EQ, kind), kind));
+    var L1 = lcAt[t1];
+    if (L1) {
+      W.push(makeWafer(MAIN_EQ, t1, lcLabel(L1.dev, L1.tru), lcKind(L1.dev, L1.tru)));
     } else {
-      W.push(makeWafer(MAIN_EQ, t1, mark || '', null));
+      W.push(makeWafer(MAIN_EQ, t1, used[t1] || '', null));
     }
   }
 
   // ── CMP01 · CMP03 : LC 라벨 웨이퍼만 (STEP 10 에서 합류) ──
   ['CMP01', 'CMP03'].forEach(function (eq) {
-    for (var c2 = 0; c2 < N_CYC; c2++) {
-      for (var s2 = 0; s2 < 3; s2++) {
-        var tt = c2 * PER_CYC + s2;
-        W.push(makeWafer(eq, tt, lcLabel(eq, LC_BY_CYCLE[c2]), LC_BY_CYCLE[c2]));
+    var tt = 7;
+    LC_DEV.concat(['T']).forEach(function (d) {
+      var tru = (d === 'T'), dev = tru ? 'E2' : d;
+      for (var q2 = 0; q2 < 4; q2++) {
+        W.push(makeWafer(eq, tt, lcLabel(dev, tru), lcKind(dev, tru)));
+        tt += 13;
       }
-    }
+    });
   });
 
   // ── 확대해 보여줄 두 이벤트는 노이즈를 줄여 순번 계단을 또렷하게 만든다 ──
@@ -514,7 +534,8 @@
   // ── LC 경로 : compute_lc_offset · _build_idle_table ─────
   var LC_ROWS = W.filter(function (w) { return w.isLC; });
   function lcLaneOf(w, groupOn) {
-    // Offset_Group='Y' → LC_{EQ}_{구간} 은 [0],[2] / LC_T_{EQ}_{구간} 은 [0],[3] 만 남긴다
+    // Offset_Group='Y' → LC_{device}_{공정} 은 [0],[2] / LC_T_{device}_{공정} 은 [0],[3] 만 남긴다
+    // (코드가 실제로 떼는 자리가 device 자리다 : LC_E2_M2CU · LC_E9_M2CU · LC_ES_M2CU → LC_M2CU)
     if (!groupOn) { return w.label; }
     var p = w.label.split('_');
     return w.kind === 'TRU' ? p[0] + '_' + p[3] : p[0] + '_' + p[2];
@@ -631,7 +652,8 @@
       title: '② 가 버린 웨이퍼를 다시 꺼낸다',
       desc: '② Removal Rate 는 IDLE 라벨이 붙은 웨이퍼를 전부 빼고 학습했습니다. ' +
             '장비가 멈췄다 다시 돌기 시작한 뒤 흐른 웨이퍼(Idle), 공정이 바뀌어 dummy 를 흘린 뒤 흐른 웨이퍼(Layer), ' +
-            '패드를 갈고 처음 돌린 웨이퍼(LC) — 정상 연속 생산이 아니라 모델이 맞지 않는 구간들입니다. ' +
+            '다른 공정을 돌다가 이어서 진행한 첫 장과 rework 웨이퍼 뒤의 첫 장(LC) — ' +
+            '정상 연속 생산이 아니라 모델이 맞지 않는 구간들입니다. ' +
             '③ 은 바로 그 점들만 씁니다.',
       eq: '<span class="hl">RR</span> = ( Pre_Target − Post_Thk ) / Pol_Time' +
           ' &nbsp;<span style="opacity:.55">· ② 와 달리 VM 보정 없이 Pre_Target 고정값</span>',
@@ -686,7 +708,8 @@
       title: 'STEP 4 — 두 시간의 차이가 OFFSET 이다',
       desc: '모델선을 0 으로 놓고 점들을 그 차이만큼만 남깁니다. 정상 구간은 0 근처에 눌어붙고, ' +
             '라벨이 붙은 점만 위아래로 떨어져 나옵니다. 색이 진한 순번(1)일수록 위쪽에, ' +
-            '옅은 순번(4)일수록 0 에 가깝게 층을 이루는 것이 보입니다. LC 는 새 패드라 더 깎여서 반대로 아래쪽입니다.',
+            '옅은 순번(4)일수록 0 에 가깝게 층을 이루는 것이 보입니다. LC 는 직전에 무엇이 지나갔느냐에 따라 ' +
+            '위로도 아래로도 떨어지고, 순번 없이 한 장씩 흩어져 있습니다.',
       eq: '<span class="hl">OFFSET</span> = Δ / RR − Δ / RR_Pad' +
           ' &nbsp;<span style="opacity:.55">· 양수 = 모델보다 덜 깎였다 (시간을 더 줬어야 했다)</span>',
       x: xTime, y: function (w) { return yOff(w.offRaw); },
@@ -767,12 +790,12 @@
     },
     {
       title: 'STEP 10 — LC 계열은 다른 길로 간다',
-      desc: '패드 교체(LC) 라벨은 라벨 안에 장비 이름이 이미 들어 있습니다. 그래서 별도 함수가 처리하고, ' +
-            '5건 게이트도 없습니다. 대신 항상 레시피 그룹 평균으로 덮어써서 저장합니다. ' +
-            'Offset_Group 을 켜면 라벨에서 장비 번호가 사라져 세 장비가 한 칸으로 합쳐집니다 — ' +
+      desc: 'LC 라벨은 device 마다 따로 생깁니다 — 같은 공정이라도 LC_E2_M2CU · LC_E9_M2CU · LC_ES_M2CU 로 갈립니다. ' +
+            '그래서 별도 함수가 처리하고 5건 게이트도 없습니다. 대신 항상 레시피 그룹 평균으로 덮어써서 저장합니다. ' +
+            'Offset_Group 을 켜면 라벨에서 device 자리가 사라져 셋이 LC_M2CU 한 칸으로 합쳐집니다 — ' +
             '아래 체크박스로 직접 바꿔 보세요.',
       eq: 'Offset_Group = <span class="hl3">\'Y\'</span> &nbsp;→&nbsp; ' +
-          'LC_<span style="opacity:.45">{EQ}_</span>M2CU &nbsp;·&nbsp; ' +
+          'LC_<span style="opacity:.45">{device}_</span>M2CU &nbsp;·&nbsp; ' +
           'OFFSET = groupby([ <span class="hl3">recipe_group</span>, IDLE ]).transform(\'mean\')',
       x: xLcLane, y: function (w) { return yOff(w.off); },
       fill: function (w) { return w.isTru ? C_TRU : C_LC; },
@@ -835,7 +858,7 @@
     norm: { w: 88,  cols: [C_NORM],    t: '정상 연속 생산' },
     idle: { w: 182, cols: IDLE_COLS,   t: 'Idle_1→4 (재개 후 순번)' },
     lay:  { w: 192, cols: LAYER_COLS,  t: 'Layer_1→4 (전환 후 순번)' },
-    lc:   { w: 110, cols: [C_LC],      t: 'LC (패드 교체)' },
+    lc:   { w: 168, cols: [C_LC],      t: 'LC (전환·rework 후 첫 장)' },
     tru:  { w: 112, cols: [C_TRU],     t: 'Truing (값 0)' },
     sp:   { w: 88,  cols: [C_SPIKE],   t: '계측 이상치' }
   };
@@ -1131,8 +1154,8 @@
     });
     txt(gSeps, PL.x0, PL.y0 - 6,
       groupY
-        ? 'Offset_Group = \'Y\' — 라벨에서 장비 번호를 뗐다. 장비 3대의 점이 같은 레인으로 합쳐진다'
-        : 'Offset_Group = \'N\' — 라벨에 장비 번호가 남아 있다. 장비마다 자기 레인을 따로 쓴다',
+        ? 'Offset_Group = \'Y\' — 라벨에서 device 자리를 뗐다. device 가 다른 점들이 같은 레인으로 합쳐진다'
+        : 'Offset_Group = \'N\' — 라벨에 device 가 남아 있다. device 마다 자기 레인을 따로 쓴다',
       { size: 10.5, fill: C_LC, op: 0.9 });
   }
 
@@ -1193,12 +1216,12 @@
       { size: 10.5, op: 0.6 });
     txt(gApply, 6, yS + RH + 44,
       groupY
-        ? '→ 세 장비가 한 칸을 공유하므로 저장값도 셋이 똑같다. 장비 고유 특성은 포기하고 표본 수를 얻는 선택이다'
-        : '→ 라벨이 장비별로 다르므로 각 장비가 자기 값을 그대로 받는다. 대신 칸마다 표본이 적다',
+        ? '→ device 가 한 칸으로 합쳐지므로 저장값이 하나가 된다. device 고유 특성은 포기하고 표본 수를 얻는 선택이다'
+        : '→ device 마다 라벨이 다르므로 각 device 가 자기 값을 그대로 받는다. 대신 칸마다 표본이 적다',
       { size: 12, weight: 600, fill: groupY ? C_LC : 'var(--az-learn)' });
     if (groupY) {
       txt(gApply, 6, yS + RH + 66,
-        '주의 — 장비 번호를 떼면 LC_T_{EQ}_M2CU 도 LC_M2CU 가 된다. 강제 0 인 Truing 이 같은 칸에 섞여 평균을 0 쪽으로 당긴다',
+        '주의 — device 를 떼면 LC_T_{device}_M2CU 도 LC_M2CU 가 된다. 강제 0 인 Truing 이 같은 칸에 섞여 평균을 0 쪽으로 당긴다',
         { size: 10.5, fill: C_TRU, op: 0.95 });
     }
   }
@@ -1229,12 +1252,10 @@
 
   function applyLabels() {
     return ['Normal'].concat(IDLE_LANES).concat([
-      lcLabel(MAIN_EQ, 'M2CU'), lcLabel(MAIN_EQ, 'M3CU'), lcLabel(MAIN_EQ, 'TRU')
+      lcLabel('E2', false), lcLabel('E9', false), lcLabel('ES', false), lcLabel('E2', true)
     ]);
   }
-  function shortLabel(L) {
-    return L.replace('LC_' + MAIN_EQ + '_', 'LC_').replace('LC_T_' + MAIN_EQ + '_', 'LC_T_');
-  }
+  function shortLabel(L) { return L; }
 
   function drawApply() {
     clear(gApply); clear(gLines); clear(gSeps);
