@@ -8,7 +8,7 @@ Django 기반 MICO (Model Integrated Process Control Optimization) 웹 애플리
 ## 기본 정보
 
 - **경로:** `/Users/bonheonkoo/MICO_Web`
-- **스택:** Django 4.1.13, SQLite, Python 3.10
+- **스택:** Django 4.1.13, PostgreSQL, Python 3.10 (사내 web DB 는 PostgreSQL)
 - **프론트:** Bootstrap 5.3.2, Bootstrap Icons 1.11.3, Chart.js 4.4.2
 - **메인 앱:** `setup_mico` (`mico` 앱은 미사용)
 - **superuser:** 2057197 / Qhsjsl@341
@@ -37,6 +37,33 @@ python3 manage.py runserver 0.0.0.0:8000
 
 - **Category.__str__:** `product / oper_id / oper_desc` (oper_desc 없으면 `product / oper_id`)
 - **migration 순서:** 0001~0006(기존) → 0007(Voc) → 0008(RecipeGroup) → 0009(AccessLog) → 0010(SetupHistory) → 0011(oper_desc CharField)
+
+### web 필드 ↔ 알고리즘 스키마 매핑 (헷갈리기 쉬움)
+
+| 알고리즘 컬럼 | web 필드 | 예 |
+|---|---|---|
+| **`Lot_Code`** | **`SubCategory.device`** | `E2`, `NA`, `AG`, `QQ` |
+| `Product` | `Category.product` | `LC`, `CP`, `PE` |
+| `Oper_Code` | `Category.oper_id` | `V5077000E` |
+| `Oper_Desc` | `Category.oper_desc` | `M1 CU CMP` |
+| `Fab` | `SubCategory.fab` | `M10` |
+| `Recipe_ID` | `SubCategory.recipe_id` | `E2_M1CU_R12_TSV.CAS` |
+
+- `Lot_Code` 는 **`device`** 다. `product` 가 아니다 — recipe_id 접두어(`E2_...`)와 일치한다.
+- **학습 결과 컬렉션은 전부 `{Lot_Code}` = device 기준**:
+  `MICO_PRE_THK_{device}_{oper_desc}_{fab}_Period` / `MICO_Removal_Rate_{device}_...` /
+  `MICO_OFFSET_{device}_...` / `MICO_Merge_df_{device}_...` / `MICO_Online_Simulation_{device}_...`
+  web 조회(`views.py`)·`sample_data/*.json` 도 같은 규칙.
+- 학습 처리 단위 키 `for_key_list` = `Lot_Code(device) + Oper_Code + Fab`.
+  Product 는 키에 없다 → 서로 다른 product 에 같은 device+oper+fab 을 Set-up 하지 말 것.
+
+### Recipe Grouping 규칙
+
+- 한 그룹 = 한 Category. **한 recipe 는 한 그룹에만** 속한다 (웹에서 강제, `views.py`).
+- 그룹은 device(Lot_Code) 를 넘나들 수 있다 → 그때 merge_df 가 합산된다(의도된 동작).
+- 알고리즘 내부 `Group_Name` 은 `'{name}#{pk}'` — Category 간 동명 그룹이 합쳐지지 않게 pk 를 붙인다.
+- 한 device 의 recipe 는 **전부 같은 그룹**이거나 **전부 미그룹**이어야 깔끔하다.
+  일부만 그룹에 넣으면 grouped/single 두 경로가 같은 device 를 나눠 처리한다.
 
 ---
 
@@ -140,7 +167,9 @@ ADMIN (superuser만 노출)
 - 이미 적재된 과거 데이터는 지우지 않음 — 필요 시 MongoDB에서 해당 process_id 문서 수동 삭제
 
 ### Jupyter 노트북
-- `notebooks/mico_setup_query.ipynb`: SQLite 직접 연결, Set-up 전체 계층 DataFrame 조회
+- `notebooks/mico_setup_query.ipynb`: Set-up 전체 계층 DataFrame 조회
+  - ⚠️ `sqlite3.connect('../db.sqlite3')` 로 되어 있어 **현재 DB(PostgreSQL)를 보지 않는다.**
+    남아 있는 `db.sqlite3`(2026-03-24) 는 옛 스냅샷 — 최신 Set-up 을 보려면 연결부를 교체할 것
 
 ---
 
