@@ -436,6 +436,12 @@ class Module_Get:
     def compute_offset_group(merge_df, mico_info_key, pol_type):
         # 그룹 공정용 Offset 학습값 산출.
         # 레시피 구분 없이 합산 데이터로 IDLE 구간 Offset 계산, recipe별로 저장.
+        #
+        # APC_Para(플래튼)별로 나눠 호출한다. OFFSET_Get.compute_offset_group 은
+        # search_keys.iloc[0] 의 APC_Para 하나만 보고 Pol/Pad 파라미터와 B1/B0 를
+        # 고르므로, 여러 플래튼을 한 번에 넘기면 첫 번째 것만 학습되고 나머지는
+        # 누락된다(저장 행의 APC_Para 도 전부 첫 값으로 찍힘).
+        # → 단독 경로(compute_offset)가 search_key 를 행마다 도는 것과 같은 구조로 맞춘다.
 
         mico_info_key = mico_info_key[mico_info_key['FB_Type'] == 'TIME'].copy()
 
@@ -452,11 +458,22 @@ class Module_Get:
             print(f'    APC_Para 목록: {list(APC_Para_List)} | Offset_Group={Offset_Group}')
             merge_df = OFFSET_Get.load_rr_data(merge_df, Fab, Lot_Code, Oper_Desc, APC_Para_List, _MONGO_URL, _MONGO_DB)
 
-            temp_df = OFFSET_Get.compute_offset_group(merge_df, search_key, pol_type, Fab)
-            if temp_df is None:
+            results = []
+            for apc in APC_Para_List:
+                sub_keys = search_key[search_key['APC_Para'] == apc]
+                if sub_keys.empty:
+                    continue
+                temp = OFFSET_Get.compute_offset_group(merge_df, sub_keys, pol_type, Fab)
+                if temp is None:
+                    print(f'    APC_Para={apc} → RR 데이터 없음, 스킵')
+                    continue
+                results.append(temp)
+
+            if not results:
                 print(f'    RR 데이터 없음 → Offset 계산 스킵')
                 return
 
+            temp_df = pd.concat(results, axis=0)
             OFFSET_Get.compute_lc_offset(temp_df, Lot_Code, Oper_Desc, Fab, Offset_Group)
 
         except Exception as e:
@@ -572,15 +589,36 @@ class Module_Get:
 
 # ── Runner helpers ────────────────────────────────────────────────────────────
 
-def _parse_for_key(key):
-    # for_key_list 키(Lot_Code_Oper_Code_Fab)를 언더스코어로 분리하여 각 구성요소 반환.
-    parts = key.split('_')
-    return parts[0], parts[1], parts[2]  # lot_code, oper_code, fab
+def _filter_merge_by_recipes(merge_df, recipe_ids, label):
+    # merge_df(= Lot_Code 단위 컬렉션 전체)를 학습 대상 Recipe_ID 로 좁힌다.
+    #
+    # merge 컬렉션은 Lot_Code(=device)+Oper_Desc+Fab 단위라 한 Lot_Code 의 모든
+    # recipe 실적이 함께 들어 있다. 그룹 학습(compute_*_group)은 집계 키가
+    # eqp_id//Group_Name / (eqp_id, IDLE) 라 recipe 축이 없어서, 이 단계에서
+    # 걸러주지 않으면 다른 그룹·미그룹 recipe 의 웨이퍼가 그대로 평균에 섞인다.
+    # 단독 경로(compute_offset/compute_rr)는 자체 recipe 필터가 있지만, 여기서
+    # 먼저 좁혀 두면 학습 대상이 로그로 드러나고 불필요한 연산도 준다.
+    # ※ Pre_Thk_VM 은 pre_eq_ch 단위라 recipe 축이 없다 → 이 필터를 적용하지 않는다.
+    if 'recipe_id' not in merge_df.columns:
+        print(f'    [경고] merge_df 에 recipe_id 컬럼 없음 → {label} recipe 필터 미적용')
+        return merge_df
+    before   = len(merge_df)
+    filtered = merge_df[merge_df['recipe_id'].isin(list(recipe_ids))].copy()
+    print(f'    Recipe 필터({label}) {sorted(set(recipe_ids))}: {before}행 → {len(filtered)}행')
+    return filtered
 
 
-def _run_pipeline(merge_df, mico_info_key, use_group_rr=False):
+def _run_pipeline(merge_df_rcp, merge_df_vm, mico_info_key, use_group_rr=False):
     # Pre VM → RR → Offset → Alarm 순서로 학습 모듈 전체 실행
-    # use_group_rr=True: 여러 Lot_Code가 합쳐진 merge_df로 RR_Group 실행 (그룹 공정용)
+    #
+    # merge_df_rcp : RR / Offset 용. 학습 대상 Recipe_ID 로 좁혀진 merge_df.
+    # merge_df_vm  : Pre_Thk_VM 용. recipe 필터 이전의 merge_df.
+    #   Pre_Thk_VM 은 사전공정 장비채널(pre_eq_ch) 단위 학습값이라 recipe 축이 없다.
+    #   결과도 MICO_PRE_THK_{Lot_Code}_{Oper_Desc}_{Fab}_Period 에 pre_eq_ch 기준으로
+    #   쌓이고, load_pre_thk_data 의 조인도 by=['pre_eq_ch'] 다.
+    #   → recipe 로 좁히면 사전공정 표본만 줄고, 같은 Lot_Code 를 grouped/single 두
+    #     경로가 나눠 처리할 때 한 컬렉션에 서로 다른 VM 이 쌓인다. 그래서 분리한다.
+    # use_group_rr : True 면 그룹 공정용 RR/Offset(compute_*_group) 사용.
     lot_code  = mico_info_key['Lot_Code'].unique()[0]
     oper_desc = mico_info_key['Oper_Desc'].unique()[0]
     fab       = mico_info_key['Fab'].unique()[0]
@@ -593,13 +631,13 @@ def _run_pipeline(merge_df, mico_info_key, use_group_rr=False):
     print(f'  파이프라인 시작: {fab} | {lot_code} | {oper_desc}')
     print(f'{"=" * 60}')
     try:
-        Module_Get.compute_pre_thk_vm(merge_df, mico_info_key, pol_type)
+        Module_Get.compute_pre_thk_vm(merge_df_vm, mico_info_key, pol_type)
         if use_group_rr:
-            Module_Get.compute_removal_rate_group(merge_df, mico_info_key, pol_type)
-            Module_Get.compute_offset_group(merge_df, mico_info_key, pol_type)
+            Module_Get.compute_removal_rate_group(merge_df_rcp, mico_info_key, pol_type)
+            Module_Get.compute_offset_group(merge_df_rcp, mico_info_key, pol_type)
         else:
-            Module_Get.compute_removal_rate(merge_df, mico_info_key, pol_type)
-            Module_Get.compute_offset(merge_df, mico_info_key, pol_type)
+            Module_Get.compute_removal_rate(merge_df_rcp, mico_info_key, pol_type)
+            Module_Get.compute_offset(merge_df_rcp, mico_info_key, pol_type)
         Module_Get.check_alarm(mico_info_key)
     except Exception as e:
         tb = traceback.format_exc()
@@ -611,52 +649,94 @@ def _run_pipeline(merge_df, mico_info_key, use_group_rr=False):
 
 
 def _run_single(mico_info_table, for_key_list):
-    # 그룹 미지정 공정: for_key_list 키마다 독립적으로 merge_df를 조회 후 실행
+    # 그룹 미지정 공정: for_key_list 키마다 독립적으로 merge_df 를 조회 후 실행
+    #
+    # for_key_list(Lot_Code+Oper_Code+Fab)에는 recipe 축이 없어 같은 Lot_Code 의
+    # '그룹에 속한 recipe'까지 함께 걸린다. Group_Name='not_group' 조건을 더해
+    # 미그룹 recipe 만 단독 학습하도록 한다.
     total = len(for_key_list)
     for idx, key in enumerate(for_key_list, 1):
-        _, oper_code, _ = _parse_for_key(key)
-        mico_info_key   = mico_info_table[mico_info_table['for_key_list'] == key].copy()
+        mico_info_key = mico_info_table[
+            (mico_info_table['for_key_list'] == key) &
+            (mico_info_table['Group_Name']   == 'not_group')
+        ].copy()
+        if mico_info_key.empty:
+            continue
+
+        # for_key_list 는 Lot_Code+Oper_Code+Fab 를 '_' 로 이어붙인 문자열이라
+        # 되쪼개면 세 값 중 하나라도 '_' 를 포함할 때 잘못 나뉜다.
+        # (예: Oper_Code='OP_01' → 'E2_OP_01_M10'.split('_') → oper_code='OP')
+        # 그 경우 아래 operation_id 필터가 0행이 되어 학습이 조용히 통째로 누락된다.
+        # → 키를 파싱하지 않고 원본 컬럼에서 직접 읽는다.
+        oper_code = mico_info_key['Oper_Code'].unique()[0]
 
         print(f'\n[{idx}/{total}] {key}')
-        merge_df = Module_Get.fetch_merge_data(mico_info_key)
-        if merge_df is None or merge_df.empty:
+        # merge_df_vm : recipe 필터 전(= 이 Lot_Code 전체) → Pre_Thk_VM 용
+        merge_df_vm = Module_Get.fetch_merge_data(mico_info_key)
+        if merge_df_vm is None or merge_df_vm.empty:
             print(f'    → 조회 데이터 없음 (0행), 스킵')
             continue
 
-        merge_df = merge_df[merge_df['operation_id'] == oper_code].copy()
-        print(f'    Oper 필터 후: {len(merge_df)}행')
-        if merge_df.empty:
+        merge_df_vm = merge_df_vm[merge_df_vm['operation_id'] == oper_code].copy()
+        print(f'    Oper 필터 후: {len(merge_df_vm)}행')
+        if merge_df_vm.empty:
             print(f'    → Oper 필터 후 데이터 없음 (0행), 스킵')
             continue
 
-        _run_pipeline(merge_df, mico_info_key)
+        # merge_df_rcp : 학습 대상 recipe 로 좁힌 것 → RR / Offset 용
+        merge_df_rcp = _filter_merge_by_recipes(
+            merge_df_vm, mico_info_key['Recipe_ID'].unique(), '단독')
+        if merge_df_rcp.empty:
+            print(f'    → recipe 필터 후 데이터 없음 (0행), 스킵')
+            continue
+
+        _run_pipeline(merge_df_rcp, merge_df_vm, mico_info_key)
 
 
 def _run_grouped(mico_info_table, group_name):
-    # 그룹 지정 공정: 같은 Group_Name의 모든 키 데이터를 먼저 합산(merge_df)한 후
+    # 그룹 지정 공정: 같은 Group_Name의 모든 키 데이터를 먼저 합산(merge_df_vm)한 후
     # 각 mico_info_key에 동일한 merge_df로 실행 → Group RR처럼 복수 Lot_Code 통합 처리
     mico_info_keys = []
-    merge_df       = pd.DataFrame()
+    # merge_df_vm : 그룹의 모든 키를 합산한 것(= recipe 필터 전) → Pre_Thk_VM 용
+    merge_df_vm    = pd.DataFrame()
     for_key_list   = mico_info_table[mico_info_table['Group_Name'] == group_name]['for_key_list'].unique()
+
+    # 그룹 전체(복수 Lot_Code 가능)의 Recipe_ID — merge_df_vm 을 이 집합으로 좁혀
+    # merge_df_rcp 를 만든다. mico_info_key 는 Lot_Code 단위로 쪼개지지만
+    # merge_df_vm 은 그룹 전체가 합쳐진 것이므로, 필터 기준은 개별 키가 아니라
+    # '그룹 전체 recipe' 여야 한다.
+    group_recipes = mico_info_table[
+        mico_info_table['Group_Name'] == group_name]['Recipe_ID'].unique()
 
     print(f'\n[그룹: {group_name}] 키 {len(for_key_list)}개 데이터 통합 중')
     for key in for_key_list:
-        mico_info_key = mico_info_table[mico_info_table['for_key_list'] == key].copy()
+        mico_info_key = mico_info_table[
+            (mico_info_table['for_key_list'] == key) &
+            (mico_info_table['Group_Name']   == group_name)
+        ].copy()
+        if mico_info_key.empty:
+            continue
         mico_info_keys.append(mico_info_key)
 
         temp = Module_Get.fetch_merge_data(mico_info_key)
         if temp is not None and not temp.empty:
             temp['Fab'] = mico_info_key['Fab'].unique()[0]
-            merge_df = pd.concat([merge_df, temp])
+            merge_df_vm = pd.concat([merge_df_vm, temp])
 
-    merge_df['Group_Name'] = group_name
-    print(f'  그룹 통합 완료: {len(merge_df)}행')
-    if merge_df.empty:
+    if merge_df_vm.empty:
         print(f'  → 그룹 통합 데이터 없음 (0행), 스킵')
         return
 
+    # merge_df_rcp : 그룹 전체 recipe 로 좁힌 것 → RR / Offset 용
+    merge_df_rcp = _filter_merge_by_recipes(merge_df_vm, group_recipes, f'그룹 {group_name}')
+    merge_df_rcp['Group_Name'] = group_name
+    print(f'  그룹 통합 완료: {len(merge_df_rcp)}행')
+    if merge_df_rcp.empty:
+        print(f'  → 그룹 recipe 필터 후 데이터 없음 (0행), 스킵')
+        return
+
     for mico_info_key in mico_info_keys:
-        _run_pipeline(merge_df, mico_info_key, use_group_rr=True)
+        _run_pipeline(merge_df_rcp, merge_df_vm, mico_info_key, use_group_rr=True)
 
 
 def run(family, oper_desc):
@@ -678,10 +758,11 @@ def run(family, oper_desc):
         key_list = mico_info_table['for_key_list'].unique()
         print(f'  처리 키 목록 ({len(key_list)}개):')
         for k in key_list:
-            grp      = mico_info_table[mico_info_table['for_key_list'] == k]['Group_Name'].unique()[0]
+            grps     = sorted(mico_info_table[mico_info_table['for_key_list'] == k]['Group_Name'].unique())
+            grp      = ', '.join(grps)
             pol_vals = mico_info_table[mico_info_table['for_key_list'] == k]['Pol_Type'].dropna().unique()
             pol_label = f'pol_type={int(pol_vals[0])}' if len(pol_vals) > 0 else 'pol_type=미설정'
-            grp_label = f'그룹={grp}' if grp != 'not_group' else '단독'
+            grp_label = f'그룹={grp}' if grps != ['not_group'] else '단독'
             print(f'    - {k}  ({grp_label} | {pol_label})')
 
         for group_name in mico_info_table['Group_Name'].unique():

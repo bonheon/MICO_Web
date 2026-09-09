@@ -63,14 +63,21 @@ class Get_data:
         for cat in cats:
             for sub in cat.subcategories.all():
                 rg = sub.recipe_groups.filter(category=cat).first()
-                group_name = rg.name if rg else None
+                # RecipeGroup 은 Category 당 여러 개 만들 수 있고 이름에 unique 제약이
+                # 없다. baseinfoGetData 는 family+oper_desc 로 여러 Category 를 한
+                # 테이블에 모으므로, 이름만 쓰면 서로 다른 Category 의 동명 그룹이
+                # Group_Name.unique() 에서 하나로 합쳐져 다른 Lot_Code 실적까지
+                # merge_df 에 섞인다. → pk 를 붙여 그룹을 유일하게 식별한다.
+                # (Group_Name 은 Mongo 에 저장되지 않는 실행 중 그룹핑 키라 접미사 무해)
+                group_name = f'{rg.name}#{rg.pk}' if rg else None
 
                 for det in sub.details.all():
                     rows.append({
                         'Family'          : cat.family,
-                        'Lot_Code'        : cat.product,
                         # 회사 스키마는 Product/Lot_Code 별도 컬럼 (Lot_Code 가 하위 단위).
-                        # web Category 에는 product 만 있어 테스트에서는 동일 값 사용.
+                        #   Product  = Category.product   (예: LC)
+                        #   Lot_Code = SubCategory.device (예: E2, E9)
+                        'Lot_Code'        : sub.device,
                         'Product'         : cat.product,
                         'Oper_Code'       : cat.oper_id,
                         'Oper_Desc'       : cat.oper_desc,

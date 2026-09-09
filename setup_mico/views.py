@@ -1541,6 +1541,33 @@ def detail_copy(request, pk):
 
 # ── Recipe Grouping ──
 
+def _grouped_subs(cat, exclude_group_pk=None):
+    """해당 Category 안에서 이미 그룹에 속한 SubCategory → {pk: 그룹명} 매핑.
+
+    한 Recipe 는 한 그룹에만 속해야 한다. 알고리즘(Get_Data.baseinfoGetData)은
+    recipe 쪽에서 `sub.recipe_groups.filter(category=cat).first()` 로 그룹을 찾기
+    때문에, 중복 소속이면 정렬상 앞선 그룹 하나만 채택되고 나머지 그룹은 학습에서
+    조용히 누락된다(그룹 전체가 사라지기도 한다). 그래서 저장 단계에서 막는다.
+    """
+    qs = RecipeGroup.objects.filter(category=cat).prefetch_related('subcategories')
+    if exclude_group_pk:
+        qs = qs.exclude(pk=exclude_group_pk)
+    return {s.pk: g.name for g in qs for s in g.subcategories.all()}
+
+
+def _reject_duplicate_subs(request, cat, sub_pks, exclude_group_pk=None):
+    """중복 소속 Recipe 가 있으면 메시지를 띄우고 True 반환."""
+    taken = _grouped_subs(cat, exclude_group_pk)
+    dup = [(s.recipe_id, taken[s.pk])
+           for s in SubCategory.objects.filter(pk__in=sub_pks, category=cat)
+           if s.pk in taken]
+    if dup:
+        detail = ', '.join(f'{r} → {g}' for r, g in dup)
+        messages.error(request, f'이미 다른 그룹에 속한 Recipe 입니다: {detail}')
+        return True
+    return False
+
+
 @login_required
 def recipe_group_list(request):
     import json
@@ -1552,11 +1579,17 @@ def recipe_group_list(request):
     # 모달용 트리 데이터
     tree = []
     for cat in categories:
+        # 이미 그룹에 속한 recipe → 모달에서 비활성화 표시 (한 recipe = 한 그룹)
+        owner = {s.pk: (g.pk, g.name) for g in cat.recipe_groups.all()
+                 for s in g.subcategories.all()}
         tree.append({
             'pk': cat.pk,
             'label': f'{cat.product} / {cat.oper_id}' + (f' / {cat.oper_desc}' if cat.oper_desc else ''),
             'subs': [
-                {'pk': s.pk, 'label': f'{s.recipe_id}  ({s.fab} / {s.device})'}
+                {'pk': s.pk,
+                 'label': f'{s.recipe_id}  ({s.fab} / {s.device})',
+                 'group_pk':   owner.get(s.pk, (None, None))[0],
+                 'group_name': owner.get(s.pk, (None, None))[1]}
                 for s in cat.subcategories.all()
             ],
         })
@@ -1577,6 +1610,9 @@ def recipe_group_create(request):
         sub_pks = request.POST.getlist('subcategories')
         if name and cat_pk:
             cat = get_object_or_404(Category, pk=cat_pk)
+            # 중복 소속 검사는 그룹 생성 '전에' — 빈 그룹이 남지 않도록
+            if _reject_duplicate_subs(request, cat, sub_pks):
+                return redirect('recipe_group_list')
             group = RecipeGroup.objects.create(category=cat, name=name)
             group.subcategories.set(SubCategory.objects.filter(pk__in=sub_pks, category=cat))
             _record(request.user, 'create', 'RecipeGroup', str(group), group.pk, _grp_fields(group))
@@ -1591,6 +1627,8 @@ def recipe_group_update(request, pk):
         name = request.POST.get('name', '').strip()
         sub_pks = request.POST.getlist('subcategories')
         if name:
+            if _reject_duplicate_subs(request, group.category, sub_pks, exclude_group_pk=group.pk):
+                return redirect('recipe_group_list')
             group.name = name
             group.save()
             group.subcategories.set(

@@ -94,6 +94,14 @@
   .sub-check-item input[type="checkbox"] { accent-color: #4f8ef7; width: 15px; height: 15px; flex-shrink: 0; }
   .sub-check-item label { font-size: 0.82rem; color: #344054; cursor: pointer; margin: 0; }
   .no-sub-msg { font-size: 0.8rem; color: #8993a8; padding: 0.5rem; text-align: center; }
+  /* 이미 다른 그룹에 속한 recipe — 한 recipe 는 한 그룹에만 속할 수 있음 */
+  .sub-check-item.is-taken { opacity: 0.55; cursor: not-allowed; }
+  .sub-check-item.is-taken:hover { background: transparent; }
+  .sub-check-item.is-taken label { cursor: not-allowed; }
+  .sub-taken-badge {
+    margin-left: auto; font-size: 0.7rem; color: #8993a8;
+    background: #f1f3f7; border-radius: 4px; padding: 0.1rem 0.4rem; white-space: nowrap;
+  }
 </style>
 
 <div class="d-flex align-items-center justify-content-between mb-3">
@@ -186,7 +194,7 @@
             <label class="form-label fw-semibold" style="font-size:0.82rem;">
               Category <span class="text-danger">*</span>
             </label>
-            <select id="modal-cat" name="category" class="form-select" onchange="renderSubChecks(this.value, [])">
+            <select id="modal-cat" name="category" class="form-select" onchange="renderSubChecks(this.value, [], null)">
               <option value="">— 선택하세요 —</option>
               {% for cat in categories %}
               <option value="{{ cat.pk }}">{{ cat.product }} / {{ cat.oper_id }}{% if cat.oper_desc %} / {{ cat.oper_desc }}{% endif %}</option>
@@ -258,20 +266,25 @@ const modal    = new bootstrap.Modal(document.getElementById('groupModal'));
 const delModal = new bootstrap.Modal(document.getElementById('deleteModal'));
 
 /* Category 선택 시 Recipe 체크박스 렌더 */
-function renderSubChecks(catPk, checkedPks) {
+function renderSubChecks(catPk, checkedPks, editingGroupPk) {
   const area = document.getElementById('sub-check-area');
   const cat  = TREE.find(c => c.pk == catPk);
   if (!cat || !cat.subs.length) {
     area.innerHTML = '<div class="no-sub-msg">해당 Category에 SubCategory가 없습니다</div>';
     return;
   }
-  area.innerHTML = cat.subs.map(s => `
-    <div class="sub-check-item">
+  // 한 recipe 는 한 그룹에만 속할 수 있다. 다른 그룹에 이미 속한 recipe 는
+  // 선택 불가로 표시한다 (수정 중인 그룹 자신의 recipe 는 정상 선택 가능).
+  area.innerHTML = cat.subs.map(s => {
+    const taken = s.group_pk && s.group_pk != editingGroupPk;
+    return `
+    <div class="sub-check-item${taken ? ' is-taken' : ''}">
       <input type="checkbox" name="subcategories" value="${s.pk}" id="sub-${s.pk}"
-        ${checkedPks.includes(s.pk) ? 'checked' : ''}>
+        ${checkedPks.includes(s.pk) ? 'checked' : ''} ${taken ? 'disabled' : ''}>
       <label for="sub-${s.pk}">${s.label}</label>
-    </div>
-  `).join('');
+      ${taken ? `<span class="sub-taken-badge">${s.group_name} 소속</span>` : ''}
+    </div>`;
+  }).join('');
 }
 
 /* 추가 모달 오픈 */
@@ -283,7 +296,7 @@ function openCreateModal(preCatPk) {
   sel.disabled = false;
   if (preCatPk) {
     sel.value = preCatPk;
-    renderSubChecks(preCatPk, []);
+    renderSubChecks(preCatPk, [], null);
   } else {
     sel.value = '';
     document.getElementById('sub-check-area').innerHTML =
@@ -300,7 +313,7 @@ function openEditModal(pk, catPk, name, checkedPks) {
   const sel = document.getElementById('modal-cat');
   sel.value = catPk;
   sel.disabled = true;   // 수정 시 Category 변경 불가
-  renderSubChecks(catPk, checkedPks);
+  renderSubChecks(catPk, checkedPks, pk);
   modal.show();
 }
 
