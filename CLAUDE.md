@@ -213,10 +213,16 @@ MICO를 HCP → nAPC로 전환하면서 핵심 알고리즘을 MLflow 기반 AI 
   `{"output": {"aiu_output": [...]}}`로 감싸서 준다. `predictions` 키는 어느 쪽에도 없다
   (`mico_call.py._extract_preds`가 양쪽 처리)
 - **숫자는 실수로 보낼 것**: signature가 `double`이라 `1` 같은 정수는 400 (`Expected type array, received type list`)
-- **문자열 입력 OK**: signature가 `Array(Array(string))`으로 잡힘. 학습 트리거는 문자열 키
-  (`[Lot_Code, Oper_Code, Fab]`)만 넘기고 데이터는 컨테이너가 Mongo Hub에서 직접 조회 — `nAPC/mico_train_upload.py`
-  - **한 배열에 문자열+숫자 혼합 금지** — `infer_signature`에서 `Expected all values in list to be of same type`.
-    블록을 2개로 나눠도 같은 예외. 숫자가 필요하면 전부 문자열로 보내거나 엔벨로프에 스칼라 필드로 추가
+- **문자열 입력·타입 혼합 OK** — 제약은 "타입 혼합 금지"가 아니라 **"한 배열 안의 값은 전부 같은 타입"**.
+  **한 행을 배열이 아니라 dict로** 보내면 필드마다 타입이 달라도 된다 (`nAPC/mico_train_upload.py`)
+  ```json
+  "data": [{"lot_code":"E2","oper_code":"V5077000E","fab":"M10","post_thk":1.0,"target":10.0}]
+  ```
+  - 문자열만 필요하면 숫자 필드를 빼면 됨 → `Array(Array(string))`. 형식은 동일
+  - **한 배열 안에 문자열+숫자 섞기만 안 됨** — `infer_signature`에서
+    `Expected all values in list to be of same type`. `input` 리스트에 타입 다른 블록 2개도 동일
+  - dict로 보낼 때: 숫자는 실수로, 모든 행에 같은 필드. 없어도 되는 필드는 `input_example`의
+    한 행에서 빼면 `optional`로 잡힘. `shape`는 `[행 수]`
   - **업로드 스크립트는 import 하지 말고 직접 실행** — import 하면 cloudpickle이 래퍼 클래스를 참조로만 저장해
     서빙에서 `ModuleNotFoundError`. `__main__` 정의 클래스라야 값으로 저장됨
 - `nAPC/simple_example.py` — MLflow pyfunc 개념 확인용 (로컬 저장까지)
