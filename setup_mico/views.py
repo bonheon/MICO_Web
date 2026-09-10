@@ -2258,6 +2258,17 @@ def guide_animation_rr(request):
 
 
 @login_required
+def guide_code_flow(request):
+    """학습 코드 흐름 — Pre_Thk_VM / Removal Rate / OFFSET 세 모듈의 호출 경로.
+
+    algorithm_new/Common/ 의 Module.py · PRE_THK_VM.py · REMOVAL_RATE.py · OFFSET.py 를
+    함수 단위로 따라가며 분기 조건과 MongoDB 컬렉션 경유 지점을 보인다.
+    산식의 의미가 아니라 코드 위치가 목적. DB 조회 없음.
+    """
+    return render(request, 'setup_mico/guide_code_flow.html')
+
+
+@login_required
 def guide_animation_offset(request):
     """핵심 알고리즘 애니메이션 ③ — OFFSET 단계별 시각화.
 
