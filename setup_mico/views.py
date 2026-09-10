@@ -2258,6 +2258,17 @@ def guide_animation_rr(request):
 
 
 @login_required
+def guide_code_flow(request):
+    """학습 코드 흐름 — Pre_Thk_VM / Removal Rate / OFFSET 세 모듈의 호출 경로.
+
+    algorithm_new/Common/ 의 Module.py · PRE_THK_VM.py · REMOVAL_RATE.py · OFFSET.py 를
+    함수 단위로 따라가며 분기 조건과 MongoDB 컬렉션 경유 지점을 보인다.
+    산식의 의미가 아니라 코드 위치가 목적. DB 조회 없음.
+    """
+    return render(request, 'setup_mico/guide_code_flow.html')
+
+
+@login_required
 def guide_animation_offset(request):
     """핵심 알고리즘 애니메이션 ③ — OFFSET 단계별 시각화.
 
@@ -2280,11 +2291,23 @@ def guide_animation_pressure(request):
 
 @login_required
 def guide_animation_pressure_learn(request):
-    """핵심 알고리즘 애니메이션 ⑤ — PRESSURE 학습 (Pre_Thk_VM · Removal Rate).
+    """핵심 알고리즘 애니메이션 ⑤ — PRESSURE 학습 ① Pre_Thk_VM.
 
-    ④ 가 정의한 BIAS 를 받아 PRE_THK_VM.compute_detrend(use_pressure=True) 와
-    REMOVAL_RATE._process_models() 의 is_bias_type 분기를 단계별로 재현한다.
-    A 막(detrend → 채널 집계 → Pre_Oper2 회귀), B 막(VM 되받기 → 6σ → 게이트 → 4모델)
-    두 흐름으로 나눠 보여준다. DB 조회 없음.
+    ④ 가 정의한 BIAS 를 받아 Module.compute_pre_thk_vm() 의 PRESSURE 분기와
+    PRE_THK_VM.compute_detrend(use_pressure=True) 를 단계별로 재현한다.
+    화면 순서는 ① Pre_Thk_VM(TIME 판)에 맞춰 두었고, 갈라지는 곳은 detrend 의
+    후처리 두께 자리(Post_Target + BIAS) 한 줄이다. DB 조회 없음.
     """
     return render(request, 'setup_mico/guide_animation_pressure_learn.html')
+
+
+@login_required
+def guide_animation_pressure_rr(request):
+    """핵심 알고리즘 애니메이션 ⑥ — PRESSURE 학습 ② Removal Rate.
+
+    ⑤ 가 학습한 Pre_Thk_VM 을 되받아 REMOVAL_RATE._process_models() 의
+    is_bias_type 분기(post_thk = Post_Target + BIAS)부터 6σ · 게이트 · 네 직선 ·
+    우선순위까지를 단계별로 재현하고, 챔버 차이가 zone 압력으로 사라지는 것을 보인다.
+    화면 순서는 ② Removal Rate(TIME 판)에 맞췄다. DB 조회 없음.
+    """
+    return render(request, 'setup_mico/guide_animation_pressure_rr.html')
