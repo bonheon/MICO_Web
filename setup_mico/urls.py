@@ -72,6 +72,7 @@ urlpatterns = [
     path('guide/animation/offset/', views.guide_animation_offset, name='guide_animation_offset'),
     path('guide/animation/pressure/', views.guide_animation_pressure, name='guide_animation_pressure'),
     path('guide/animation/pressure/learn/', views.guide_animation_pressure_learn, name='guide_animation_pressure_learn'),
+    path('guide/animation/pressure/learn/rr/', views.guide_animation_pressure_rr, name='guide_animation_pressure_rr'),
     path('guide/code-flow/', views.guide_code_flow, name='guide_code_flow'),
     path('guide/algorithm/', views.algorithm_guide, name='algorithm_guide'),
 

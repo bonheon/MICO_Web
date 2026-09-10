@@ -98,6 +98,20 @@
 .az-btn:focus-visible { outline:2px solid var(--az-learn); outline-offset:2px; }
 
 .az-dots { display:flex; gap:0.34rem; margin-left:0.4rem; }
+.az-case { display:flex; align-items:center; gap:0.35rem; margin-left:1rem;
+           padding-left:1rem; border-left:1px solid var(--az-rule); }
+.az-case .cl { font-family:'IBM Plex Mono',monospace; font-size:0.68rem; font-weight:600;
+               letter-spacing:0.08em; color:var(--az-muted); margin-right:0.25rem; }
+.az-case-btn {
+  font-family:'IBM Plex Sans KR',sans-serif; font-size:0.76rem; font-weight:500;
+  padding:0.3rem 0.6rem; border-radius:5px; cursor:pointer;
+  border:1px solid var(--az-rule); background:var(--az-surface); color:var(--az-body);
+  transition:all .15s;
+}
+.az-case-btn:hover { border-color:var(--az-learn); color:var(--az-learn); }
+.az-case-btn.on { border-color:var(--az-learn); background:var(--az-learn-w);
+                  color:var(--az-learn); font-weight:600; }
+.az-case-btn:focus-visible { outline:2px solid var(--az-learn); outline-offset:2px; }
 .az-dot {
   width:26px; height:26px; border-radius:50%; border:1px solid var(--az-rule);
   background:var(--az-surface); color:var(--az-muted); cursor:pointer;
@@ -171,12 +185,13 @@
     <a class="az-tab on" href="#">② Removal Rate</a>
     <a class="az-tab" href="{% url 'guide_animation_offset' %}">③ OFFSET</a>
     <a class="az-tab" href="{% url 'guide_animation_pressure' %}">④ PRESSURE 개념</a>
-    <a class="az-tab" href="{% url 'guide_animation_pressure_learn' %}">⑤ PRESSURE 학습</a>
+    <a class="az-tab" href="{% url 'guide_animation_pressure_learn' %}">⑤ PRESSURE · Pre_Thk_VM</a>
+    <a class="az-tab" href="{% url 'guide_animation_pressure_rr' %}">⑥ PRESSURE · Removal Rate</a>
   </div>
 
   <div class="az-stage">
     <div class="az-caption">
-      <div class="step" id="az-step">STEP 0 / 8</div>
+      <div class="step" id="az-step">STEP 0 / 15</div>
       <h2 id="az-title">—</h2>
       <p id="az-desc">—</p>
       <div class="eq" id="az-eq" hidden></div>
@@ -210,6 +225,11 @@
       <button class="az-btn primary" id="az-play" type="button">▶ 재생</button>
       <button class="az-btn" id="az-next" type="button">다음 ▶</button>
       <div class="az-dots" id="az-dots"></div>
+      <div class="az-case" id="az-case" hidden>
+        <span class="cl">공정 상태</span>
+        <button type="button" class="az-case-btn on" data-applied="0">MICO 적용 전</button>
+        <button type="button" class="az-case-btn" data-applied="1">MICO 적용 중</button>
+      </div>
       <div class="az-speed">
         <label for="az-spd">속도</label>
         <select id="az-spd">
@@ -334,6 +354,50 @@
     W[ix].idle = ''; W[ix].rr += (ix % 2 ? 1 : -1) * 3.4; W[ix].outSeed = true;
   });
 
+  // ══════════════════════════════════════════════════════════
+  //  1-b. ① Pre_Thk_VM 이 넘겨주는 값 · MICO 적용 전 / 적용 중
+  //   RR = ( Pre_Target + VM − Post_Thk ) / Pol_Time 의 세 조각을 그대로 만든다.
+  //   사전공정 채널과 입고 편차는 ① 과 같은 값 — 같은 공정을 다른 각도에서 보는 것이다.
+  //   구성은 역방향이다 : 제거율(w.rr)이 먼저 있고, 거기서 두께·시간을 만든다.
+  //   그래야 두 케이스 모두 ( preThk − post ) / polTime 이 정확히 w.rr 이 되어
+  //   학습 화면(이 페이지의 나머지)이 케이스와 무관해진다.
+  // ══════════════════════════════════════════════════════════
+  var CHS = ['PRE_A_1', 'PRE_A_2', 'PRE_B_1', 'PRE_B_2'];
+  var TRUE_BIAS = { PRE_A_1: 38, PRE_A_2: 12, PRE_B_1: -14, PRE_B_2: -34 };   // ① 과 동일
+  var CH_COLOR  = { PRE_A_1: 'var(--c1)', PRE_A_2: 'var(--c2)',
+                    PRE_B_1: 'var(--c3)', PRE_B_2: 'var(--az-learn)' };
+  var B2_TRUE = 0.8;          // Pre_Oper2 계측값 1 당 입고 두께 (① 과 동일)
+  var PT_NOISE = 0.56;        // 연마 시간 잔여 오차 (제어·계측) — 적용 중 두께 산포를 결정한다
+
+  (function () {
+    var r = mulberry32(20260910), seq = [];
+    while (seq.length < N) {
+      var ch = CHS[Math.floor(r() * 4)], len = 1 + Math.floor(r() * 3);
+      for (var t = 0; t < len && seq.length < N; t++) { seq.push(ch); }
+    }
+    function g(sd) {
+      var u = 1 - r(), v = r();
+      return Math.sqrt(-2 * Math.log(u)) * Math.cos(2 * Math.PI * v) * sd;
+    }
+    W.forEach(function (w) {
+      w.ch     = seq[w.i];
+      w.x2     = 30 + r() * 40;                            // Pre_Oper2 계측값
+      w.vm     = TRUE_BIAS[w.ch] + B2_TRUE * (w.x2 - 50);  // ① 이 학습해 넘겨준 값
+      w.preThk = PRE_TARGET + w.vm;
+      // APC 가 아는 제거율 = 학습이 잡아낸 수준 (패드 곡선 + 현재 주기)
+      var rrModel = rrTrueAt(w.pad) + cycOff(w.cyc);
+      var pt      = g(PT_NOISE);
+      w.polt0 = DELTA / rrModel + pt;                      // 적용 전 : 입고를 모르니 고정량만
+      w.polt1 = (DELTA + w.vm) / rrModel + pt;             // 적용 중 : VM 만큼 더/덜 깎는다
+      w.post0 = w.preThk - w.rr * w.polt0;
+      w.post1 = w.preThk - w.rr * w.polt1;
+    });
+  })();
+
+  var APPLIED = false;
+  function postOf(w) { return APPLIED ? w.post1 : w.post0; }
+  function poltOf(w) { return APPLIED ? w.polt1 : w.polt0; }
+
   // ── 학습 대상 : IDLE == '' 만 ────────────────────────────
   var normal = W.filter(function (w) { return w.idle === ''; });
 
@@ -342,6 +406,21 @@
   var sR = Math.sqrt(normal.reduce(function (s, w) { return s + (w.rr - mR) * (w.rr - mR); }, 0) / normal.length);
   normal.forEach(function (w) { w.out = Math.abs(w.rr - mR) > 6 * sR; });
   var FIT = normal.filter(function (w) { return !w.out; });
+
+  // ── 산포 지표 : ① 과 같은 자(3σ 폭 = 6·sd)로 잰다 ─────────
+  //   IDLE·계측 이상치는 두께 산포를 통째로 흔들어 비교가 안 되므로 학습 대상(FIT)만 잰다.
+  //   Pol_Time 은 패드 마모가 만든 톱니가 대부분이라, 그 몫(DELTA / 모델 제거율)을 뺀
+  //   나머지로 잰다 — 케이스에 따라 달라지는 것이 바로 그 나머지다.
+  function sd6(rows, f) {
+    var v = rows.map(f), m = v.reduce(function (a, b) { return a + b; }, 0) / v.length;
+    return 6 * Math.sqrt(v.reduce(function (a, x) { return a + (x - m) * (x - m); }, 0) / v.length);
+  }
+  function padPart(w) { return DELTA / (rrTrueAt(w.pad) + cycOff(w.cyc)); }
+  var SIG_ROWS = FIT.filter(function (w) { return !w.outSeed; });
+  var SIG_POST = { before: sd6(SIG_ROWS, function (w) { return w.post0; }),
+                   after:  sd6(SIG_ROWS, function (w) { return w.post1; }) };
+  var SIG_POL  = { before: sd6(SIG_ROWS, function (w) { return w.polt0 - padPart(w); }),
+                   after:  sd6(SIG_ROWS, function (w) { return w.polt1 - padPart(w); }) };
 
   // ── 회귀 유틸 ───────────────────────────────────────────
   function ols(rows, wfn) {
@@ -443,6 +522,35 @@
   function xTimeAt(i) { return PL.x0 + i / (N - 1) * (PL.x1 - PL.x0); }
   function xPadAt(p)  { return PL.x0 + p / PAD_MAX * (PL.x1 - PL.x0); }
 
+  // ── 도입부(두께 · 연마 시간) 축 ─────────────────────────
+  //  두 케이스를 같은 자로 재야 산포가 줄어든 것이 보인다 → 케이스별 자동 스케일 금지.
+  //  IDLE·이상치 웨이퍼는 축을 통째로 늘리므로, 축은 정상 웨이퍼의 ±3σ 로 잡고
+  //  밖으로 나간 점은 가장자리에 붙여 그린다 (있다는 것은 보이되 축은 안 흔들리게).
+  function bandDom(sig, f, padTop) {
+    var m0 = SIG_ROWS.reduce(function (a, w) { return a + f(w, false); }, 0) / SIG_ROWS.length;
+    var m1 = SIG_ROWS.reduce(function (a, w) { return a + f(w, true); }, 0) / SIG_ROWS.length;
+    var half = Math.max(sig.before, sig.after) / 2 * 1.35;
+    return [Math.min(m0, m1) - half, Math.max(m0, m1) + half + (padTop || 0)];
+  }
+  var D_POST = bandDom(SIG_POST, function (w, ap) { return ap ? w.post1 : w.post0; }, 24);
+  var D_POL  = (function () {
+    var v = W.map(function (w) { return w.polt0; }).concat(W.map(function (w) { return w.polt1; }));
+    var lo = Math.min.apply(null, v), hi = Math.max.apply(null, v), p = (hi - lo) * 0.10;
+    return [lo - p, hi + p + (hi - lo) * 0.10];
+  })();
+  var D_PRE = (function () {
+    var v = W.map(function (w) { return w.preThk; });
+    var lo = Math.min.apply(null, v), hi = Math.max.apply(null, v), p = (hi - lo) * 0.22;
+    return [lo - p, hi + p];
+  })();
+  function yOfDom(dom) {
+    return function (v) {
+      var y = PL.y1 - (v - dom[0]) / (dom[1] - dom[0]) * (PL.y1 - PL.y0);
+      return Math.max(PL.y0 - 4, Math.min(PL.y1 + 4, y));   // 축 밖은 가장자리에 붙인다
+    };
+  }
+  var yPre = yOfDom(D_PRE), yPost = yOfDom(D_POST), yPol = yOfDom(D_POL);
+
   // Pad_Seperation 이하 구간만 화면 폭 전체로 확대하는 배치 (IF 게이트 검증용)
   function xPadZoomAt(p) { return PL.x0 + p / PAD_SEP * (PL.x1 - PL.x0); }
 
@@ -461,11 +569,76 @@
 
   var STAGES = [
     {
+      title: '① 이 학습한 Pre_Thk_VM 을 되받는다 — pre_thk = Pre_Target + VM',
+      desc: 'ED zone 이든 면 평균이든, 입고 두께는 CMP 앞에서 재지 않습니다. ' +
+            '그래서 레시피 목표 Pre_Target 에 ① 이 학습해 둔 VM 을 더해 세웁니다. ' +
+            'VM 은 사전공정 장비·채널(pre_eq_ch) 기준으로 붙으므로 "어느 채널에서 왔는가" 만 알면 값이 정해집니다 — ' +
+            '같은 색끼리 한 줄로 모이는 것이 그것입니다. ①이 있어야 ②를 계산할 수 있는 이유이기도 합니다.',
+      eq: 'pre_thk = <span class="hl">Pre_Target</span> + VM' +
+          ' &nbsp;<span style="opacity:.55">· VM = 채널 이동평균 + Σ ( 계측값 × b1 + b0 )</span>',
+      x: xTime, y: function (w) { return yPre(w.preThk); },
+      dom: D_PRE, yv: yPre, dec: 0,
+      fill: function (w) { return CH_COLOR[w.ch]; }, op: opAll, scale: function () { return 1; },
+      xlab: '웨이퍼 처리 순서 →', ylab: 'Å',
+      note: '채널마다 값 하나 — 같은 색이 한 줄로 모인다'
+    },
+    {
+      title: 'Post_Thk — 산포가 두께에 남아 있나',
+      desc: function () {
+        return APPLIED
+          ? 'VM 만큼 연마 시간을 조절하니 채널별 층이 사라지고 목표선 주위로 모입니다. ' +
+            '두께만 봐서는 어느 사전공정 채널에서 왔는지 알 수 없습니다 — 차이가 사라진 걸까요? 다음 화면을 보세요. ' +
+            '남은 흔들림은 제거율이 모델과 어긋난 몫이고, 그것을 잡는 것이 이 페이지의 학습입니다.'
+          : '보정이 없으면 입고 두께 편차가 그대로 후처리 두께에 남습니다. 색이 층으로 갈리는 것이 그것입니다. ' +
+            '앞 화면의 VM 이 바로 이 층의 정체입니다. 위 버튼으로 MICO 를 켜 보세요. ' +
+            '(따로 튀어 있는 점들은 IDLE·계측 이상치 웨이퍼입니다 — 뒤에서 걷어냅니다.)';
+      },
+      eq: 'Post_Thk = pre_thk − <span class="hl2">RR</span> × Pol_Time' +
+          ' &nbsp;<span style="opacity:.55">· 제품 스펙이 걸린 값은 이쪽이다</span>',
+      x: xTime, y: function (w) { return yPost(postOf(w)); },
+      dom: D_POST, yv: yPost, dec: 0, mico: 'post', ctrl: 'mico',
+      fill: function (w) { return CH_COLOR[w.ch]; },
+      op: function (w) { return (w.idle !== '' || w.outSeed) ? 0.22 : 1; },
+      scale: function () { return 1; },
+      xlab: '웨이퍼 처리 순서 →', ylab: 'Å',
+      note: function () {
+        return APPLIED ? '색이 섞였다 — 두께만으로는 채널을 구분할 수 없다'
+                       : '색이 층으로 갈린다 — 입고 편차가 두께에 그대로 남아 있다';
+      }
+    },
+    {
+      title: 'Pol_Time — 산포가 옮겨간 자리',
+      desc: function () {
+        return APPLIED
+          ? '같은 웨이퍼의 연마 시간입니다. 패드가 닳을수록 길게 깎는 톱니는 그대로 두고, ' +
+            '그 위에 채널별 보정이 얹혔습니다 — 두껍게 들어온 채널은 더 오래, 얇게 들어온 채널은 덜 깎습니다. ' +
+            '앞 화면에서 두께가 좁아진 만큼 이 화면이 벌어졌습니다. 산포는 없어진 게 아니라 자리를 옮겼고, ' +
+            '제품 스펙은 두께 쪽이므로 이 거래가 이득입니다.'
+          : '보정이 없으면 같은 패드 상태의 웨이퍼는 모두 같은 시간 깎습니다. 톱니는 패드 마모를 보상하는 몫이라 ' +
+            '두 경우에 공통입니다. 이 화면에서 띠가 얇은 것은 "좋다" 는 뜻이 아니라 ' +
+            '"입고 편차에 대해 아무것도 하지 않고 있다" 는 뜻입니다 — 그 대가가 앞 화면의 두께 산포입니다.';
+      },
+      eq: 'Pol_Time = ( <span class="hl">pre_thk</span> − Target ) / 모델 제거율' +
+          ' &nbsp;<span style="opacity:.55">· 적용 전에는 pre_thk 자리에 Pre_Target 만 들어간다</span>',
+      x: xTime, y: function (w) { return yPol(poltOf(w)); },
+      dom: D_POL, yv: yPol, dec: 1, mico: 'pol', ctrl: 'mico',
+      fill: function (w) { return CH_COLOR[w.ch]; },
+      op: function (w) { return (w.idle !== '' || w.outSeed) ? 0.22 : 1; },
+      scale: function () { return 1; },
+      xlab: '웨이퍼 처리 순서 →', ylab: 's',
+      note: function () {
+        return APPLIED ? '톱니 위에 채널별로 갈라졌다 — 두께에서 옮겨온 그 차이다'
+                       : '패드 마모 톱니만 있다 — 채널을 구분할 근거(VM)를 안 쓰고 있다';
+      }
+    },
+    {
       title: '웨이퍼마다 제거율을 구한다',
-      desc: '깎인 두께를 걸린 시간으로 나눈 값이 제거율입니다. 입고 두께 Pre_Thk 는 ① Pre_Thk_VM 이 만든 값을 그대로 씁니다 — ' +
-            '①이 있어야 ②를 계산할 수 있는 이유입니다. 시간순으로 늘어놓으면 톱니 모양이 보입니다.',
-      eq: '<span class="hl">RR</span> = ( Pre_Thk − Post_Thk ) / Pol_Time' +
-          ' &nbsp;<span style="opacity:.55">· Pre_Thk = Pre_Target + VM</span>',
+      desc: '앞의 두 두께를 빼고 연마 시간으로 나눕니다. 두 케이스 모두 같은 값이 됩니다 — ' +
+            '보정이 두께로 갔든 시간으로 갔든 나눗셈에서 상쇄되기 때문입니다. ' +
+            '그래서 이 화면부터는 케이스 토글이 사라집니다. 학습이 보는 것은 언제나 이 값입니다. ' +
+            '시간순으로 늘어놓으면 패드를 갈 때마다 회복됐다 떨어지는 톱니가 보입니다.',
+      eq: '<span class="hl">RR</span> = ( pre_thk − Post_Thk ) / Pol_Time' +
+          ' &nbsp;<span style="opacity:.55">· pre_thk = Pre_Target + VM (①)</span>',
       x: xTime, y: function (w) { return yRR(w.rr); },
       fill: function () { return C_FIT; }, op: opAll, scale: function () { return 1; },
       xlab: '웨이퍼 처리 순서 →', ylab: 'Å/s',
@@ -629,8 +802,8 @@
   ];
 
   // 단계별 캔버스 높이 — 아래에 붙는 검증 그림 분량에 맞춘다 (빈 공간 방지)
-  //        0    1    2    3    4    5    6    7    8    9   10   11   12
-  [335, 335, 335, 335, 340, 342, 342, 402, 378, 500, 420, 335, 480]
+  //        0    1    2    3    4    5    6    7    8    9   10   11   12   13   14   15
+  [352, 352, 352, 335, 335, 335, 335, 340, 342, 342, 402, 378, 500, 420, 335, 480]
     .forEach(function (h, i) { if (STAGES[i]) { STAGES[i].h = h; } });
 
   // ══════════════════════════════════════════════════════════
@@ -670,17 +843,20 @@
 
   function drawGrid(st) {
     clear(gGrid);
+    var dom = st.dom || D_RR, yv = st.yv || yRR;
+    var dec = (st.dec === undefined) ? 1 : st.dec;
     for (var t = 0; t < 5; t++) {
-      var v = D_RR[0] + (D_RR[1] - D_RR[0]) * t / 4, yy = yRR(v);
+      var v = dom[0] + (dom[1] - dom[0]) * t / 4, yy = yv(v);
       gGrid.appendChild(el('line', { x1: PL.x0, x2: PL.x1, y1: yy, y2: yy,
         stroke: 'currentColor', 'stroke-width': 1, opacity: 0.09 }));
-      txt(gGrid, PL.x0 - 10, yy + 3.5, v.toFixed(1), { size: 10, anchor: 'end', op: 0.5 });
+      txt(gGrid, PL.x0 - 10, yy + 3.5, v.toFixed(dec), { size: 10, anchor: 'end', op: 0.5 });
     }
     txt(gGrid, PL.x0 - 10, PL.y0 - 14, st.ylab, { size: 10, anchor: 'end', op: 0.5 });
     txt(gGrid, PL.x0, PL.y1 + 30, st.xlab, { size: 10.5, op: 0.55 });
     if (st.note) {
-      txt(gGrid, PL.x1, PL.y1 + 30, '↳ ' + st.note, { size: 10.5, anchor: 'end',
-        fill: 'var(--az-trend)', op: 0.95 });
+      txt(gGrid, PL.x1, PL.y1 + 30,
+        '↳ ' + ((typeof st.note === 'function') ? st.note() : st.note),
+        { size: 10.5, anchor: 'end', fill: 'var(--az-trend)', op: 0.95 });
     }
     // x축 눈금
     if (st.zoom) {
@@ -781,6 +957,7 @@
         { size: 10.5, op: 0.6 });
     }
 
+    if (st.mico) { drawMicoBand(st); }
     if (st.bands) { drawDateBands(st.bands); }
     if (st.recentQuarts) { drawRecentQuartiles(); }
     if (st.ifQuarts) { drawIfQuarts(); }
@@ -798,6 +975,39 @@
       fill: on ? col : 'currentColor', opacity: on ? 0.16 : 0.05,
       stroke: on ? col : 'currentColor', 'stroke-width': on ? 1.4 : 1,
       'stroke-opacity': on ? 1 : 0.22 }));
+  }
+
+  // MICO 적용 전 / 적용 중 — 산포가 어디에 실려 있는지
+  function drawMicoBand(st) {
+    var yv = st.yv, isPost = (st.mico === 'post');
+    var sig = isPost ? SIG_POST : SIG_POL;
+    var col = APPLIED ? 'var(--az-learn)' : 'var(--c4)';
+    var now = APPLIED ? sig.after : sig.before, was = APPLIED ? sig.before : sig.after;
+
+    if (isPost) {
+      var mu = SIG_ROWS.reduce(function (a, w) { return a + postOf(w); }, 0) / SIG_ROWS.length;
+      gSeps.appendChild(el('rect', { x: PL.x0, y: yv(mu + now / 2),
+        width: PL.x1 - PL.x0, height: Math.max(2, yv(mu - now / 2) - yv(mu + now / 2)),
+        fill: col, opacity: 0.10 }));
+      [mu + was / 2, mu - was / 2].forEach(function (v) {
+        gSeps.appendChild(el('line', { x1: PL.x0, x2: PL.x1, y1: yv(v), y2: yv(v),
+          stroke: 'currentColor', 'stroke-width': 1, opacity: 0.35, 'stroke-dasharray': '5 4' }));
+      });
+      txt(gSeps, PL.x1, PL.y0 - 14, '점선 = ' + (APPLIED ? '적용 전' : '적용 중') + ' 밴드',
+        { size: 10, anchor: 'end', op: 0.5 });
+    }
+
+    var lab = (APPLIED ? '적용 중 · ' : '적용 전 · ') +
+              (isPost ? 'Post 두께 3σ 폭  ' + now.toFixed(1) + ' Å'
+                      : '패드 추세를 뺀 Pol_Time 3σ 폭  ' + now.toFixed(2) + ' s');
+    if (APPLIED) {
+      lab += isPost
+        ? '   ( 적용 전 ' + sig.before.toFixed(1) + ' Å → −' +
+          (100 * (1 - sig.after / sig.before)).toFixed(0) + '% )'
+        : '   ( 적용 전 ' + sig.before.toFixed(2) + ' s → +' +
+          (sig.after - sig.before).toFixed(2) + ' s )';
+    }
+    txt(gSeps, PL.x0, PL.y0 - 14, lab, { size: 11.5, fill: col, weight: 600 });
   }
 
   // 시간축 위의 날짜 5등분 밴드
@@ -1096,6 +1306,20 @@
   var btnPlay = document.getElementById('az-play');
   var dotsBox = document.getElementById('az-dots');
 
+  var caseBox = document.getElementById('az-case');
+  Array.prototype.forEach.call(document.querySelectorAll('.az-case-btn'), function (b) {
+    b.addEventListener('click', function () {
+      var want = (b.getAttribute('data-applied') === '1');
+      if (want === APPLIED) { return; }
+      stop();
+      APPLIED = want;
+      Array.prototype.forEach.call(document.querySelectorAll('.az-case-btn'), function (o) {
+        o.className = 'az-case-btn' + ((o.getAttribute('data-applied') === '1') === APPLIED ? ' on' : '');
+      });
+      go(idx);            // 같은 웨이퍼, 연마 시간 결정 방식만 바꿔 다시 그린다
+    });
+  });
+
   var dotEls = STAGES.map(function (s, i) {
     var b = document.createElement('button');
     b.type = 'button'; b.className = 'az-dot'; b.textContent = i; b.title = s.title;
@@ -1112,10 +1336,20 @@
     idx = n;
     var st = STAGES[idx];
 
+    // 케이스 토글이 없는 단계는 학습 과정이다 — 항상 보정 전 데이터를 따라간다
+    if (st.ctrl !== 'mico' && APPLIED) {
+      APPLIED = false;
+      Array.prototype.forEach.call(document.querySelectorAll('.az-case-btn'), function (o) {
+        o.className = 'az-case-btn' + (o.getAttribute('data-applied') === '0' ? ' on' : '');
+      });
+    }
+    caseBox.hidden = (st.ctrl !== 'mico');
+
     elStep.textContent = 'STEP ' + idx + ' / ' + (STAGES.length - 1);
-    elTitle.textContent = st.title;
-    elDesc.textContent = st.desc;
-    if (st.eq) { elEq.hidden = false; elEq.innerHTML = st.eq; } else { elEq.hidden = true; }
+    elTitle.textContent = (typeof st.title === 'function') ? st.title() : st.title;
+    elDesc.textContent = (typeof st.desc === 'function') ? st.desc() : st.desc;
+    var eqv = (typeof st.eq === 'function') ? st.eq() : st.eq;
+    if (eqv) { elEq.hidden = false; elEq.innerHTML = eqv; } else { elEq.hidden = true; }
 
     dotEls.forEach(function (d, i) {
       d.className = 'az-dot' + (i === idx ? ' on' : (i < idx ? ' done' : ''));
@@ -1173,24 +1407,24 @@
   function updatePanels() {
     document.getElementById('az-n-all').textContent = N + ' 장';
     document.getElementById('az-n-use').textContent =
-      idx >= 1 ? FIT.length + ' 장' : '— (아직 안 거름)';
+      idx >= 4 ? FIT.length + ' 장' : '— (아직 안 거름)';
 
     function set(id, val, ok, shown) {
       var e = document.getElementById(id);
       e.textContent = shown ? val : '—';
       e.className = 'v' + (shown ? (ok ? ' ok' : ' no') : ' dim');
     }
-    set('az-g-quart', quartCnt.join(' / ') + (gateQuart ? '  ✓' : '  ✗'), gateQuart, idx >= 4);
-    set('az-g-recent', recentCnt.join(' / ') + (gateRecent ? '  ✓' : '  ✗'), gateRecent, idx >= 7);
+    set('az-g-quart', quartCnt.join(' / ') + (gateQuart ? '  ✓' : '  ✗'), gateQuart, idx >= 7);
+    set('az-g-recent', recentCnt.join(' / ') + (gateRecent ? '  ✓' : '  ✗'), gateRecent, idx >= 10);
     set('az-g-cur', cur1.length + '건 · ' + CUR_HOURS + 'h · rank ' + CUR_PMRANK +
-      (gateCur ? '  ✓' : '  ✗'), gateCur, idx >= 9);
-    set('az-g-if', ifRows.length + '건 ' + (gateIf ? '✓' : '✗'), gateIf, idx >= 10);
+      (gateCur ? '  ✓' : '  ✗'), gateCur, idx >= 12);
+    set('az-g-if', ifRows.length + '건 ' + (gateIf ? '✓' : '✗'), gateIf, idx >= 13);
 
     var rows = [
-      ['all', '전체', M_ALL, 4],
-      ['wgt', 'weighted', M_W, 8],
-      ['cur', 'current', M_CUR, 9],
-      ['if', 'IF', M_IF, 10]
+      ['all', '전체', M_ALL, 7],
+      ['wgt', 'weighted', M_W, 11],
+      ['cur', 'current', M_CUR, 12],
+      ['if', 'IF', M_IF, 13]
     ];
     document.getElementById('az-coef').innerHTML = rows.map(function (r) {
       var M = MODELS.filter(function (m) { return m.key === r[0]; })[0];
