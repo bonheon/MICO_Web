@@ -15,8 +15,22 @@ dict 로 보내면 필드마다 타입이 달라도 되고, signature 가 필드
 
 문자열 키만 필요하면 숫자 필드를 빼면 된다. 형식은 그대로다.
 
+껍질(`name`/`shape`/`datatype` 블록)은 MLflow 기준으로는 없어도 된다.
+아래 둘 다 로컬 서빙 200 을 확인했다. 사내 게이트웨이가 그 필드들을 보는지는
+미확인이라 여기서는 사내 예제 형식을 그대로 유지한다.
+
+    {"input": {"lot_code": "E2", "pre_thk_period": 3}}           # 한 건
+    {"input": [{"lot_code": "E2"}, {"lot_code": "NA"}]}          # 여러 건
+
+**최상위 키는 반드시 `input`.** MLflow 는 최상위에 `input`/`prompt`/`messages` 가
+있으면 본문을 그대로 predict 에 넘기는 경로를 탄다(`is_unified_llm_input`).
+`{"lot_code": ...}` 처럼 평평하게 보내면 400 이고, `inputs` 로 바꾸면 본문을
+`{"inputs": {...}}` 로 감싸야 하는 데다 응답이 `{"predictions": ...}` 로 바뀐다.
+
 지킬 것 두 가지:
-  - **숫자는 실수로** 보낼 것. signature 가 double 이라 `2` 는 400, `2.0` 은 통과
+  - **타입을 input_example 과 정확히 맞출 것.** 이 경로는 강제가 엄격하다.
+    예시가 `2.0`(double)이면 `2` 는 400, 예시가 `3`(long)이면 `3.0` 이 400 이다.
+    정수/실수가 섞여 들어오면 예시를 실수로 통일해 둔다
   - **모든 행에 같은 필드**가 있을 것. 없어도 되는 필드는 input_example 의
     한 행에서 빼두면 signature 에 optional 로 잡힌다
 

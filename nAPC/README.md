@@ -249,19 +249,76 @@ data: Array({fab: string, lot_code: string, oper_code: string,
 `datatype` 이 `ndarray` 인 것도 결이 같다 — numpy 배열은 dtype 이 하나라서
 `np.array([["E2", 1.0]])` 는 `<U32` 가 되고 숫자가 `'1.0'` 문자열로 바뀐다.
 
+#### 배열 없이 "이름 붙인 인자"로 보내도 된다
+
+`data` 에 값을 순서대로 묶지 않고, 이름 붙인 인자만 보내도 된다. 이게 제일 읽기 쉽다.
+
+```json
+{"input": {"lot_code": "E2", "oper_code": "V5077000E", "fab": "M10",
+           "pre_thk_period": 3, "target": 10.0}}
+```
+
+```python
+def predict(self, context, model_input, params=None):
+    a = model_input["input"].iloc[0] if hasattr(model_input, "columns") else model_input["input"]
+    lot_code = a["lot_code"]
+    pre_thk_period = a["pre_thk_period"]
+```
+
+여러 건이면 리스트로 준다. `name`/`shape`/`datatype` 블록은 MLflow 기준으로는 없어도 된다.
+
+```json
+{"input": [{"lot_code":"E2", "pre_thk_period":3},
+           {"lot_code":"NA", "pre_thk_period":4}]}
+```
+
+둘 다 로컬 서빙 200 확인. 다만 **최상위 키는 `input` 이어야 한다** (아래 참고).
+
+#### 왜 최상위 키가 `input` 이어야 하나 — 6번(응답 형식)의 원인
+
+MLflow 서빙은 본문에 `dataframe_records`/`dataframe_split`/`instances`/`inputs`
+넷 중 하나가 있어야 받는다. 그런데 최상위에 `input`(또는 `prompt`, `messages`)가 있으면
+LLM 용 "unwrapped" 경로로 빠져서 **본문을 그대로 predict 에 넘기고, 응답도 감싸지 않는다.**
+
+```python
+# mlflow/pyfunc/utils/serving_data_parser.py
+SUPPORTED_LLM_FORMATS = {"messages", "prompt", "input"}
+def is_unified_llm_input(json_input): return any(x in json_input for x in SUPPORTED_LLM_FORMATS)
+```
+
+사내 엔벨로프가 그냥 통했던 것도, 응답이 `predictions` 없이 배열로 오는 것도 전부 이 때문이다.
+정리하면:
+
+| 최상위 키 | 본문 | 타입 강제 | 응답 |
+|---|---|---|---|
+| **`input`** (사내 엔벨로프) | 그대로 | **엄격** — `long` 에 `5.0` 400, `double` 에 `33` 400 | 배열 그대로 |
+| `inputs` (MLflow 표준) | `{"inputs": {...}}` 로 감싸야 함 | 느슨 — int/float 알아서 맞춤 | `{"predictions": [...]}` |
+| 그 외 (`{"lot_code":...}` 평평) | 400 `BAD_REQUEST` | - | - |
+
+**`input` 을 쓸 것.** 사내 게이트웨이에서 실제로 동작이 확인된 형식이고,
+`inputs` 로 바꾸면 게이트웨이가 받아주는지 다시 확인해야 한다.
+
+`input` 경로는 타입 강제가 엄격하니 `input_example` 의 타입을 실제 호출과 맞출 것.
+`pre_thk_period: 3` 으로 예시를 두면 호출도 항상 정수여야 한다(`3.0` 은 400).
+정수/실수가 왔다갔다 하면 예시를 실수로 통일한다.
+
 #### 담는 방법 (전부 확인 완료)
 
 | 방법 | 형태 | 비고 |
 |---|---|---|
-| (1) **행을 dict 로** | `"data": [{"lot_code":"E2", "target":10.0}]` | **기본으로 쓸 것.** 필드별 타입 자유 |
-| (2) 엔벨로프에 스칼라 필드 | `{"input":[...], "lot_code":"E2", "gain":1.0}` | 행마다 안 바뀌는 값에 |
-| (3) 블록 안에 필드 추가 | `{"name":..., "keys":[["E2"]], "data":[[1.0]]}` | 문자 배열/숫자 배열을 각각 다른 키로 |
-| (4) 최상위 키로 분리 | `{"keys":[["E2"]], "nums":[[1.0]]}` | 사내 엔벨로프를 안 쓸 때 |
+| (1) **이름 붙인 인자** | `{"input": {"lot_code":"E2", "pre_thk_period":3}}` | **제일 읽기 쉽다.** 건수가 하나일 때 |
+| (2) **행 리스트** | `{"input": [{"lot_code":"E2"}, {"lot_code":"NA"}]}` | 여러 건 처리할 때 |
+| (3) 사내 블록 + dict 행 | `{"input":[{"name":..., "data":[{...}]}]}` | 사내 예제 형식을 그대로 지킬 때 |
+| (4) 엔벨로프에 스칼라 필드 | `{"input":[...], "gain":1.0}` | 행마다 안 바뀌는 값에 |
 | (5) 전부 문자열 | `[["E2","1.0"]]` | 받는 쪽에서 `float()`. 급할 때만 |
 
 학습 트리거는 키만 넘기고 데이터는 컨테이너가 Mongo Hub 에서 직접 읽으므로
-(merge_df 를 HTTP 로 안 보내는 것과 같은 이유) (1)에 문자열 키만 담으면 된다.
-시뮬레이션처럼 숫자를 같이 실어야 할 때도 (1) 그대로 쓴다.
+(merge_df 를 HTTP 로 안 보내는 것과 같은 이유) (1)/(2)에 키만 담으면 된다.
+시뮬레이션처럼 숫자를 같이 실어야 할 때도 같은 형식을 쓴다.
+
+`nAPC/mico_train_upload.py` 는 (3) 형식이다 — 사내 예제와 껍질을 맞춰 둔 것이고,
+껍질을 벗기고 (1)/(2)로 가도 MLflow 쪽은 문제없다. 게이트웨이가 `name`/`shape`/
+`datatype` 을 보는지는 미확인이라, 첫 배포는 (3)으로 올려 확인한 뒤 줄이는 게 안전하다.
 
 #### dict 로 보낼 때 지킬 것
 
