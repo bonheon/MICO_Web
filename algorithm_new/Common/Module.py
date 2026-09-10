@@ -527,7 +527,6 @@ class Module_Get:
         Channel_ID = mico_info_key['Channel_ID'].unique()[0]
 
         Default_Channel_ID = '507358454'
-        Default_Sigma      = 10
 
         print(f'\n  [Alarm 점검] {Fab} | {Lot_Code} | {oper_desc} 시작')
 
@@ -561,46 +560,33 @@ class Module_Get:
                     Get_data.Cube_Alarm_Msg(Default_Channel_ID, message)
 
         RR_df = RR_df.sort_values(by='Date')
+        alarm_para_list = RR_df.select_dtypes(include='float').columns.tolist()
 
-        # 점검 대상은 이 키가 학습한 (Recipe_ID, APC_Para) 조합뿐이다.
         # RR 컬렉션은 Lot_Code(=device)+Oper_Desc+Fab 단위라 같은 device 의 다른
-        # 그룹·미그룹 recipe 행까지 함께 들어 있다. 그 행의 Sigma 는 mico_info_key
-        # 에 없으므로(해당 recipe 는 그것을 학습하는 키가 점검한다) 걸러내지
-        # 않으면 Sigma 조회가 0행이 되어 IndexError 로 파이프라인이 중단된다.
-        sigma_map = {}
-        for _, key_row in mico_info_key.iterrows():
-            key_sigma = key_row['RR_Alarm_Sigma']
-            sigma_map.setdefault(
-                (key_row['Recipe_ID'], key_row['APC_Para']),
-                Default_Sigma if pd.isna(key_sigma) else key_sigma,
-            )
-
-        idx = RR_df.groupby(['EQ', 'Recipe_ID', 'APC_Para'])['Date'].idxmax()
-        latest_data = RR_df.loc[idx].reset_index(drop=True)
-
-        in_scope = pd.Series(
-            [(rcp, apc) in sigma_map
-             for rcp, apc in zip(latest_data['Recipe_ID'], latest_data['APC_Para'])],
-            index=latest_data.index, dtype=bool,
-        )
-        out_of_scope = sorted(set(zip(latest_data.loc[~in_scope, 'Recipe_ID'],
-                                      latest_data.loc[~in_scope, 'APC_Para'])))
-        latest_data = latest_data[in_scope].reset_index(drop=True)
-        if out_of_scope:
-            print(f'    점검 제외(이 키의 학습 대상 아님) {len(out_of_scope)}건: {out_of_scope}')
-        if latest_data.empty:
+        # 그룹·미그룹 recipe 실적까지 들어 있다. 그 recipe 의 Sigma 는 이 키의
+        # mico_info_key 에 없어 조회가 0행이 되므로(그 recipe 는 자기 키가 점검한다)
+        # 점검 전에 이 키의 학습 대상만 남긴다.
+        # inner join 이라 범위 제한과 행별 Sigma 부여가 한 번에 된다.
+        key_sigma = mico_info_key[['Recipe_ID', 'APC_Para', 'RR_Alarm_Sigma']] \
+                        .drop_duplicates(subset=['Recipe_ID', 'APC_Para'])
+        before = len(RR_df)
+        RR_df  = RR_df.merge(key_sigma, on=['Recipe_ID', 'APC_Para'], how='inner')
+        print(f'    이 키의 학습 대상으로 제한: {before}행 → {len(RR_df)}행')
+        if RR_df.empty:
             print(f'    점검 대상 없음 → 알람 점검 스킵')
             print(f'  [Alarm 점검] {Fab} | {Lot_Code} | {oper_desc} 완료')
             return
 
-        alarm_para_list = latest_data.select_dtypes(include='float').columns.tolist()
+        idx = RR_df.groupby(['EQ', 'Recipe_ID', 'APC_Para'])['Date'].idxmax()
+        latest_data = RR_df.loc[idx].reset_index(drop=True)
+
         print(f'    RR 알람 점검: 최신 {len(latest_data)}건 | 파라미터={alarm_para_list}')
 
         for _, row in latest_data.iterrows():
             EQ        = row['EQ']
             Recipe_ID = row['Recipe_ID']
             APC_Para  = row['APC_Para']
-            Sigma     = sigma_map[(Recipe_ID, APC_Para)]
+            Sigma     = row['RR_Alarm_Sigma']
             Module_name = 'Removal_Rate'
 
             for para in alarm_para_list:
