@@ -145,6 +145,30 @@ pyfunc 안에서 `NotImplementedError` 를 **직접 던지는 곳은
 2차원이면 런타임이 결과를 배열에 담다가
 `setting an array element with a sequence` 로 죽을 수 있다.
 
+**6. 응답 본문 형식이 MLflow 원본과 다르다.**
+로컬 `mlflow models serve` 는 MLflow 원본 형식으로 준다.
+
+```json
+{"predictions": [7.0, 12.0, 22.0]}
+```
+
+사내 게이트웨이(엔드포인트)는 여기에 한 겹을 더 씌워서 준다.
+
+```json
+{"output": {"aiu_output": [7.0, 12.0, 22.0]}}
+```
+
+그래서 `body["predictions"]` 로 읽으면 HTTP 200 인데도 결과를 못 꺼내
+"호출이 안 된다" 처럼 보인다. 실제 파싱은 이렇게 한다.
+
+```python
+preds = body.get("output", {}).get("aiu_output", [])
+```
+
+`mico_call.py` 의 `_extract_preds()` 가 이 형식을 먼저 보고, 없으면
+`predictions` 로 넘어간다 — 로컬/엔드포인트 양쪽에서 같은 스크립트가 돈다.
+(`mico_deploy/test_local.py` 는 로컬 서버 전용이라 `predictions` 그대로 둔다.)
+
 #### 올린 뒤 확인할 것
 
 MLflow UI 에서 그 모델 artifact 에 아래 두 가지가 보여야 한다.
@@ -162,6 +186,8 @@ MLflow UI 에서 그 모델 artifact 에 아래 두 가지가 보여야 한다.
 
 로컬 검증 결과: 서버 기동 `ping 200`, `serving_input_example.json` 을 그대로
 POST -> `[7.0, 12.0, 22.0]`, `mico_call.py` 로도 동일.
+단, 로컬은 `predictions` 로 오고 사내 엔드포인트는 `output.aiu_output` 으로
+온다(위 6번). HTTP 200 인데 결과가 비어 보이면 이것부터 확인할 것.
 
 
 ---

@@ -208,6 +208,9 @@ MICO를 HCP → nAPC로 전환하면서 핵심 알고리즘을 MLflow 기반 AI 
 - 에러 단계 읽기: `NOT_IMPLEMENTED`(입력 처리 실패) → `Failed to enforce schema`(payload/signature 불일치)
   → `Inference Error`(입력 통과, predict 안/출력 처리에서 실패)
 - 모델이 받는 요청 본문은 artifact의 `serving_input_example.json`이 정답 — UI에서 열어 그대로 POST 가능
+- **응답 본문 형식이 로컬/엔드포인트에서 다름**: 로컬 `mlflow models serve`는 `{"predictions": [...]}`,
+  사내 게이트웨이는 `{"output": {"aiu_output": [...]}}` — `body.get("output", {}).get("aiu_output", [])`로 꺼내야 함.
+  `predictions`로 읽으면 HTTP 200인데 결과가 비어 호출 실패처럼 보인다 (`mico_call.py._extract_preds`가 양쪽 처리)
 - `nAPC/simple_example.py` — MLflow pyfunc 개념 확인용 (로컬 저장까지)
 - `nAPC/mico_deploy/` — 작업지시서 구조 전체 예제 (save/register/test)
 - 핵심: MLflow pyfunc는 ML 모델이 아니어도 됨. `predict()` 메서드만 있으면 임의 파이썬 코드 서빙 가능
