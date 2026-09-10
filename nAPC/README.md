@@ -145,29 +145,38 @@ pyfunc 안에서 `NotImplementedError` 를 **직접 던지는 곳은
 2차원이면 런타임이 결과를 배열에 담다가
 `setting an array element with a sequence` 로 죽을 수 있다.
 
-**6. 응답 본문 형식이 MLflow 원본과 다르다.**
-로컬 `mlflow models serve` 는 MLflow 원본 형식으로 준다.
+**6. 응답 본문 형식이 로컬과 엔드포인트에서 다르다.**
+로컬 `mlflow models serve` 는 이 엔벨로프(`{"input": [...]}`)로 POST 하면
+`predictions` 로 감싸지 않고 **결과 배열을 그대로** 준다. 실측:
 
 ```json
-{"predictions": [7.0, 12.0, 22.0]}
+[7.0, 12.0, 22.0]
 ```
 
-사내 게이트웨이(엔드포인트)는 여기에 한 겹을 더 씌워서 준다.
+(MLflow 표준 키 `inputs`/`dataframe_split` 로 보낼 때만 `{"predictions": ...}` 형태가 된다.
+우리는 사내 엔벨로프를 쓰므로 해당 없음.)
+
+사내 게이트웨이(엔드포인트)는 여기에 한 겹을 씌워서 준다.
 
 ```json
 {"output": {"aiu_output": [7.0, 12.0, 22.0]}}
 ```
 
 그래서 `body["predictions"]` 로 읽으면 HTTP 200 인데도 결과를 못 꺼내
-"호출이 안 된다" 처럼 보인다. 실제 파싱은 이렇게 한다.
+"호출이 안 된다" 처럼 보인다(`predictions` 키는 어느 쪽에도 없다). 실제 파싱은 이렇게 한다.
 
 ```python
 preds = body.get("output", {}).get("aiu_output", [])
 ```
 
-`mico_call.py` 의 `_extract_preds()` 가 이 형식을 먼저 보고, 없으면
-`predictions` 로 넘어간다 — 로컬/엔드포인트 양쪽에서 같은 스크립트가 돈다.
-(`mico_deploy/test_local.py` 는 로컬 서버 전용이라 `predictions` 그대로 둔다.)
+`mico_call.py` 의 `_extract_preds()` 가 `output.aiu_output` -> `predictions` ->
+본문 자체가 배열 순으로 훑으므로 로컬/엔드포인트 양쪽에서 같은 스크립트가 돈다.
+(`mico_deploy/test_local.py` 는 MLflow 표준 형식으로 보내는 별도 예제라 `predictions` 그대로 둔다.)
+
+**7. 숫자는 반드시 실수로 보낼 것.**
+signature 가 `double` 로 잡히는데 payload 에 `1` 처럼 정수를 쓰면 400 이 난다.
+메시지가 엉뚱해서(`Expected type array, received type list`) 원인이 안 보인다.
+`1.0` 으로 보내면 된다.
 
 #### 올린 뒤 확인할 것
 
@@ -186,9 +195,73 @@ MLflow UI 에서 그 모델 artifact 에 아래 두 가지가 보여야 한다.
 
 로컬 검증 결과: 서버 기동 `ping 200`, `serving_input_example.json` 을 그대로
 POST -> `[7.0, 12.0, 22.0]`, `mico_call.py` 로도 동일.
-단, 로컬은 `predictions` 로 오고 사내 엔드포인트는 `output.aiu_output` 으로
-온다(위 6번). HTTP 200 인데 결과가 비어 보이면 이것부터 확인할 것.
+단, 로컬은 배열이 그대로 오고 사내 엔드포인트는 `output.aiu_output` 으로
+감싸서 온다(위 6번). HTTP 200 인데 결과가 비어 보이면 이것부터 확인할 것.
 
+
+
+### 5-1단계 — 문자열 입력 (학습 트리거)
+
+`mico_upload.py` 는 숫자 배열만 받는다. 그런데 **학습은 "어떤 공정을 학습할지"를
+문자열 키로 받아야 한다** (`for_key_list` = `Lot_Code(device)` + `Oper_Code` + `Fab`).
+
+결론: **문자열은 MLflow 에서 아무 문제 없다.** signature 가 그냥
+`Array(Array(string))` 으로 잡힌다. 숫자일 때와 형식·코드가 전부 같고 값만 문자열이다.
+
+```json
+{"input": [{"name": "mico_train_key", "shape": [2, 3], "datatype": "ndarray",
+            "data": [["E2", "V5077000E", "M10"], ["NA", "V5077000E", "M10"]]}]}
+```
+
+예제: `nAPC/mico_train_upload.py` (숫자판 `mico_upload.py` 와 같은 구조).
+로컬 `mlflow models serve` 로 실제 확인한 결과 — `ping 200`,
+`serving_input_example.json` 그대로 POST -> `["E2_V5077000E_M10:OK", ...]`,
+예시에 없던 다른 공정 문자열(`["QQ","V9999000X","M14"]`)로도 200.
+
+#### 딱 하나 안 되는 것 — 한 배열에 문자열과 숫자 섞기
+
+```python
+data = [["E2", "V5077000E", "M10", 1.0, 2.0]]   # 안 된다
+# MlflowException: Expected all values in list to be of same type
+```
+
+`infer_signature` 단계에서 죽는다. 업로드조차 안 되므로 서빙까지 가지도 않는다.
+`datatype` 이 `ndarray` 인 것도 같은 이유다 — numpy 배열은 dtype 이 하나라서
+`np.array([["E2", 1.0]])` 는 dtype `<U32` 가 되고 숫자가 `'1.0'` 문자열로 바뀐다.
+
+**블록을 두 개로 나누는 것도 안 된다.** `input` 리스트 안의 dict 끼리 타입이
+달라지므로 같은 예외가 난다.
+
+```python
+{"input": [{"name": "keys", ..., "data": [["E2"]]},
+           {"name": "nums", ..., "data": [[1.0]]}]}   # 안 된다
+```
+
+#### 숫자가 같이 필요하면
+
+| 방법 | 형태 | 비고 |
+|---|---|---|
+| ① 전부 문자열 | `[["E2","V5077000E","M10","1.0"]]` | 받는 쪽에서 `float()`. 제일 단순 |
+| ② 엔벨로프에 스칼라 필드 추가 | `{"input": [...], "lot_code": "E2", "fab": "M10"}` | signature 에 `lot_code: string` 이 같이 잡힌다. 확인 완료 |
+| ③ 숫자는 Mongo Hub 에서 직접 조회 | 키만 문자열로 넘김 | **학습 트리거는 이게 맞다** — merge_df 를 HTTP 로 안 보내는 것과 같은 이유 |
+
+학습은 키만 넘기고 데이터는 컨테이너가 Hub 에서 읽으므로 ③, 즉
+**문자열 배열 하나면 충분**하다. 시뮬레이션 엔드포인트처럼 숫자를 같이 실어야 하면
+①이나 ②를 쓴다.
+
+#### 업로드 스크립트는 import 하지 말고 실행할 것
+
+`ModelWrapper` / `TrainWrapper` 를 다른 모듈에서 import 해서 `log_model` 하면
+cloudpickle 이 클래스를 **참조로만** 저장해서(`mico_train_upload.TrainWrapper`)
+서빙 컨테이너에서 못 찾는다.
+
+```
+ModuleNotFoundError: No module named 'mico_train_upload'
+```
+
+1번 항목(joblib/artifact)과 원인이 같다. `__main__` 에서 정의된 클래스라야
+cloudpickle 이 값 자체를 저장한다. 그래서 업로드는 항상
+`python3 mico_train_upload.py` 로 직접 실행한다.
 
 ---
 

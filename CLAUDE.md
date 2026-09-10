@@ -208,9 +208,17 @@ MICO를 HCP → nAPC로 전환하면서 핵심 알고리즘을 MLflow 기반 AI 
 - 에러 단계 읽기: `NOT_IMPLEMENTED`(입력 처리 실패) → `Failed to enforce schema`(payload/signature 불일치)
   → `Inference Error`(입력 통과, predict 안/출력 처리에서 실패)
 - 모델이 받는 요청 본문은 artifact의 `serving_input_example.json`이 정답 — UI에서 열어 그대로 POST 가능
-- **응답 본문 형식이 로컬/엔드포인트에서 다름**: 로컬 `mlflow models serve`는 `{"predictions": [...]}`,
-  사내 게이트웨이는 `{"output": {"aiu_output": [...]}}` — `body.get("output", {}).get("aiu_output", [])`로 꺼내야 함.
-  `predictions`로 읽으면 HTTP 200인데 결과가 비어 호출 실패처럼 보인다 (`mico_call.py._extract_preds`가 양쪽 처리)
+- **응답 본문 형식이 로컬/엔드포인트에서 다름**: 사내 엔벨로프(`{"input": [...]}`)로 POST 하면
+  로컬 `mlflow models serve`는 결과 배열을 그대로(`[7.0, 12.0, 22.0]`), 사내 게이트웨이는
+  `{"output": {"aiu_output": [...]}}`로 감싸서 준다. `predictions` 키는 어느 쪽에도 없다
+  (`mico_call.py._extract_preds`가 양쪽 처리)
+- **숫자는 실수로 보낼 것**: signature가 `double`이라 `1` 같은 정수는 400 (`Expected type array, received type list`)
+- **문자열 입력 OK**: signature가 `Array(Array(string))`으로 잡힘. 학습 트리거는 문자열 키
+  (`[Lot_Code, Oper_Code, Fab]`)만 넘기고 데이터는 컨테이너가 Mongo Hub에서 직접 조회 — `nAPC/mico_train_upload.py`
+  - **한 배열에 문자열+숫자 혼합 금지** — `infer_signature`에서 `Expected all values in list to be of same type`.
+    블록을 2개로 나눠도 같은 예외. 숫자가 필요하면 전부 문자열로 보내거나 엔벨로프에 스칼라 필드로 추가
+  - **업로드 스크립트는 import 하지 말고 직접 실행** — import 하면 cloudpickle이 래퍼 클래스를 참조로만 저장해
+    서빙에서 `ModuleNotFoundError`. `__main__` 정의 클래스라야 값으로 저장됨
 - `nAPC/simple_example.py` — MLflow pyfunc 개념 확인용 (로컬 저장까지)
 - `nAPC/mico_deploy/` — 작업지시서 구조 전체 예제 (save/register/test)
 - 핵심: MLflow pyfunc는 ML 모델이 아니어도 됨. `predict()` 메서드만 있으면 임의 파이썬 코드 서빙 가능
