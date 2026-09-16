@@ -145,6 +145,39 @@ pyfunc 안에서 `NotImplementedError` 를 **직접 던지는 곳은
 2차원이면 런타임이 결과를 배열에 담다가
 `setting an array element with a sequence` 로 죽을 수 있다.
 
+**6. 응답 본문 형식이 로컬과 엔드포인트에서 다르다.**
+로컬 `mlflow models serve` 는 이 엔벨로프(`{"input": [...]}`)로 POST 하면
+`predictions` 로 감싸지 않고 **결과 배열을 그대로** 준다. 실측:
+
+```json
+[7.0, 12.0, 22.0]
+```
+
+(MLflow 표준 키 `inputs`/`dataframe_split` 로 보낼 때만 `{"predictions": ...}` 형태가 된다.
+우리는 사내 엔벨로프를 쓰므로 해당 없음.)
+
+사내 게이트웨이(엔드포인트)는 여기에 한 겹을 씌워서 준다.
+
+```json
+{"output": {"aiu_output": [7.0, 12.0, 22.0]}}
+```
+
+그래서 `body["predictions"]` 로 읽으면 HTTP 200 인데도 결과를 못 꺼내
+"호출이 안 된다" 처럼 보인다(`predictions` 키는 어느 쪽에도 없다). 실제 파싱은 이렇게 한다.
+
+```python
+preds = body.get("output", {}).get("aiu_output", [])
+```
+
+`mico_call.py` 의 `_extract_preds()` 가 `output.aiu_output` -> `predictions` ->
+본문 자체가 배열 순으로 훑으므로 로컬/엔드포인트 양쪽에서 같은 스크립트가 돈다.
+(`mico_deploy/test_local.py` 는 MLflow 표준 형식으로 보내는 별도 예제라 `predictions` 그대로 둔다.)
+
+**7. 숫자는 반드시 실수로 보낼 것.**
+signature 가 `double` 로 잡히는데 payload 에 `1` 처럼 정수를 쓰면 400 이 난다.
+메시지가 엉뚱해서(`Expected type array, received type list`) 원인이 안 보인다.
+`1.0` 으로 보내면 된다.
+
 #### 올린 뒤 확인할 것
 
 MLflow UI 에서 그 모델 artifact 에 아래 두 가지가 보여야 한다.
@@ -162,7 +195,153 @@ MLflow UI 에서 그 모델 artifact 에 아래 두 가지가 보여야 한다.
 
 로컬 검증 결과: 서버 기동 `ping 200`, `serving_input_example.json` 을 그대로
 POST -> `[7.0, 12.0, 22.0]`, `mico_call.py` 로도 동일.
+단, 로컬은 배열이 그대로 오고 사내 엔드포인트는 `output.aiu_output` 으로
+감싸서 온다(위 6번). HTTP 200 인데 결과가 비어 보이면 이것부터 확인할 것.
 
+
+
+### 5-1단계 — 문자·숫자 섞인 입력 (학습 트리거 / 시뮬레이션)
+
+`mico_upload.py` 는 숫자 배열만 받는다. 실제 호출은 **문자와 숫자가 섞여서** 들어온다
+(`Lot_Code`/`Oper_Code`/`Fab` 같은 키 + `target`/`pol_time` 같은 값).
+
+**섞어도 된다.** MLflow 제약은 "타입 혼합 금지"가 아니라
+**"한 배열 안의 값은 전부 같은 타입"** 이다. 그래서 **한 행을 배열이 아니라 dict 로**
+보내면 필드마다 타입이 달라도 되고, signature 가 필드별로 잡힌다.
+
+```json
+{"input": [{"name": "mico_train_key", "shape": [2], "datatype": "ndarray",
+            "data": [
+              {"lot_code":"E2","oper_code":"V5077000E","fab":"M10",
+               "post_thk":1.0,"pol_time":2.0,"target":10.0},
+              {"lot_code":"NA","oper_code":"V5077000E","fab":"M10",
+               "post_thk":3.0,"pol_time":4.0,"target":20.0}
+            ]}]}
+```
+
+```
+data: Array({fab: string, lot_code: string, oper_code: string,
+             pol_time: double, post_thk: double, target: double})
+```
+
+예제: `nAPC/mico_train_upload.py`. 로컬 `mlflow models serve` 실측 —
+`ping 200`, `serving_input_example.json` 그대로 POST -> 200,
+예시에 없던 공정·다른 행수로도 200.
+
+문자열 키만 필요하면 숫자 필드를 빼면 된다. 형식은 그대로고
+`data: Array(Array(string))` 이 된다(이것도 확인 완료).
+
+#### 안 되는 것 — 한 **배열** 안에 문자열과 숫자 섞기
+
+```python
+"data": [["E2", "V5077000E", "M10", 1.0, 2.0]]   # 안 된다
+# MlflowException: Expected all values in list to be of same type
+```
+
+`infer_signature` 단계에서 죽어 업로드조차 안 된다. 같은 이유로
+`input` 리스트 안에 타입이 다른 블록을 두 개 넣는 것도 안 된다.
+
+```python
+{"input": [{"name":"keys", ..., "data": [["E2"]]},
+           {"name":"nums", ..., "data": [[1.0]]}]}   # 안 된다
+```
+
+`datatype` 이 `ndarray` 인 것도 결이 같다 — numpy 배열은 dtype 이 하나라서
+`np.array([["E2", 1.0]])` 는 `<U32` 가 되고 숫자가 `'1.0'` 문자열로 바뀐다.
+
+#### 배열 없이 "이름 붙인 인자"로 보내도 된다
+
+`data` 에 값을 순서대로 묶지 않고, 이름 붙인 인자만 보내도 된다. 이게 제일 읽기 쉽다.
+
+```json
+{"input": {"lot_code": "E2", "oper_code": "V5077000E", "fab": "M10",
+           "pre_thk_period": 3, "target": 10.0}}
+```
+
+```python
+def predict(self, context, model_input, params=None):
+    a = model_input["input"].iloc[0] if hasattr(model_input, "columns") else model_input["input"]
+    lot_code = a["lot_code"]
+    pre_thk_period = a["pre_thk_period"]
+```
+
+여러 건이면 리스트로 준다. `name`/`shape`/`datatype` 블록은 MLflow 기준으로는 없어도 된다.
+
+```json
+{"input": [{"lot_code":"E2", "pre_thk_period":3},
+           {"lot_code":"NA", "pre_thk_period":4}]}
+```
+
+둘 다 로컬 서빙 200 확인. 다만 **최상위 키는 `input` 이어야 한다** (아래 참고).
+
+#### 왜 최상위 키가 `input` 이어야 하나 — 6번(응답 형식)의 원인
+
+MLflow 서빙은 본문에 `dataframe_records`/`dataframe_split`/`instances`/`inputs`
+넷 중 하나가 있어야 받는다. 그런데 최상위에 `input`(또는 `prompt`, `messages`)가 있으면
+LLM 용 "unwrapped" 경로로 빠져서 **본문을 그대로 predict 에 넘기고, 응답도 감싸지 않는다.**
+
+```python
+# mlflow/pyfunc/utils/serving_data_parser.py
+SUPPORTED_LLM_FORMATS = {"messages", "prompt", "input"}
+def is_unified_llm_input(json_input): return any(x in json_input for x in SUPPORTED_LLM_FORMATS)
+```
+
+사내 엔벨로프가 그냥 통했던 것도, 응답이 `predictions` 없이 배열로 오는 것도 전부 이 때문이다.
+정리하면:
+
+| 최상위 키 | 본문 | 타입 강제 | 응답 |
+|---|---|---|---|
+| **`input`** (사내 엔벨로프) | 그대로 | **엄격** — `long` 에 `5.0` 400, `double` 에 `33` 400 | 배열 그대로 |
+| `inputs` (MLflow 표준) | `{"inputs": {...}}` 로 감싸야 함 | 느슨 — int/float 알아서 맞춤 | `{"predictions": [...]}` |
+| 그 외 (`{"lot_code":...}` 평평) | 400 `BAD_REQUEST` | - | - |
+
+**`input` 을 쓸 것.** 사내 게이트웨이에서 실제로 동작이 확인된 형식이고,
+`inputs` 로 바꾸면 게이트웨이가 받아주는지 다시 확인해야 한다.
+
+`input` 경로는 타입 강제가 엄격하니 `input_example` 의 타입을 실제 호출과 맞출 것.
+`pre_thk_period: 3` 으로 예시를 두면 호출도 항상 정수여야 한다(`3.0` 은 400).
+정수/실수가 왔다갔다 하면 예시를 실수로 통일한다.
+
+#### 담는 방법 (전부 확인 완료)
+
+| 방법 | 형태 | 비고 |
+|---|---|---|
+| (1) **이름 붙인 인자** | `{"input": {"lot_code":"E2", "pre_thk_period":3}}` | **제일 읽기 쉽다.** 건수가 하나일 때 |
+| (2) **행 리스트** | `{"input": [{"lot_code":"E2"}, {"lot_code":"NA"}]}` | 여러 건 처리할 때 |
+| (3) 사내 블록 + dict 행 | `{"input":[{"name":..., "data":[{...}]}]}` | 사내 예제 형식을 그대로 지킬 때 |
+| (4) 엔벨로프에 스칼라 필드 | `{"input":[...], "gain":1.0}` | 행마다 안 바뀌는 값에 |
+| (5) 전부 문자열 | `[["E2","1.0"]]` | 받는 쪽에서 `float()`. 급할 때만 |
+
+학습 트리거는 키만 넘기고 데이터는 컨테이너가 Mongo Hub 에서 직접 읽으므로
+(merge_df 를 HTTP 로 안 보내는 것과 같은 이유) (1)/(2)에 키만 담으면 된다.
+시뮬레이션처럼 숫자를 같이 실어야 할 때도 같은 형식을 쓴다.
+
+`nAPC/mico_train_upload.py` 는 (3) 형식이다 — 사내 예제와 껍질을 맞춰 둔 것이고,
+껍질을 벗기고 (1)/(2)로 가도 MLflow 쪽은 문제없다. 게이트웨이가 `name`/`shape`/
+`datatype` 을 보는지는 미확인이라, 첫 배포는 (3)으로 올려 확인한 뒤 줄이는 게 안전하다.
+
+#### dict 로 보낼 때 지킬 것
+
+- **숫자는 실수로.** signature 가 `double` 이라 `2` 는 400, `2.0` 은 통과 (아래 7번)
+- **모든 행에 같은 필드가 있을 것.** 하나라도 빠지면 400.
+  없어도 되는 필드는 `input_example` 의 **한 행에서 빼두면** signature 에
+  `optional` 로 잡혀서 있어도 되고 없어도 된다 (확인 완료)
+- `shape` 는 dict 행이면 `[행 수]` 만 쓴다. 사내 게이트웨이가 `shape`/`datatype` 을
+  실제로 검증하는지는 미확인 — 엔드포인트에 올린 뒤 한 번 확인할 것
+
+#### 업로드 스크립트는 import 하지 말고 실행할 것
+
+`ModelWrapper` / `TrainWrapper` 를 다른 모듈에서 import 해서 `log_model` 하면
+cloudpickle 이 클래스를 **참조로만** 저장해서(`mico_train_upload.TrainWrapper`)
+서빙 컨테이너에서 못 찾는다.
+
+```
+ModuleNotFoundError: No module named 'mico_train_upload'
+```
+
+1번 항목(joblib/artifact)과 원인이 같다. `__main__` 에서 정의된 클래스라야
+cloudpickle 이 값 자체를 저장한다. 그래서 업로드는 항상
+`python3 mico_train_upload.py` 로 직접 실행한다.
 
 ---
 
