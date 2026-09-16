@@ -18,6 +18,7 @@
   --rule:#d3dce4; --line:#b6c4d0; --surface:#fff; --sunken:#f1f5f8; --canvas:#f7f9fb;
   --c-orch:#5a6b7c; --c-pre:#0e7c86; --c-rr:#1552d4; --c-os:#c2410c; --c-db:#8e2fce;
   --accent:#0e7c86;
+  --imp:#c2410c; --imp-fill:#fff4ec; --up-fill:#eef4f8;
   font-family:'IBM Plex Sans KR','Segoe UI',system-ui,sans-serif;
   color:var(--body); -webkit-font-smoothing:antialiased;
 }
@@ -26,6 +27,7 @@
   --rule:#3b4857; --line:#4d5d6d; --surface:#1f2937; --sunken:#18222f; --canvas:#141c26;
   --c-orch:#93a4b5; --c-pre:#3fb8c2; --c-rr:#6ea8ff; --c-os:#ff9147; --c-db:#c98bff;
   --accent:#3fb8c2;
+  --imp:#ff9147; --imp-fill:#2e2119; --up-fill:#1b2530;
 }
 
 /* ── 헤더 ── */
@@ -88,6 +90,12 @@
 .el { font-family:'IBM Plex Mono',monospace; font-size:11px; fill:var(--muted); text-anchor:middle; }
 .elbg { fill:var(--canvas); }
 
+.nd.imp > rect.box { fill:var(--imp-fill); stroke-width:3; }
+.nd.imp .nt { fill:var(--ink); }
+.nd.up  > rect.box { fill:var(--up-fill); }
+
+.ed.up { stroke:var(--line); stroke-width:1.6; opacity:0.6; }
+
 .faded { opacity:0.2; transition:opacity 0.15s; }
 
 /* ── 상세 패널 ── */
@@ -116,6 +124,31 @@
 .fc-panel-b ul { margin:0 0 0.65rem; padding-left:1.1rem; }
 .fc-panel-b li { margin-bottom:0.3rem; }
 .fc-panel-b b { color:var(--ink); }
+.imp-sum { font-size:0.74rem; color:var(--muted); margin:0 0 0.5rem; }
+.imp-sum b { color:var(--imp); }
+.imp-tags { display:flex; flex-wrap:wrap; gap:0.3rem; margin:0 0 0.7rem; }
+.imp-tag {
+  font-family:'IBM Plex Mono',monospace; font-size:0.7rem; line-height:1.4;
+  padding:0.22rem 0.5rem; border-radius:5px; cursor:pointer;
+  border:1px solid var(--rule); background:var(--sunken); color:var(--body);
+}
+.imp-tag:hover { border-color:var(--imp); color:var(--imp); }
+.imp-tag.db { border-style:dashed; color:var(--c-db); }
+.imp-none { font-size:0.75rem; color:var(--muted); font-style:italic; margin:0 0 0.7rem; }
+.imp-ext { margin:0 0 0.7rem; padding-left:1.1rem; font-size:0.755rem; }
+.imp-ext li { margin-bottom:0.28rem; }
+.imp-ext code { font-size:0.85em; }
+.fc-code { margin:1.3rem 0 0.2rem; border-top:1px solid var(--rule); padding-top:0.75rem; }
+.fc-code summary {
+  font-size:0.73rem; font-weight:700; text-transform:uppercase; letter-spacing:0.05em;
+  color:var(--muted); cursor:pointer; list-style:none; user-select:none;
+}
+.fc-code summary::-webkit-details-marker { display:none; }
+.fc-code summary::before { content:'▸'; display:inline-block; width:1em; }
+.fc-code[open] summary::before { content:'▾'; }
+.fc-code summary:hover { color:var(--accent); }
+.fc-code-b { padding-top:0.55rem; }
+.fc-code-b > h4:first-child { margin-top:0.4rem; }
 .fc-panel-b code {
   font-family:'IBM Plex Mono',monospace; font-size:0.88em;
   background:var(--sunken); padding:0.08em 0.32em; border-radius:3px; color:var(--ink);
@@ -150,8 +183,9 @@
     <div>
       <h1>학습 코드 흐름</h1>
       <p class="sub">
-        <code style="font-family:'IBM Plex Mono',monospace">algorithm_new/Common/</code> 의 학습 3종이
-        어떤 순서로 무엇을 호출하는지 한 장으로. <b>노드를 클릭</b>하면 그 함수의 설명이 열린다.
+        MICO 학습 3종이 어떤 순서로 무엇을 하는지 한 장으로. <b>노드를 클릭</b>하면
+        그 단계가 <b>무엇을 왜 하는지</b>가 열리고, <b>거기를 고쳤을 때 값이 따라 바뀌는 범위</b>가 칠해진다.
+        코드 위치와 변수명은 설명 아래 <b>코드에서 확인할 것</b>에 접혀 있다.
       </p>
     </div>
     <a class="doclink" href="{% url 'guide_animation' %}">산식 애니메이션 &rarr;</a>
@@ -167,7 +201,9 @@
     <button class="fc-chip c-rr on"   data-g="rr">② Removal Rate</button>
     <button class="fc-chip c-os on"   data-g="os">③ OFFSET</button>
     <button class="fc-chip c-db on"   data-g="db">MongoDB</button>
-    <span class="fc-hint">노드 클릭 = 설명 · 드래그 = 이동 · 휠 = 확대</span>
+    <span style="width:0.5rem"></span>
+    <button class="fc-btn" id="fcImp" aria-pressed="true">영향 범위 ON</button>
+    <span class="fc-hint">진하게 = 영향받는 하류 · 연하게 = 입력(상류) · 드래그 = 이동 · 휠 = 확대</span>
   </div>
 
   <div class="fc-stage" id="fcStage">
@@ -225,7 +261,9 @@
     { id:'p_reg',    g:'pre',  x:970,  y:440,  w:310, h:84, t:'C. 회귀만',            s:'y = BIAS' },
     { id:'p_fit',    g:'pre',  x:1370, y:330,  w:340, h:84, t:'fit_pre_oper_regression', s:'PRE_THK_VM.py:99' },
     { id:'p_push',   g:'pre',  x:1800, y:330,  w:300, h:84, t:'mongo.push_df()',      s:'Module.py:290' },
-    { id:'db_pre',   g:'db',   x:2190, y:330,  w:420, h:84, t:'MICO_PRE_THK_…_Period', s:'pre_eq_ch 별 VM · 회귀계수' },
+    { id:'db_pre',   g:'db',   x:2190, y:330,  w:420, h:84, t:'MICO_PRE_THK_…_Period', s:'pre_eq_ch 별 VM · 회귀계수',
+      ext:['<b>Simulation</b> &mdash; <code>_load_learning_tables()</code> Common/Simulation.py:42 이 <code>Pre_VM_df</code> 로 읽어 시뮬레이션 베이스 두께를 만든다',
+           '<b>web 학습값 화면</b> &mdash; <code>learning_pre_thk_data()</code> setup_mico/views.py:308'] },
 
     /* ── ② Removal Rate ── */
     { id:'r_entry',  g:'rr',   x:140,  y:680,  w:340, h:84, t:'② compute_removal_rate', s:'Module.py:321 · _group :375' },
@@ -235,7 +273,9 @@
     { id:'r_rr',     g:'rr',   x:1370, y:680,  w:300, h:84, t:'compute_rr()',         s:'REMOVAL_RATE.py:267' },
     { id:'r_cyc',    g:'rr',   x:1760, y:680,  w:300, h:84, t:'_detect_cycles()',     s:'REMOVAL_RATE.py:16' },
     { id:'r_models', g:'rr',   x:2150, y:680,  w:310, h:84, t:'_process_models()',    s:'REMOVAL_RATE.py:127 · 직선 4종' },
-    { id:'db_rr',    g:'db',   x:2110, y:830,  w:420, h:84, t:'MICO_Removal_Rate_…',  s:'EQ·Recipe 별 b1/b0 4종' },
+    { id:'db_rr',    g:'db',   x:2110, y:830,  w:420, h:84, t:'MICO_Removal_Rate_…',  s:'EQ·Recipe 별 b1/b0 4종',
+      ext:['<b>Simulation</b> &mdash; <code>_load_learning_tables()</code> Common/Simulation.py:43 이 <code>RR_df</code> 로 읽어 Pol_Time 을 역산한다',
+           '<b>web 학습값 화면</b> &mdash; <code>learning_rr_data()</code> setup_mico/views.py:373'] },
 
     /* ── ③ OFFSET ── */
     { id:'o_entry',  g:'os',   x:140,  y:1020, w:340, h:84, t:'③ compute_offset',     s:'Module.py:485 · _group :436' },
@@ -243,10 +283,13 @@
     { id:'o_calc',   g:'os',   x:980,  y:1020, w:330, h:84, t:'OFFSET 산식 · clip',   s:'OFFSET.py:96~109' },
     { id:'o_agg',    g:'os',   x:1400, y:1020, w:310, h:84, t:'Idle_/Layer_ 집계',    s:'OFFSET.py:111~124' },
     { id:'o_lc',     g:'os',   x:1800, y:1020, w:330, h:84, t:'compute_lc_offset()',  s:'OFFSET.py:266 · LC 계열' },
-    { id:'db_os',    g:'db',   x:2220, y:1020, w:420, h:84, t:'MICO_OFFSET_…',        s:'IDLE 라벨별 보정량' },
+    { id:'db_os',    g:'db',   x:2220, y:1020, w:420, h:84, t:'MICO_OFFSET_…',        s:'IDLE 라벨별 보정량',
+      ext:['<b>Simulation</b> &mdash; <code>_load_learning_tables()</code> Common/Simulation.py:44 이 <code>OFFSET_df</code> 로 읽어 최종 APC 값에 더한다',
+           '<b>web 학습값 화면</b> &mdash; <code>learning_offset_data()</code> setup_mico/views.py:434'] },
 
     /* ── ④ ── */
-    { id:'alarm',    g:'orch', x:140,  y:1370, w:400, h:84, t:'④ check_alarm()',      s:'Module.py:519' }
+    { id:'alarm',    g:'orch', x:140,  y:1370, w:400, h:84, t:'④ check_alarm()',      s:'Module.py:519',
+      ext:['<b>Cube 알람</b> &mdash; <code>Cube_Msg_RR_Alarm()</code> 으로 현업에 메시지가 나간다. 판정 조건을 건드리면 알람 빈도가 곧바로 바뀐다'] }
   ];
 
   var EDGES = [
@@ -276,254 +319,335 @@
     { a:'db_rr',  b:'alarm',  c:1, l:'RR_Alarm_Sigma 점검' }
   ];
 
+  /* 패널 본문. t = 제목(개념), h = 개념 설명, c = 코드 세부(접힘).
+     h 는 코드를 모르는 사람이 흐름을 따라갈 수 있게 공정 언어로 쓴다.
+     코드 위치·변수명·함정은 c 로 내린다 — 지우지 않는다. */
   var D = {
     run: {
-      sig: 'run(family, oper_desc)',
-      loc: 'algorithm_new/Common/Module.py:756',
-      h: '<h4>하는 일</h4><p>학습 전체의 <b>유일한 진입점</b>. Set-up 표(<code>mico_info_table</code>)를 만들고, 학습 단위를 그룹/미그룹으로 나눠 각각 파이프라인을 돌린다.</p>' +
-         '<h4>학습 단위 키</h4><p><code>for_key_list</code> = <code>Lot_Code + Oper_Code + Fab</code>. <b>Product 는 키에 없다</b> &mdash; 서로 다른 product 에 같은 device+oper+fab 을 Set-up 하면 한 덩어리로 학습된다.</p>' +
-         '<div class="warn"><code>Lot_Code</code> 는 web 의 <code>SubCategory.device</code> 다 (<code>product</code> 가 아니다). 학습 결과 컬렉션 이름이 전부 이 값 기준이다.</div>' +
-         '<a class="lk" data-go="pipeline">&rarr; _run_pipeline 보기</a>'
+      t: '학습 시작 — 어디를 학습할지 정한다',
+      loc: 'Common/Module.py:756',
+      h: '<h4>무엇을 하나</h4><p>학습 전체가 여기서 시작한다. 웹의 <b>Set-up</b> 화면에 등록된 내용을 그대로 읽어 <b>학습할 목록</b>을 만들고, 목록을 하나씩 학습시킨다.</p>' +
+         '<h4>무엇을 한 덩어리로 보나</h4><p><b>device · 공정(Oper) · fab</b> 세 가지가 같으면 한 덩어리로 묶어 학습한다. <b>product 는 보지 않는다.</b></p>' +
+         '<div class="warn">그래서 서로 다른 product 에 <b>같은 device + 공정 + fab</b> 을 Set-up 하면, 의도와 달리 <b>한 덩어리로 합쳐져</b> 학습된다. 학습 결과가 저장되는 이름도 device 기준이다 — 웹 Set-up 의 <code>device</code> 칸이 알고리즘에서 말하는 <code>Lot_Code</code> 다.</div>' +
+         '<p>목록은 다시 둘로 갈린다 — <b>Recipe Grouping 으로 묶은 것</b>과 <b>묶지 않은 것</b>.</p>' +
+         '<a class="lk" data-go="pipeline">&rarr; 한 덩어리를 어떻게 학습하는지 보기</a>',
+      c: '<p><code>run(family, oper_desc)</code> — Set-up 표(<code>mico_info_table</code>)를 만들고 학습 단위 키를 돌린다.</p>' +
+         '<p><code>for_key_list</code> = <code>Lot_Code + Oper_Code + Fab</code>. 키에 Product 축이 없다.</p>'
     },
     single: {
-      sig: '_run_single(mico_info_table, for_key_list)',
+      t: '묶지 않은 recipe — 따로따로 학습',
       loc: 'Common/Module.py:665',
-      h: '<h4>하는 일</h4><p>그룹에 속하지 않은 recipe 를 키마다 <b>독립적으로</b> 학습한다. 키마다 merge_df 를 따로 조회한다.</p>' +
-         '<h4>왜 not_group 조건이 붙나</h4><p><code>for_key_list</code> 에는 recipe 축이 없어서, 그냥 걸면 같은 device 의 <b>그룹에 속한 recipe 까지</b> 딸려온다. 그래서 <code>Group_Name == \'not_group\'</code> 을 더한다.</p>' +
-         '<h4>키를 되쪼개지 않는 이유</h4><p><code>for_key_list</code> 는 세 값을 <code>_</code> 로 이어붙인 문자열이라, 값 중 하나라도 <code>_</code> 를 포함하면 <code>split(\'_\')</code> 이 틀린다 (예: <code>Oper_Code=\'OP_01\'</code>). 그러면 뒤의 <code>operation_id</code> 필터가 0행이 되어 <b>학습이 조용히 통째로 누락된다</b>. → 원본 컬럼에서 직접 읽는다.</p>'
+      h: '<h4>무엇을 하나</h4><p>Recipe Grouping 에 넣지 않은 recipe 는 <b>자기 실적만으로</b> 따로 학습한다. recipe 하나에 웨이퍼가 충분히 모이는 경우다.</p>' +
+         '<h4>범위를 한 번 더 좁힌다</h4><p>학습 덩어리 키에 <b>recipe 축이 없어서</b>, 그냥 두면 같은 device 의 <b>그룹에 속한 recipe 까지 딸려온다.</b> 그래서 "그룹에 안 묶인 것" 조건을 하나 더 건다.</p>',
+      c: '<p><code>_run_single(mico_info_table, for_key_list)</code> — 키마다 merge_df 를 따로 조회한다.</p>' +
+         '<h4>not_group 조건</h4><p><code>Group_Name == \'not_group\'</code> 을 더해 그룹 recipe 를 배제한다.</p>' +
+         '<h4>키를 되쪼개지 않는 이유</h4><p><code>for_key_list</code> 는 세 값을 <code>_</code> 로 이어붙인 문자열이라, 값 중 하나라도 <code>_</code> 를 포함하면 <code>split(\'_\')</code> 이 틀린다 (예: <code>Oper_Code=\'OP_01\'</code>). 그러면 뒤의 <code>operation_id</code> 필터가 0행이 되어 <b>학습이 조용히 통째로 누락된다.</b> → 원본 컬럼에서 직접 읽는다.</p>'
     },
     grouped: {
-      sig: '_run_grouped(mico_info_table, group_name)',
+      t: '묶은 recipe — 실적을 합쳐 학습',
       loc: 'Common/Module.py:710',
-      h: '<h4>하는 일</h4><p>Recipe Grouping 으로 묶인 recipe 들의 실적을 <b>합쳐서 하나로</b> 학습한다. <code>use_group_rr=True</code> 로 넘겨 ②③ 이 group 판으로 갈린다.</p>' +
-         '<h4>그룹 이름</h4><p>알고리즘 내부 <code>Group_Name</code> 은 <code>\'{name}#{pk}\'</code> &mdash; Category 가 달라도 이름이 같은 그룹이 합쳐지지 않도록 pk 를 붙인다.</p>' +
-         '<div class="warn">한 device 의 recipe 는 <b>전부 같은 그룹</b>이거나 <b>전부 미그룹</b>이어야 깔끔하다. 일부만 그룹에 넣으면 grouped/single 두 경로가 같은 device 를 나눠 처리한다.</div>'
+      h: '<h4>무엇을 하나</h4><p>recipe 하나하나로는 웨이퍼가 적어 학습이 안 될 때, 비슷한 recipe 를 <b>Recipe Grouping</b> 으로 묶어 실적을 <b>합쳐서</b> 학습한다. 결과는 그룹 안의 모든 recipe 가 <b>같은 값</b>을 쓴다.</p>' +
+         '<h4>그룹은 device 를 넘어갈 수 있다</h4><p>넘어가면 그만큼 실적이 합산된다 — 의도된 동작이다.</p>' +
+         '<div class="warn">한 device 의 recipe 는 <b>전부 묶거나 전부 안 묶는</b> 것이 깔끔하다. 일부만 묶으면 같은 device 를 묶음/비묶음 두 경로가 나눠 처리한다.</div>',
+      c: '<p><code>_run_grouped(mico_info_table, group_name)</code> — <code>use_group_rr=True</code> 로 넘겨 ②③ 이 group 판으로 갈린다.</p>' +
+         '<h4>그룹 이름</h4><p>알고리즘 내부 <code>Group_Name</code> 은 <code>\'{name}#{pk}\'</code> — Category 가 달라도 이름이 같은 그룹이 합쳐지지 않도록 pk 를 붙인다.</p>'
     },
     pipeline: {
-      sig: '_run_pipeline(merge_df_rcp, merge_df_vm, mico_info_key, use_group_rr)',
+      t: '한 덩어리 학습 — 네 단계를 순서대로',
       loc: 'Common/Module.py:625',
-      h: '<h4>하는 일</h4><p>Set-up 에서 <code>Pol_Type</code> 을 읽고 네 단계를 <b>순서대로</b> 호출한다: ① Pre_Thk_VM → ② Removal Rate → ③ OFFSET → ④ check_alarm.</p>' +
+      h: '<h4>무엇을 하나</h4><p>학습 덩어리 하나에 대해 네 단계를 <b>정해진 순서</b>로 돌린다.</p>' +
+         '<pre>① 입고 두께 추정   (Pre_Thk_VM)\n② 연마율 학습      (Removal Rate)\n③ 쉬었다 온 보정   (OFFSET)\n④ 연마율 알람 점검</pre>' +
+         '<h4>순서를 바꿀 수 없다</h4><p><b>앞 단계의 결과가 뒤 단계의 입력</b>이기 때문이다. ②는 ①이 추정한 입고 두께가 있어야 연마율을 구할 수 있고, ③은 ②가 배운 연마율이 있어야 실제와의 차이를 잴 수 있다.</p>' +
+         '<h4>①과 ②③이 보는 데이터가 다르다</h4>' +
+         '<ul><li><b>①</b> — 사전공정 <b>장비</b>가 단위라 recipe 를 가리지 않고 데이터를 다 본다. 좁히면 사전공정 표본만 줄어든다.</li>' +
+         '<li><b>②③</b> — 지금 학습하는 <b>recipe 것만</b> 본다. 안 걸러내면 다른 recipe 웨이퍼가 평균에 섞인다.</li></ul>' +
+         '<div class="warn">네 단계가 <b>하나의 오류 처리</b>로 묶여 있다. 한 단계에서 오류가 나면 <b>남은 단계는 아예 실행되지 않고</b> Cube 로 메시지만 나간다 — 로그만 훑으면 정상 완료처럼 보일 수 있다.</div>',
+      c: '<p><code>_run_pipeline(merge_df_rcp, merge_df_vm, mico_info_key, use_group_rr)</code> — Set-up 의 <code>Pol_Type</code> 을 읽고 네 단계를 호출한다.</p>' +
          '<h4>merge_df 가 두 개인 이유</h4>' +
-         '<ul><li><code>merge_df_vm</code> &mdash; recipe 필터 <b>전</b>. ① 전용. Pre_Thk_VM 은 <code>pre_eq_ch</code> 단위라 recipe 축이 없어, 좁히면 사전공정 표본만 줄어든다.</li>' +
-         '<li><code>merge_df_rcp</code> &mdash; 학습 대상 <code>Recipe_ID</code> 로 좁힌 것. ②③ 전용. 그룹 학습의 집계 키에 recipe 축이 없어서, 안 걸러주면 다른 그룹 recipe 웨이퍼가 평균에 섞인다. (<code>_filter_merge_by_recipes</code>, Module.py:606)</li></ul>' +
-         '<div class="warn">네 단계 전체가 <code>try/except</code> <b>하나</b>로 감싸여 있다. 한 단계에서 예외가 나면 <b>남은 단계는 실행되지 않고</b> Cube 로 메시지만 나간다.</div>'
+         '<ul><li><code>merge_df_vm</code> — recipe 필터 <b>전</b>. ① 전용. Pre_Thk_VM 은 <code>pre_eq_ch</code> 단위라 recipe 축이 없다.</li>' +
+         '<li><code>merge_df_rcp</code> — 학습 대상 <code>Recipe_ID</code> 로 좁힌 것. ②③ 전용. (<code>_filter_merge_by_recipes</code>, Module.py:606)</li></ul>' +
+         '<p>네 단계 전체가 <code>try/except</code> 하나로 감싸여 있다.</p>'
     },
 
     p_entry: {
-      sig: 'Module_Get.compute_pre_thk_vm(merge_df, mico_info_key, pol_type)',
+      t: '① 입고 두께 추정 — 재지 않고 알아낸다',
       loc: 'Common/Module.py:122',
-      h: '<h4>무엇을 학습하나</h4><p>사전공정 장비채널(<code>pre_eq_ch</code>)마다 &ldquo;이 채널을 거친 웨이퍼는 평균보다 얼마나 두껍게/얇게 들어오는가&rdquo;. 결과는 <b>0을 중심으로 한 편차값</b>이다.</p>' +
-         '<h4>Thk_Para 루프</h4><p>키가 <code>Lot_Code+Oper_Code+Fab</code> 단위라 Detail 단위가 아니다. 한 키 안에 <code>Thk_Para</code> 가 여러 개일 수 있어(DRAM STI 처럼 ED/CENTER 혼재) <code>for Thk_Para in unique()</code> 루프를 돈다.</p>' +
-         '<h4>세 모듈 중 분기가 가장 많다</h4><p>무엇을 회귀의 y축으로 쓸지가 Set-up 에 따라 세 갈래로 갈린다.</p>' +
-         '<a class="lk" data-go="p_path">&rarr; 경로 판정 보기</a>'
+      h: '<h4>무엇을 하나</h4><p>CMP 에 들어오기 <b>전</b> 웨이퍼가 얼마나 두꺼운지를 <b>계측 없이</b> 추정한다.</p>' +
+         '<h4>왜 필요한가</h4><p>얼마나 깎을지 정하려면 들어올 때 두께를 알아야 한다. 그런데 전수 계측은 비싸다. 대신 <b>사전공정 장비마다 버릇이 있다</b>는 점을 쓴다 — "이 장비, 이 채널을 거친 웨이퍼는 평균보다 얼마나 두껍게(얇게) 들어오는가".</p>' +
+         '<h4>결과가 무엇인가</h4><p><b>평균 대비 편차</b>다. + 면 평균보다 두껍게, − 면 얇게 들어온다는 뜻이고 <b>0 이 기준</b>이다. 절대 두께가 아니다.</p>' +
+         '<h4>세 단계 중 갈래가 가장 많다</h4><p>무엇을 근거로 이 편차를 배울지가 Set-up 에 따라 셋으로 갈린다.</p>' +
+         '<a class="lk" data-go="p_path">&rarr; 어느 갈래로 가는지 보기</a>',
+      c: '<p><code>Module_Get.compute_pre_thk_vm(merge_df, mico_info_key, pol_type)</code></p>' +
+         '<h4>Thk_Para 루프</h4><p>키가 <code>Lot_Code+Oper_Code+Fab</code> 단위라 Detail 단위가 아니다. 한 키 안에 <code>Thk_Para</code> 가 여러 개일 수 있어(DRAM STI 처럼 ED/CENTER 혼재) <code>for Thk_Para in unique()</code> 루프를 돈다.</p>'
     },
     p_path: {
-      sig: '경로 판정',
+      t: '갈래 판정 — 무엇을 근거로 배울까',
       loc: 'Common/Module.py:152~185',
-      h: '<pre>force_post     = (Pre_Thk_VM_Source == \'POST\').any()\nuse_itm        = len(itm_paras) &gt; 0 <b>and not</b> force_post\nuse_moving_avg = (not use_itm) <b>and</b> Pre_Oper_Code 있음\nhas_regression = Pre_Oper_Code2 가 비지 않은 문자열</pre>' +
-         '<p>셋 다 False 면 학습 불필요 &rarr; <code>continue</code> (Module.py:186).</p>' +
-         '<h4>왜 플래그가 따로 있나</h4><p>원래는 <code>Pre_Thk_Para_ITM</code> 존재 여부 <b>하나</b>로 경로가 정해졌다. 그런데 &ldquo;어떤 계측값이 존재하는가&rdquo;와 &ldquo;VM 회귀 y를 무엇으로 학습할 것인가&rdquo;는 <b>별개 결정</b>이다.</p>' +
-         '<p>CBL HM NIT CMP 처럼 사전공정 zone 차이가 <b>입고 두께가 아닌 removal rate 에</b> 영향을 주는 공정은, ITM BIAS 를 y 로 회귀하면 zone 파라미터와 상관이 안 나온다. 그래서 Set-up 에 <code>Pre_Thk_VM_Source</code>(AUTO/POST) 를 두어 <b>VM 학습 경로만</b> 공정별로 고를 수 있게 했다.</p>' +
-         '<p><code>Pre_Thk_Para_ITM</code> 자체는 유지되므로 Simulation 베이스와 ② RR 학습의 ITM 사용은 영향받지 않는다.</p>'
+      h: '<h4>세 갈래</h4><ul>' +
+         '<li><b>A. 사전공정에서 실제로 쟀다</b> (ITM 계측값 있음) → 잰 값을 그대로 쓴다</li>' +
+         '<li><b>B. 안 쟀다</b> → CMP <b>후</b> 두께에서 거꾸로 추정한다</li>' +
+         '<li><b>C. 사전공정 장비 정보가 아예 없다</b> → 장비 버릇은 포기하고, 전공정 계측값과의 관계만 배운다</li></ul>' +
+         '<p>셋 다 해당하지 않으면 배울 것이 없으므로 건너뛴다.</p>' +
+         '<h4>재놓고도 일부러 B 를 쓰는 공정이 있다</h4>' +
+         '<p>원래는 "ITM 계측값이 있나" <b>하나</b>로 갈래가 정해졌다. 그런데 <b>어떤 계측값이 있는가</b>와 <b>무엇을 배울 것인가</b>는 별개 문제다.</p>' +
+         '<p>CBL HM NIT CMP 처럼 <b>사전공정 zone 차이가 입고 두께가 아니라 깎이는 속도에 영향을 주는</b> 공정이 있다. 이런 공정에서 ITM 값으로 배우면 zone 파라미터와 상관이 안 나온다 — zone 효과가 CMP <b>후</b> 두께에만 나타나기 때문이다.</p>' +
+         '<p>그래서 웹 Set-up 의 Detail 에 <b><code>Pre_Thk_VM_Source</code></b> 칸을 두었다. <code>AUTO</code> 면 위 규칙대로, <code>POST</code> 면 <b>ITM 값이 있어도 B 갈래로</b> 배운다.</p>' +
+         '<p>ITM 설정 자체는 남아 있으므로 <b>Simulation 과 ②의 ITM 사용은 그대로다</b> — ①의 학습 갈래만 바뀐다.</p>',
+      c: '<pre>force_post     = (Pre_Thk_VM_Source == \'POST\').any()\nuse_itm        = len(itm_paras) &gt; 0 <b>and not</b> force_post\nuse_moving_avg = (not use_itm) <b>and</b> Pre_Oper_Code 있음\nhas_regression = Pre_Oper_Code2 가 비지 않은 문자열</pre>' +
+         '<p>셋 다 False 면 <code>continue</code> (Module.py:186).</p>'
     },
     p_itm: {
-      sig: 'A. ITM 실측 경로  (use_itm)',
+      t: 'A. 실제로 잰 값으로',
       loc: 'Common/Module.py:191~217',
-      h: '<p>사전공정에서 입고 두께를 <b>실제로 계측</b>한 값이 있는 경우. detrend 가 필요 없다.</p>' +
-         '<pre><span class="cm"># PRESSURE(ED/EX): 두 계측 파라미터 간 차이를 0-centering</span>\nBIAS = (P - P13) - (mean(P) - mean(P13))\n<span class="cm"># 그 외: 자기 단독 0-centering</span>\nBIAS = P - mean(P)</pre>' +
-         '<h4>이후 처리</h4><ul>' +
-         '<li><code>iqr_filter(merge_df, \'BIAS\')</code> &mdash; IQR &plusmn;3 밖 제거 (PRE_THK_VM.py:88). 평균/표준편차 방식보다 극단값에 강건.</li>' +
-         '<li><code>rolling_mean(...)</code> &mdash; <code>min_count</code> 는 <code>Thk_Para</code> 에 ED/EX 가 있으면 5, 아니면 10 (PRE_THK_VM.py:65)</li>' +
+      h: '<h4>무엇을 하나</h4><p>사전공정에서 두께를 <b>실제로 계측</b>한 값이 있는 경우. 거꾸로 추정할 필요가 없다.</p>' +
+         '<h4>순서</h4><ol>' +
+         '<li>잰 값에서 <b>평균을 뺀다</b> → "평균 대비 이 웨이퍼는 얼마나 두꺼운가" (0 기준 편차)</li>' +
+         '<li><b>튀는 값을 버린다</b> — 계측 오류나 이상 웨이퍼가 장비 버릇으로 굳으면 안 된다</li>' +
+         '<li><b>최근 몇 장을 평균</b>한다 → 이것이 그 사전공정 장비 채널의 "현재 버릇"</li></ol>' +
+         '<p>압력 제어(PRESSURE) 공정은 값 하나가 아니라 <b>두 계측 위치의 차이</b>를 기준으로 0 을 잡는다.</p>',
+      c: '<pre><span class="cm"># PRESSURE(ED/EX): 두 계측 파라미터 간 차이를 0-centering</span>\nBIAS = (P - P13) - (mean(P) - mean(P13))\n<span class="cm"># 그 외: 자기 단독 0-centering</span>\nBIAS = P - mean(P)</pre>' +
+         '<ul><li><code>iqr_filter(merge_df, \'BIAS\')</code> — IQR &plusmn;3 밖 제거 (PRE_THK_VM.py:88). 평균/표준편차 방식보다 극단값에 강건.</li>' +
+         '<li><code>rolling_mean(...)</code> — <code>min_count</code> 는 <code>Thk_Para</code> 에 ED/EX 가 있으면 5, 아니면 10 (PRE_THK_VM.py:65)</li>' +
          '<li><code>y_col = \'BIAS\'</code></li></ul>' +
          '<h4>_Period 에 쌓이는 이름</h4><p><code>Pre_THK_Para</code> = <b>ITM 파라미터 이름</b>. 이 이름이 ②에서 VM 컬럼을 찾는 기준이 된다.</p>'
     },
     p_det: {
-      sig: 'B. detrend 경로  (use_moving_avg)',
-      loc: 'PRE_THK_VM.compute_detrend() &mdash; PRE_THK_VM.py:12',
-      h: '<p>ITM 실측이 없을 때(또는 <code>VM_Source=POST</code> 일 때) <b>post 두께에서 장비 추세를 빼내</b> 입고 두께 편차를 만든다.</p>' +
-         '<pre>Pol_Time = sum(APC_Para_merge)\n<span class="cm"># use_pressure: post 두께 대신 BIAS 기준</span>\nRR = (Pre_Target - (Post_Target + BIAS)) / Pol_Time\n<span class="cm"># 그 외</span>\nRR = (Pre_Target - Thk_Para) / Pol_Time\nFIX_Time = mean(Pol_Time)   <span class="cm"># EQP/RCP 공통</span></pre>' +
-         '<h4>eqp//recipe 조합마다</h4>' +
+      t: 'B. CMP 후 두께에서 거꾸로',
+      loc: 'Common/PRE_THK_VM.py:12',
+      h: '<h4>무엇을 하나</h4><p>사전공정 계측이 없을 때. <b>깎고 난 뒤 두께</b>와 <b>깎은 시간</b>으로 "들어올 때 이만큼이었겠다" 를 역산한다.</p>' +
+         '<h4>순서</h4><ol>' +
+         '<li>이 장비가 평소 깎는 속도를 구한다</li>' +
+         '<li>그 속도로 정해진 시간만큼 깎았다면 <b>들어올 때 두께가 얼마였어야 하는지</b> 역산한다</li>' +
+         '<li>역산값의 <b>완만한 추세</b>(장비 상태가 서서히 변하는 몫)를 빼면, 남는 것이 <b>웨이퍼별 입고 편차</b>다</li></ol>' +
+         '<h4>패드 교체를 경계로 끊는 이유</h4>' +
+         '<p>패드를 갈면 깎는 속도가 <b>계단처럼 뛴다.</b> 이 점프를 "추세" 로 착각한 채 평균을 걸면, 교체 직후 웨이퍼의 편차가 통째로 왜곡된다. 그래서 <b>패드 교체 시점으로 구간을 끊고, 같은 패드 안에서만</b> 평균을 낸다.</p>',
+      c: '<pre>Pol_Time = sum(APC_Para_merge)\n<span class="cm"># use_pressure: post 두께 대신 BIAS 기준</span>\nRR = (Pre_Target - (Post_Target + BIAS)) / Pol_Time\n<span class="cm"># 그 외</span>\nRR = (Pre_Target - Thk_Para) / Pol_Time\nFIX_Time = mean(Pol_Time)   <span class="cm"># EQP/RCP 공통</span></pre>' +
+         '<p>eqp//recipe 조합마다:</p>' +
          '<pre>Unctr_Thk    = Pre_Target - RR * FIX_Time\npad_cycle    = (Pad_Para.diff() &lt; -0.5).cumsum() + 1\nUnctr_Thk_MA = pad_cycle 별 rolling(10).mean()\nDetrend_Thk  = Unctr_Thk - Unctr_Thk_MA</pre>' +
-         '<h4>패드 사이클로 구간을 끊는 이유</h4><p>패드를 갈면 removal rate 가 <b>계단처럼 점프</b>한다. 사이클 경계를 무시하고 이동평균을 걸면 그 점프가 추세로 잡혀서, 교체 직후 웨이퍼의 <code>Detrend_Thk</code> 가 통째로 왜곡된다. 그래서 <code>groupby(\'pad_cycle\')</code> 안에서만 rolling 한다.</p>' +
          '<h4>호출 단위</h4><p><code>key_df</code> 행(=Detail)<b>마다</b> 호출하고 결과를 <code>concat</code> 한다. 행마다 <code>PadParaGet</code>·<code>APCParaGet</code> 으로 파라미터를 다시 뽑는다.</p>'
     },
     p_reg: {
-      sig: 'C. 회귀만  (else)',
+      t: 'C. 전공정 계측값과의 관계만',
       loc: 'Common/Module.py:247~265',
-      h: '<p><code>pre_oper1</code> 이 설정되지 않아 사전공정 장비채널 데이터가 없는 경우. 이동평균을 만들 수 없으니 CMP 두께 편차(BIAS)를 y축으로 <b>바로</b> 회귀만 돌린다.</p>' +
-         '<pre><span class="cm"># PRESSURE</span>\nBIAS = (T - T13) - (Target - Target_13P)\n<span class="cm"># TIME(13P)</span>\nBIAS = T - mean(T)</pre>' +
-         '<div class="warn">여기서 <b>use_pressure 분기가 반드시 필요하다.</b> 13P 는 <code>Thk_Para == Thk_Para_13P</code> 이므로, pressure 식을 그대로 쓰면 자기 자신을 빼서 BIAS 가 <b>항상 0</b>이 되고 학습값이 0으로 나온다.</div>' +
+      h: '<h4>무엇을 하나</h4><p>사전공정 장비 정보(<code>pre_oper1</code>)가 설정되지 않은 경우. 거쳐온 장비를 모르니 <b>장비별 버릇은 배울 수 없다.</b> 대신 <b>전공정 계측 파라미터</b>와 CMP 두께 편차 사이의 관계만 배운다.</p>' +
+         '<div class="warn">압력 제어(PRESSURE) 공정과 시간 제어(TIME) 공정의 계산식이 <b>반드시 갈려야 한다.</b> 13P 는 기준 파라미터가 <b>자기 자신</b>이라, 압력 쪽 식을 그대로 쓰면 자기에서 자기를 빼 편차가 <b>항상 0</b> 이 되고 학습값이 전부 0 으로 나온다.</div>',
+      c: '<pre><span class="cm"># PRESSURE</span>\nBIAS = (T - T13) - (Target - Target_13P)\n<span class="cm"># TIME(13P)</span>\nBIAS = T - mean(T)</pre>' +
          '<p><code>pre_thk_table</code> 은 <code>THK_Para</code> 한 컬럼뿐인 빈 껍데기로 시작해서, 회귀계수만 채워진다.</p>'
     },
     p_fit: {
-      sig: 'PRE_THK_VM_Get.fit_pre_oper_regression(pre_thk_df_merge, pre2_df, pre_thk_table, oper_pairs, y_col)',
+      t: '전공정 계측값으로 설명해보기',
       loc: 'Common/PRE_THK_VM.py:99',
-      h: '<p>세 경로가 여기서 합류한다. 전공정(<code>Pre_Oper2~4</code>) 파라미터와 학습값 사이의 <b>단순선형회귀계수</b>(b1, b0)를 뽑는다.</p>' +
+      h: '<h4>무엇을 하나</h4><p>세 갈래가 여기서 만난다. 지금까지 만든 <b>입고 두께 편차</b>를, <b>전공정에서 잰 값</b>(Pre_Oper2~4)으로 설명할 수 있는지 본다.</p>' +
+         '<h4>무슨 뜻인가</h4><p>"전공정에서 두껍게 나온 웨이퍼는 CMP 에도 두껍게 들어온다" 는 관계가 실제로 있다면, 그 관계를 <b>직선 하나</b>(기울기와 절편)로 잡아낸다. 그러면 전공정 값만 보고도 입고 두께를 더 정확히 맞출 수 있다.</p>' +
+         '<p>전공정 파라미터가 비어 있거나 데이터가 너무 적으면(2건 미만) 그 파라미터는 건너뛴다.</p>',
+      c: '<p><code>PRE_THK_VM_Get.fit_pre_oper_regression(pre_thk_df_merge, pre2_df, pre_thk_table, oper_pairs, y_col)</code></p>' +
          '<h4>입력</h4><p><code>MICO_PRE_THK_INFO_{Lot_Code}_{Oper_Desc}_{Fab}</code> 컬렉션을 읽어온다 (Module.py:269).</p>' +
-         '<ul><li><code>coalesce_substrate_id()</code> &mdash; 구컬럼 <code>samp_matl_id</code> 와 신규 <code>substrate_id</code> 가 공존할 때 하나로 병합 (중복 컬럼 방지)</li>' +
-         '<li><code>drop_duplicates(subset=\'substrate_id\', keep=\'last\')</code> &mdash; 같은 웨이퍼 중복 문서를 최신 1건만 남긴다. <b>안 하면 merge 에서 행이 증식한다.</b></li></ul>' +
-         '<h4>회귀</h4><p><code>PRE_OPER2/3/4</code> 각각에 대해 <code>{Desc}.{Para}</code> 컬럼과 <code>y_col</code> 로 fit. 파라미터가 비었거나 데이터가 2건 미만이면 건너뛴다.</p>' +
-         '<p><code>y_col</code> 은 경로에 따라 <code>BIAS</code> 또는 <code>Detrend_Thk</code> &mdash; <b>둘 다 0-centered</b> 라 같은 식으로 다룰 수 있다.</p>'
+         '<ul><li><code>coalesce_substrate_id()</code> — 구컬럼 <code>samp_matl_id</code> 와 신규 <code>substrate_id</code> 가 공존할 때 하나로 병합 (중복 컬럼 방지)</li>' +
+         '<li><code>drop_duplicates(subset=\'substrate_id\', keep=\'last\')</code> — 같은 웨이퍼 중복 문서를 최신 1건만 남긴다. <b>안 하면 merge 에서 행이 증식한다.</b></li></ul>' +
+         '<p><code>y_col</code> 은 갈래에 따라 <code>BIAS</code> 또는 <code>Detrend_Thk</code> — <b>둘 다 0-centered</b> 라 같은 식으로 다룰 수 있다.</p>'
     },
     p_push: {
-      sig: 'mongo.push_df(pre_thk_table)',
+      t: '① 결과 저장',
       loc: 'Common/Module.py:290',
-      h: '<p><code>Date</code> 기록, <code>Pre_Thk_Count</code> &rarr; <code>Count</code> rename, <code>Oper_Code</code> 추가 후 저장.</p>' +
-         '<h4>저장되는 것</h4><ul><li><code>pre_eq_ch</code> &mdash; 사전공정 장비_채널</li><li><code>Pre_Thk</code> &mdash; 이동평균 VM 값</li><li><code>Count</code> &mdash; 이동평균에 쓰인 건수</li><li><code>PRE_OPER2~4_b1 / _b0</code> &mdash; 회귀계수 (있을 때만)</li></ul>'
+      h: '<h4>저장되는 것</h4><ul>' +
+         '<li><b>사전공정 장비 채널</b> — 어느 장비의 어느 채널인지</li>' +
+         '<li><b>추정 편차</b> — 그 채널의 현재 버릇</li>' +
+         '<li><b>건수</b> — 몇 장으로 낸 평균인지. 값을 얼마나 믿을지 판단하는 근거다</li>' +
+         '<li><b>회귀 직선</b> — 전공정 계측값과의 관계 (배웠을 때만)</li></ul>',
+      c: '<p><code>Date</code> 기록, <code>Pre_Thk_Count</code> &rarr; <code>Count</code> rename, <code>Oper_Code</code> 추가 후 저장.</p>' +
+         '<p>컬럼: <code>pre_eq_ch</code> / <code>Pre_Thk</code> / <code>Count</code> / <code>PRE_OPER2~4_b1</code>·<code>_b0</code></p>'
     },
     db_pre: {
-      sig: 'MICO_PRE_THK_{Lot_Code}_{Oper_Desc}_{Fab}_Period',
-      loc: 'MongoDB · mico-platform-mongodb',
-      h: '<p>① 의 결과이자 ② 의 입력. 컬렉션 이름이 <b><code>Lot_Code</code>(=device) 기준</b>이라, 한 device 의 모든 recipe 결과가 한 컬렉션에 쌓인다.</p>' +
-         '<div class="warn">그래서 같은 device 를 grouped/single 두 경로가 나눠 처리하면 <b>한 컬렉션에 서로 다른 VM 이 섞여 쌓인다.</b> 이것이 <code>_run_pipeline</code> 이 ① 에만 recipe 필터 <b>이전</b>의 merge_df 를 넘기는 이유다.</div>' +
-         '<h4>읽는 쪽</h4><p><code>load_pre_thk_data()</code> 가 <code>pre_oper_time</code> 기준 <code>merge_asof</code>, <code>by=[\'pre_eq_ch\']</code> 로 붙인다.</p>' +
-         '<a class="lk" data-go="r_load">&rarr; load_pre_thk_data 보기</a>'
+      t: '① 결과 저장소',
+      loc: 'MongoDB · MICO_PRE_THK_…_Period',
+      h: '<p>①의 결과이자 <b>②의 입력</b>이다. 두 단계는 데이터를 직접 주고받지 않고 <b>이 저장소를 거쳐</b> 이어진다.</p>' +
+         '<h4>이름이 device 기준이다</h4><p>한 device 의 <b>모든 recipe 결과가 한 곳에</b> 쌓인다.</p>' +
+         '<div class="warn">그래서 같은 device 를 묶음/비묶음 두 경로가 나눠 처리하면 <b>한 저장소에 서로 다른 추정값이 섞여 쌓인다.</b> ①에만 recipe 로 좁히기 <b>이전</b>의 데이터를 넘기는 이유가 이것이다.</div>' +
+         '<a class="lk" data-go="r_load">&rarr; 읽는 쪽 보기</a>',
+      c: '<p><code>MICO_PRE_THK_{Lot_Code}_{Oper_Desc}_{Fab}_Period</code> · mico-platform-mongodb</p>' +
+         '<p>읽는 쪽 <code>load_pre_thk_data()</code> 가 <code>pre_oper_time</code> 기준 <code>merge_asof</code>, <code>by=[\'pre_eq_ch\']</code> 로 붙인다.</p>'
     },
 
     r_entry: {
-      sig: 'Module_Get.compute_removal_rate(merge_df, mico_info_key, pol_type, RR_Alarm)',
-      loc: 'Common/Module.py:321 · 그룹판 :375',
-      h: '<h4>무엇을 학습하나</h4><p>&ldquo;소모품(패드/헤드/디스크/드레서)이 얼마나 닳았을 때 연마율이 얼마인가&rdquo; 를 <b>직선 하나</b>로. <code>RR = b1 &times; 소모품값 + b0</code>.</p>' +
-         '<p>같은 데이터로 <b>네 가지 직선</b>을 각각 뽑아 함께 저장한다 &mdash; 어느 것을 쓸지는 Simulation 이 고른다.</p>' +
-         '<h4>Detail 행마다</h4><pre>BIAS = Thk_Para - Thk_Para_13P\n     - (Post_Target - Target_13P)</pre>' +
-         '<p>를 계산한 뒤 <code>compute_rr()</code> 를 부른다.</p>' +
-         '<h4>단독판 vs 그룹판</h4><p>구조는 같고, 그룹판은 <code>merge_df</code> 를 <code>Lot_Code</code> 별로 쪼개 VM 을 조회한 뒤 <code>concat</code> 한다 (VM 컬렉션이 device 단위이므로).</p>'
+      t: '② 연마율 학습 — 소모품이 닳으면 속도가 변한다',
+      loc: 'Common/Module.py:321 · 묶음판 :375',
+      h: '<h4>무엇을 하나</h4><p>패드·헤드·디스크 같은 소모품이 닳을수록 깎이는 속도가 달라진다. <b>"소모품을 이만큼 썼을 때 연마율은 얼마"</b> 를 <b>직선 하나</b>로 배운다.</p>' +
+         '<h4>왜 직선인가</h4><p>소모품 사용량과 연마율의 관계를 <b>기울기와 절편 두 숫자</b>로 요약해 두면, 지금 소모품 상태만 넣어도 오늘의 연마율을 예측할 수 있다.</p>' +
+         '<h4>직선을 네 개 뽑는다</h4><p>같은 데이터로 <b>네 가지 방식</b>의 직선을 각각 만들어 <b>모두 저장</b>한다. 어느 것을 쓸지는 학습이 정하지 않고, <b>Simulation 이 그때그때 상황을 보고 고른다.</b></p>' +
+         '<a class="lk" data-go="r_models">&rarr; 네 직선이 어떻게 다른지 보기</a>',
+      c: '<p><code>Module_Get.compute_removal_rate(merge_df, mico_info_key, pol_type, RR_Alarm)</code></p>' +
+         '<p>Detail 행마다 <code>BIAS = Thk_Para - Thk_Para_13P - (Post_Target - Target_13P)</code> 를 계산한 뒤 <code>compute_rr()</code> 를 부른다.</p>' +
+         '<h4>단독판 vs 묶음판</h4><p>구조는 같고, 묶음판은 <code>merge_df</code> 를 <code>Lot_Code</code> 별로 쪼개 VM 을 조회한 뒤 <code>concat</code> 한다 (VM 컬렉션이 device 단위이므로).</p>'
     },
     r_load: {
-      sig: 'Removal_Rate_Get.load_pre_thk_data(merge_df, mico_info_key, mongo_url, mongo_db)',
+      t: '①이 추정한 입고 두께 붙이기',
       loc: 'Common/REMOVAL_RATE.py:351',
-      h: '<p>① 이 쌓은 <code>_Period</code> 컬렉션을 읽어 <code>merge_df</code> 에 붙이고, 회귀 보정까지 적용한다.</p>' +
-         '<h4>결합</h4><pre>merge_asof(merge_df, temp_pre_thk,\n           on=\'Pre_Oper_Date\',\n           by=[\'pre_eq_ch\'])</pre>' +
+      h: '<h4>무엇을 하나</h4><p>①이 저장해둔 입고 두께 추정값을 웨이퍼마다 붙인다. 웨이퍼가 <b>사전공정을 지난 시각</b>을 기준으로, 그 시점에 가장 가까운 학습값을 찾아 붙인다.</p>' +
+         '<p>①에서 전공정 회귀 직선까지 배웠다면, 그 직선으로 추정값을 한 번 더 보정한다.</p>' +
+         '<h4>①이 C 갈래였다면</h4><p>장비 버릇을 배우지 못했으므로 추정 편차는 <b>0</b> 으로 두고, 회귀 보정만 적용한다.</p>',
+      c: '<pre>merge_asof(merge_df, temp_pre_thk,\n           on=\'Pre_Oper_Date\',\n           by=[\'pre_eq_ch\'])</pre>' +
          '<p>&rarr; <code>{Thk}_VM</code>, <code>{Thk}_Count</code> 컬럼이 생긴다. 결합 전 <code>_x</code>/<code>_y</code> 잔여 컬럼을 지우고, 후에 <code>substrate_id</code> 로 중복을 제거한다.</p>' +
-         '<h4>회귀 보정</h4><p><code>PRE_OPER2~4</code> 의 <code>b1/b0</code> 가 있으면 해당 사전공정 측정값에 적용해 <code>_VM</code> 을 보정한다.</p>' +
-         '<h4>MA 가 없는 경우</h4><p><code>pre_oper1</code> 미설정(① 의 C 경로)이면 <code>Pre_Thk</code> 컬럼 자체가 없다. 이때는 <code>_VM = 0.0</code> 으로 초기화하고 <b>회귀 보정만</b> 적용한다.</p>'
+         '<p><code>pre_oper1</code> 미설정(① C 갈래)이면 <code>Pre_Thk</code> 컬럼 자체가 없다. 이때 <code>_VM = 0.0</code> 초기화 후 회귀 보정만.</p>'
     },
     r_zero: {
-      sig: 'VM = 0 처리',
+      t: '사전공정 정보가 없을 때',
       loc: 'Common/Module.py:338~347',
-      h: '<p><code>Pre_Oper_Code</code> 도 <code>Pre_Oper_Code2</code> 도 없으면 사전공정 정보가 아예 없다는 뜻 &rarr; VM 을 0으로 두고 진행한다.</p>' +
-         '<pre>for Thk_key in Thk_Para_List:\n    merge_df_rr[Thk_key + \'_VM\'] = 0</pre>' +
-         '<p><code>Pre_Oper_Code2</code> 만 있는 경우에는 <code>apply_pre_oper2_correction()</code> (REMOVAL_RATE.py:519) 으로 <b>회귀 보정만</b> 얹는다.</p>'
+      h: '<p>사전공정 설정이 아예 없으면 입고 두께 편차를 <b>0</b>(평균대로 들어온다)으로 두고 그대로 진행한다.</p>' +
+         '<p>전공정 계측값만 설정돼 있는 경우에는 <b>회귀 보정만</b> 얹는다.</p>',
+      c: '<pre>for Thk_key in Thk_Para_List:\n    merge_df_rr[Thk_key + \'_VM\'] = 0</pre>' +
+         '<p><code>Pre_Oper_Code2</code> 만 있는 경우 <code>apply_pre_oper2_correction()</code> (REMOVAL_RATE.py:519).</p>'
     },
     r_eqpm: {
-      sig: '_build_eqpm_df(merge_df_rr, Maker, Fab)',
+      t: '정비 이후 몇 장째인지 센다',
       loc: 'Common/Module.py:39',
-      h: '<p>Maker 별로 EQP 채널 키를 만들고, <b>PM 이벤트 이후 누적 웨이퍼 수</b>(<code>rank</code>)를 계산한다.</p>' +
-         '<h4>Maker 별 채널 키</h4><ul>' +
-         '<li><code>AMAT</code> &rarr; 장비 ID 그대로</li>' +
-         '<li><code>EBARA</code> &rarr; <code>+ \'_AB\'</code> 또는 <code>\'_CD\'</code> (recipe 이름으로 판별)</li>' +
+      h: '<h4>무엇을 하나</h4><p>장비를 <b>PM(정비)</b> 한 뒤 웨이퍼가 몇 장 지났는지 센다.</p>' +
+         '<h4>왜 필요한가</h4><p>정비 직후 몇 장은 거동이 평소와 다르다. 이 장수는 뒤에서 <b>"지금 쓰는 패드만으로 그린 직선을 믿어도 되나"</b> 를 판단하는 조건으로 쓰인다 (2장 이상일 것).</p>' +
+         '<h4>장비 제조사마다 채널 세는 법이 다르다</h4><p>AMAT 은 장비 하나가 한 단위다. EBARA 는 AB / CD, KCT 는 L / R 로 채널이 갈려 있어 <b>recipe 이름으로 어느 쪽인지 판별해</b> 따로 센다.</p>',
+      c: '<ul><li><code>AMAT</code> &rarr; 장비 ID 그대로</li>' +
+         '<li><code>EBARA</code> &rarr; <code>+ \'_AB\'</code> 또는 <code>\'_CD\'</code></li>' +
          '<li><code>KCT</code> &rarr; <code>+ \'_L\'</code> 또는 <code>\'_R\'</code></li></ul>' +
-         '<p>이 <code>rank</code> 는 뒤에서 <b>&ldquo;현재 사이클&rdquo; 직선을 채택할지</b> 판단하는 조건(<code>rank &ge; 2</code>)으로 쓰인다.</p>'
+         '<p>산출된 <code>rank</code> 는 <code>_fit_current</code> 의 <code>rank &ge; 2</code> 조건으로 쓰인다.</p>'
     },
     r_rr: {
-      sig: 'Removal_Rate_Get.compute_rr(merge_df, key, pol_type, EQPM_df, RR_Alarm, mongo)',
-      loc: 'Common/REMOVAL_RATE.py:267 · 그룹판 :311',
-      h: '<h4>소모품 파라미터 선택</h4><p>Set-up 의 <code>RR_Para</code>(대문자 변환)로 결정: <code>HEAD</code> / <code>PAD</code> / <code>DISK</code> / <code>DRESSER_CUTTING_RATE</code> &rarr; <code>consumable_Para</code></p>' +
-         '<h4>데이터 필터 &mdash; 단독/그룹의 유일한 실질 차이</h4>' +
-         '<pre><span class="cm">compute_rr</span>\noperation_id == Oper_Code\n<b>and recipe_id == Recipe_ID</b>\nand IDLE 이 빈 값\n\n<span class="cm">compute_rr_group</span>\nIDLE 이 빈 값        <span class="cm"># recipe 조건 없음</span></pre>' +
-         '<p>그룹판은 recipe 를 구분하지 않고 <b>합산</b>한다. 이후 <code>_process_models</code> 는 두 경로가 <b>같은 코드</b>이고, 차이는 집계 키 하나뿐이다.</p>'
+      t: '학습에 쓸 웨이퍼 고르기',
+      loc: 'Common/REMOVAL_RATE.py:267 · 묶음판 :311',
+      h: '<h4>어느 소모품을 기준으로 삼나</h4><p>웹 Set-up 의 <code>RR_Para</code> 로 정한다 — <b>헤드 / 패드 / 디스크 / 드레서</b> 중 하나. 공정마다 연마율을 좌우하는 소모품이 다르기 때문이다.</p>' +
+         '<h4>쉬었다 온 웨이퍼는 뺀다</h4><p><code>IDLE</code> 표시가 붙은 웨이퍼는 거동이 평소와 달라서, 여기 섞이면 직선이 흐려진다. 그 차이는 <b>③에서 따로</b> 다룬다.</p>' +
+         '<h4>단독과 묶음의 유일한 실질 차이</h4><p>단독은 <b>이 recipe 웨이퍼만</b>, 묶음은 <b>recipe 를 가리지 않고 전부</b> 모아 직선을 그린다. 그 뒤 계산은 두 경로가 완전히 같은 코드다.</p>',
+      c: '<pre><span class="cm">compute_rr</span>\noperation_id == Oper_Code\n<b>and recipe_id == Recipe_ID</b>\nand IDLE 이 빈 값\n\n<span class="cm">compute_rr_group</span>\nIDLE 이 빈 값        <span class="cm"># recipe 조건 없음</span></pre>' +
+         '<p><code>RR_Para</code>(대문자 변환) &rarr; <code>HEAD</code> / <code>PAD</code> / <code>DISK</code> / <code>DRESSER_CUTTING_RATE</code> &rarr; <code>consumable_Para</code></p>'
     },
     r_cyc: {
-      sig: 'Removal_Rate_Get._detect_cycles(temp_data, consumable_Para)',
+      t: '패드 교체 시점 찾기',
       loc: 'Common/REMOVAL_RATE.py:16',
-      h: '<p><code>eqp_id//recipe_id</code> 조합별로 소모품값이 <b>3 이상 급감</b>하면 교체로 보고 사이클 번호를 매긴다.</p>' +
-         '<pre>raw   = (consumable.diff() &lt; -3).cumsum()\ncycle = raw.max() + 1 - raw</pre>' +
-         '<h4>번호가 뒤집혀 있다</h4><p><code>max + 1 - cumsum</code> 이므로 <b>현재(최신) 사이클이 1</b>이다. 뒤에서 <code>cycle == 1</code> 로 &ldquo;지금 쓰고 있는 패드&rdquo; 를 골라낸다.</p>' +
-         '<p>결과가 비면 <code>return None</code> 으로 이 키의 학습을 건너뛴다.</p>' +
-         '<h4>① 과 다른 임계값</h4><p>① 의 <code>compute_detrend</code> 는 <code>&lt; -0.5</code>, 여기는 <code>&lt; -3</code>. 같은 &ldquo;패드 교체 감지&rdquo; 지만 문턱이 다르다.</p>'
+      h: '<h4>무엇을 하나</h4><p>소모품 값이 <b>갑자기 뚝 떨어지면</b> 교체한 것으로 보고, 교체를 경계로 구간에 번호를 매긴다.</p>' +
+         '<h4>번호를 뒤에서부터 매긴다</h4><p><b>지금 쓰고 있는 구간이 1번</b>이다. 뒤에서 "1번" 만 고르면 곧바로 <b>현재 패드</b>가 잡히도록 일부러 뒤집어 매긴 것이다.</p>' +
+         '<p>구간이 하나도 안 잡히면 이 덩어리의 학습을 건너뛴다.</p>' +
+         '<h4>①의 교체 감지와 문턱이 다르다</h4><p>①은 <b>0.5</b> 이상 떨어지면 교체로 보고, 여기는 <b>3</b> 이상 떨어져야 교체로 본다. 같은 "패드 교체 감지" 지만 기준이 다르다.</p>',
+      c: '<pre>raw   = (consumable.diff() &lt; -3).cumsum()\ncycle = raw.max() + 1 - raw</pre>' +
+         '<p><code>eqp_id//recipe_id</code> 조합별. 결과가 비면 <code>return None</code>.</p>'
     },
     r_models: {
-      sig: 'Removal_Rate_Get._process_models(..., group_mode)',
+      t: '네 가지 직선 그리기',
       loc: 'Common/REMOVAL_RATE.py:127',
-      h: '<h4>VM 컬럼 결정</h4><pre>vm_col = itm_vm_col if itm_vm_col in columns\n         else Thk_Para + \'_VM\'</pre>' +
+      h: '<h4>연마율을 어떻게 구하나</h4><p>웨이퍼 한 장마다:</p>' +
+         '<pre>연마율 = (들어올 때 두께 − 나갈 때 두께)\n         ÷ 연마 시간</pre>' +
+         '<p>들어올 때 두께는 <b>①이 추정한 값</b>을 쓴다. 이렇게 모인 점들에 직선을 맞춘다. 크게 벗어난 점은 뺀다.</p>' +
+         '<p>한 집계 단위에 웨이퍼가 <b>10장 미만</b>이면 학습하지 않는다.</p>' +
+         '<h4>네 직선의 차이</h4><ul>' +
+         '<li><b>기본</b> — 기간 전체를 다 써서 그린다. 가장 안정적이지만 <b>최근 변화에 둔하다.</b></li>' +
+         '<li><b>가중</b> — 최근 웨이퍼에 더 무게를 준다. 최근 경향을 따라간다.</li>' +
+         '<li><b>현재 패드</b> — <b>지금 쓰는 패드 구간만</b>으로 그린다. 가장 민감한 대신 표본이 적어, <b>세 조건을 모두</b> 만족해야 채택된다 — 건수가 기준 이상, 마지막 데이터가 12시간 이내, 정비 이후 2장 이상. 채택돼도 기본 직선에서 크게 벗어나지 못하게 <b>범위를 제한</b>한다.</li>' +
+         '<li><b>패드 초반</b> — 패드를 갈고 얼마 안 된 구간만. 새 패드의 초기 거동이 달라 따로 그린다. 표본이 너무 적거나 한쪽으로 몰려 있으면 만들지 않는다.</li></ul>' +
+         '<h4>못 만든 직선은 저장하지 않는다</h4><p>0 이나 빈 값으로 채우지 않고 <b>항목 자체를 뺀다.</b> 읽는 쪽이 "이 직선은 없다" 를 바로 알 수 있게 하기 위해서다.</p>',
+      c: '<h4>VM 컬럼 결정</h4><pre>vm_col = itm_vm_col if itm_vm_col in columns\n         else Thk_Para + \'_VM\'</pre>' +
          '<div class="warn">Set-up 의 ITM 유무가 아니라 <b>merge_df 에 실제로 만들어진 컬럼</b>을 본다. <code>VM_Source=\'POST\'</code> 는 ITM Set-up 을 남긴 채 detrend 로 학습하므로, Set-up 만 보면 <b>존재하지 않는</b> <code>{ITM파라}_VM</code> 을 찾게 된다.</div>' +
-         '<h4>RR 계산</h4><pre>pre_thk  = Pre_Target + vm\npost_thk = (Post_Target + BIAS) if PRESSURE\n           else Thk_Para\nRR = (pre_thk - post_thk) / Pol_Time\n<span class="cm"># REV 파라면 부호 반대</span></pre><p>이후 6&sigma; 밖 제거.</p>' +
-         '<h4>집계 단위 루프</h4><p><code>eqp_model</code> &rarr; <code>iter_col</code> (<code>eq_recipe</code> 또는 그룹판의 <code>rr_key = eqp_id//Group_Name</code>). 건수가 10 미만이면 건너뛴다.</p>' +
-         '<h4>네 직선</h4><ul>' +
-         '<li><code>b1/b0</code> &mdash; <code>_fit_lr</code> (:47). 조건 없는 기본 회귀</li>' +
-         '<li><code>b1_weighted/b0_weighted</code> &mdash; <code>_fit_weighted</code> (:53). 최근 구간 가중치 <code>[1,2,3,4,RR_Weight]</code> 만큼 행을 복제해 회귀</li>' +
-         '<li><code>b1_current/b0_current</code> &mdash; <code>_fit_current</code> (:86). <code>cycle==1</code> 만. <b>세 조건 모두</b> 필요: 건수 &gt; <code>RR_Count</code>, 최신 타점 경과 &lt; 12시간, PM rank &ge; 2. 채택돼도 전체 직선의 2배 / &plusmn;10% 로 <b>clip</b> 한다</li>' +
-         '<li><code>if_b1/if_b0</code> &mdash; <code>_fit_if</code> (:108). <code>Pad_Seperation</code> 이하 구간만. 100건 미만이거나 4분면 중 25건 미만이 있으면 제외</li></ul>' +
-         '<p>전체 4분면이 각각 25건을 넘을 때만 학습한다. 산출 안 된 값은 <code>\'-\'</code> 로 두고, 저장 직전 <code>{k: v for ... if v != \'-\'}</code> 로 <b>키 자체를 제거</b>한다.</p>'
+         '<pre>pre_thk  = Pre_Target + vm\npost_thk = (Post_Target + BIAS) if PRESSURE\n           else Thk_Para\nRR = (pre_thk - post_thk) / Pol_Time\n<span class="cm"># REV 파라면 부호 반대</span></pre><p>이후 6&sigma; 밖 제거.</p>' +
+         '<h4>집계 단위</h4><p><code>eqp_model</code> &rarr; <code>iter_col</code> (<code>eq_recipe</code> 또는 묶음판의 <code>rr_key = eqp_id//Group_Name</code>). 건수 10 미만이면 건너뛴다.</p>' +
+         '<h4>네 직선의 구현</h4><ul>' +
+         '<li><code>b1/b0</code> — <code>_fit_lr</code> (:47)</li>' +
+         '<li><code>b1_weighted/b0_weighted</code> — <code>_fit_weighted</code> (:53). 가중치 <code>[1,2,3,4,RR_Weight]</code> 만큼 행 복제</li>' +
+         '<li><code>b1_current/b0_current</code> — <code>_fit_current</code> (:86). <code>cycle==1</code> 만. 건수 &gt; <code>RR_Count</code>, 최신 타점 경과 &lt; 12시간, PM rank &ge; 2. 전체 직선의 2배 / &plusmn;10% 로 clip</li>' +
+         '<li><code>if_b1/if_b0</code> — <code>_fit_if</code> (:108). <code>Pad_Seperation</code> 이하 구간만. 100건 미만이거나 4분면 중 25건 미만이 있으면 제외</li></ul>' +
+         '<p>산출 안 된 값은 <code>\'-\'</code> 로 두고, 저장 직전 <code>{k: v for ... if v != \'-\'}</code> 로 키 자체를 제거한다.</p>'
     },
     db_rr: {
-      sig: 'MICO_Removal_Rate_{Lot_Code}_{Oper_Desc}_{Fab}',
-      loc: 'MongoDB · mico-platform-mongodb',
-      h: '<p>② 의 결과. ③ 과 ④ 가 <b>둘 다</b> 이 컬렉션을 읽는다.</p>' +
-         '<h4>담기는 것</h4><p>EQ · Recipe 별 <code>Count</code>, <code>b1/b0</code>, <code>b1_weighted/b0_weighted</code>, <code>Simul_Date</code>, <code>b1_current/b0_current</code>, <code>if_b1/if_b0</code>. <b>산출되지 않은 계수는 키가 없다.</b></p>' +
-         '<h4>Simulation 이 고르는 순서</h4><p><code>Common/Simulation.py</code> 의 <code>RR()</code> (:566) 이 값이 있는 첫 번째를 쓴다:</p>' +
-         '<pre>if_b1  (소모품값 ≤ Pad_Seperation 일 때)\n  → b1_current\n  → b1_weighted\n  → b1</pre>' +
-         '<p>학습이 네 개를 다 뽑아 두고 <b>선택은 시뮬레이션이 하는</b> 구조다. 빠진 키는 <code>_fill_learning_values</code> 에서 NaN 이 되어 자연히 다음 후보로 넘어간다.</p>'
+      t: '② 결과 저장소',
+      loc: 'MongoDB · MICO_Removal_Rate_…',
+      h: '<p>②의 결과. <b>③과 ④가 둘 다</b> 이곳을 읽는다.</p>' +
+         '<h4>담기는 것</h4><p>장비·recipe 별로 <b>네 직선의 기울기와 절편</b>, 그리고 몇 건으로 만든 것인지. <b>못 만든 직선은 항목 자체가 없다.</b></p>' +
+         '<h4>Simulation 이 고르는 순서</h4>' +
+         '<pre>패드 초반 구간이면 → 패드 초반 직선\n   없으면         → 현재 패드 직선\n   없으면         → 가중 직선\n   없으면         → 기본 직선</pre>' +
+         '<p>학습은 <b>재료를 네 개 만들어 두기만</b> 하고, 실제 선택은 시뮬레이션이 그때그때 한다. 없는 항목은 자연히 다음 후보로 넘어간다.</p>',
+      c: '<p><code>MICO_Removal_Rate_{Lot_Code}_{Oper_Desc}_{Fab}</code></p>' +
+         '<p>필드: <code>Count</code>, <code>b1/b0</code>, <code>b1_weighted/b0_weighted</code>, <code>Simul_Date</code>, <code>b1_current/b0_current</code>, <code>if_b1/if_b0</code></p>' +
+         '<p>선택은 <code>Common/Simulation.py</code> 의 <code>RR()</code> (:566). 빠진 키는 <code>_fill_learning_values</code> 에서 NaN 이 되어 다음 후보로 넘어간다.</p>'
     },
 
     o_entry: {
-      sig: 'Module_Get.compute_offset(merge_df, mico_info_key, pol_type)',
-      loc: 'Common/Module.py:485 · 그룹판 :436',
-      h: '<h4>무엇을 학습하나</h4><p>장비가 쉬었다 재개하면 첫 웨이퍼들의 연마율이 평소와 다르다. ② 가 학습한 <b>패드 마모 기반 예측 연마율</b>과 <b>실측 연마율</b>의 차이를 <b>시간</b>으로 환산해 IDLE 라벨별 보정량을 만든다.</p>' +
-         '<h4>맨 먼저 TIME 만 남긴다</h4><pre>mico_info_key = mico_info_key[FB_Type == \'TIME\']</pre>' +
-         '<p>OFFSET 은 연마<b>시간</b> 보정이라 PRESSURE 행은 대상이 아니다.</p>' +
-         '<div class="warn">그룹판은 <b>APC_Para(플래튼)별로 쪼개</b> 호출한다. <code>compute_offset_group</code> 이 <code>search_keys.iloc[0]</code> 의 APC_Para <b>하나만</b> 보고 파라미터와 B1/B0 를 고르기 때문 &mdash; 여러 플래튼을 한 번에 넘기면 첫 번째만 학습되고 나머지는 조용히 누락된다.</div>'
+      t: '③ 쉬었다 온 보정 — 첫 장은 다르게 깎인다',
+      loc: 'Common/Module.py:485 · 묶음판 :436',
+      h: '<h4>무엇을 하나</h4><p>장비가 <b>쉬었다 재개</b>하면 첫 웨이퍼 몇 장은 평소만큼 깎이지 않는다. ②가 예측한 연마율과 <b>실제</b> 연마율의 차이를 <b>연마 시간</b>으로 환산해, IDLE 상황별 보정량을 만든다.</p>' +
+         '<h4>왜 시간으로 바꾸나</h4><p>APC 가 실제로 조절하는 것이 연마 시간이라, 보정량도 "몇 초 더 / 몇 초 덜" 형태여야 그대로 쓸 수 있다.</p>' +
+         '<h4>시간 제어 공정만 대상</h4><p>압력으로 제어하는 공정은 여기서 제외한다 — 조절 대상이 시간이 아니기 때문이다.</p>' +
+         '<div class="warn">묶음 학습은 <b>플래튼(APC_Para)별로 쪼개서</b> 불러야 한다. 묶음 경로가 <b>첫 번째 플래튼 하나만</b> 보고 파라미터를 고르기 때문에, 여러 플래튼을 한 번에 넘기면 <b>나머지가 조용히 누락된다.</b></div>',
+      c: '<p><code>Module_Get.compute_offset(merge_df, mico_info_key, pol_type)</code></p>' +
+         '<pre>mico_info_key = mico_info_key[FB_Type == \'TIME\']</pre>' +
+         '<p>묶음판 <code>compute_offset_group</code> 은 <code>search_keys.iloc[0]</code> 의 APC_Para 하나만 보고 파라미터와 B1/B0 를 고른다.</p>'
     },
     o_load: {
-      sig: 'OFFSET_Get.load_rr_data(merge_df, Fab, Lot_Code, Oper_Desc, APC_Para_List, ...)',
+      t: '②가 배운 직선 붙이기',
       loc: 'Common/OFFSET.py:130',
-      h: '<p><code>MICO_Removal_Rate_...</code> 를 읽어 <code>merge_asof</code> 로 붙인다.</p>' +
-         '<h4>어느 계수를 쓰나</h4><p><code>_get_b_coef</code> (OFFSET.py:21) 가 고른다:</p>' +
-         '<pre>b1_weighted 가 유효 → weighted 사용\n그 외              → b1 / b0 사용</pre>' +
-         '<p>③ 은 ② 의 네 직선 중 <b>두 개만</b> 본다 &mdash; <code>current</code> 와 <code>if</code> 는 쓰지 않는다. (그 둘은 Simulation 전용)</p>' +
-         '<p>APC_Para 별로 피벗해 <code>{APC_Para}_B1</code> / <code>_B0</code> 컬럼으로 만든 뒤 EQP/Recipe/날짜 기준으로 조인한다.</p>'
+      h: '<p>②의 결과를 읽어 웨이퍼마다 붙인다.</p>' +
+         '<h4>네 직선 중 둘만 쓴다</h4><p><b>가중 직선</b>이 있으면 그것을, 없으면 <b>기본 직선</b>을 쓴다.</p>' +
+         '<p><b>현재 패드</b>와 <b>패드 초반</b> 직선은 여기서 쓰지 않는다 — 그 둘은 Simulation 전용이다.</p>',
+      c: '<p><code>_get_b_coef</code> (OFFSET.py:21): <code>b1_weighted</code> 가 유효하면 weighted, 아니면 <code>b1/b0</code>.</p>' +
+         '<p>APC_Para 별로 피벗해 <code>{APC_Para}_B1</code> / <code>_B0</code> 컬럼으로 만든 뒤 EQP/Recipe/날짜 기준 <code>merge_asof</code>.</p>'
     },
     o_calc: {
-      sig: 'OFFSET 산식 · clip',
+      t: '보정량 계산',
       loc: 'Common/OFFSET.py:96~109',
-      h: '<h4>전처리</h4><ul><li><code>IDLE</code> 을 문자열로 정규화 &mdash; 전부 NaN 이면 float dtype 이 되어 <code>.str</code> accessor 가 죽는다</li>' +
+      h: '<h4>계산의 뼈대</h4><p>같은 웨이퍼에 대해 연마율을 <b>두 가지로</b> 구한다.</p>' +
+         '<ul><li><b>실제 연마율</b> — 실제로 깎인 두께 ÷ 실제 연마 시간</li>' +
+         '<li><b>예측 연마율</b> — ②가 배운 패드 마모 직선에 지금 소모품 값을 넣어 나온 값</li></ul>' +
+         '<p>목표만큼 깎는 데 걸리는 시간을 두 연마율로 각각 계산하고, <b>그 시간 차이</b>가 보정량이다.</p>' +
+         '<pre>보정량 = (목표 두께차 ÷ 실제 연마율)\n       − (목표 두께차 ÷ 예측 연마율)</pre>' +
+         '<h4>보정 범위를 제한한다</h4><p>−5초 ~ +3초 로 자른다. <b>비대칭</b>이다 — 시간을 줄이는 쪽이 늘리는 쪽보다 넓다.</p>' +
+         '<h4>Truing 은 보정하지 않는다</h4><p>패드 표면을 다듬은 직후(<code>LC_T_</code> / <code>LC_TB_</code>) 는 보정량을 <b>0 으로 고정</b>한다.</p>',
+      c: '<h4>전처리</h4><ul><li><code>IDLE</code> 을 문자열로 정규화 — 전부 NaN 이면 float dtype 이 되어 <code>.str</code> accessor 가 죽는다</li>' +
          '<li><code>_B0/_B1</code> 결측을 <code>eq_recipe</code> 평균으로 채움</li></ul>' +
-         '<h4>산식</h4>' +
-         '<pre><span class="cm"># 실측 연마율</span>\nRR     = (Pre_Target - Thk) / Pol_Time\n<span class="cm"># ②의 패드 마모 직선으로 예측한 연마율</span>\nRR_Pad = Pad_Para * {APC}_B1 + {APC}_B0\n<span class="cm"># 목표 두께 변화량을 각 연마율로 나눠 시간차</span>\ndelta  = Pre_Target - Target\nOFFSET = delta/RR - delta/RR_Pad</pre>' +
-         '<p><code>REV</code> 파라미터면 <code>RR</code> 과 <code>delta</code> 의 부호가 반대다.</p>' +
-         '<h4>clip 과 강제 0</h4><p><code>OFFSET.clip(-5, 3)</code> &mdash; <b>비대칭</b>이다. 시간을 줄이는 쪽(&minus;5)이 늘리는 쪽(+3)보다 넓다.</p>' +
-         '<p><code>IDLE</code> 이 <code>LC_T_</code>/<code>LC_TB_</code>(Truing) 이면 <b>0으로 덮어쓴다.</b></p>'
+         '<pre>RR     = (Pre_Target - Thk) / Pol_Time\nRR_Pad = Pad_Para * {APC}_B1 + {APC}_B0\ndelta  = Pre_Target - Target\nOFFSET = delta/RR - delta/RR_Pad</pre>' +
+         '<p><code>REV</code> 파라미터면 <code>RR</code> 과 <code>delta</code> 의 부호가 반대다. <code>OFFSET.clip(-5, 3)</code>.</p>'
     },
     o_agg: {
-      sig: 'Idle_ / Layer_ 집계 후 저장',
+      t: 'IDLE 상황별로 평균',
       loc: 'Common/OFFSET.py:111~124',
-      h: '<p><code>IDLE</code> 이 <code>Idle_</code> 또는 <code>Layer_</code> 를 포함하는 행만 추려 집계한다.</p>' +
-         '<pre><span class="cm">compute_offset</span>\ngroupby([\'eqp_id\',\'recipe_id\',\'IDLE\'])\n  .size() &gt;= 5  →  mean(\'OFFSET\')\n\n<span class="cm">compute_offset_group</span>\ngroupby([\'eqp_id\',\'IDLE\'])   <span class="cm"># recipe 무관</span>\n  .size() &gt;= 5  →  mean(\'OFFSET\')\n  → 그룹 내 recipe 마다 같은 값 복제 저장</pre>' +
-         '<p>빈 <code>IDLE</code> 은 <code>\'Normal\'</code> 로 치환 후 저장.</p>' +
-         '<div class="warn"><b>반환값은 집계 결과가 아니다.</b> <code>compute_offset</code> 이 돌려주는 것은 방금 저장한 <code>idle_table</code> 이 아니라 <code>OFFSET</code> 컬럼이 붙은 <b>전체 행</b>이다. 이걸 모아 다음 단계가 LC 계열을 따로 집계한다.</div>'
+      h: '<h4>무엇을 하나</h4><p><code>Idle_</code> / <code>Layer_</code> 가 붙은 웨이퍼만 추려, <b>장비 · recipe · IDLE 라벨</b> 조합마다 보정량을 평균한다.</p>' +
+         '<p><b>5건 이상</b> 모인 조합만 남긴다 — 표본이 적으면 평균이 그냥 노이즈다.</p>' +
+         '<p>묶음 학습은 recipe 를 가리지 않고 <b>장비 · IDLE</b> 로만 평균한 뒤, 그룹 안의 recipe 마다 같은 값을 복제해 저장한다.</p>' +
+         '<div class="warn">이 단계가 <b>돌려주는 것은 평균 결과가 아니다.</b> 저장은 저장대로 하고, 다음 단계가 쓸 수 있도록 보정량이 붙은 <b>전체 웨이퍼 행</b>을 넘긴다.</div>',
+      c: '<pre><span class="cm">compute_offset</span>\ngroupby([\'eqp_id\',\'recipe_id\',\'IDLE\'])\n  .size() &gt;= 5  →  mean(\'OFFSET\')\n\n<span class="cm">compute_offset_group</span>\ngroupby([\'eqp_id\',\'IDLE\'])   <span class="cm"># recipe 무관</span>\n  .size() &gt;= 5  →  mean(\'OFFSET\')\n  → 그룹 내 recipe 마다 같은 값 복제 저장</pre>' +
+         '<p>빈 <code>IDLE</code> 은 <code>\'Normal\'</code> 로 치환 후 저장. 반환값은 <code>idle_table</code> 이 아니라 <code>OFFSET</code> 컬럼이 붙은 전체 행이다.</p>'
     },
     o_lc: {
-      sig: 'OFFSET_Get.compute_lc_offset(temp_data, Lot_Code, Oper_Desc, Fab, Offset_Group)',
+      t: '패드 교체 직후 — 표본을 모아서',
       loc: 'Common/OFFSET.py:266',
-      h: '<p>패드 교체 직후(LC 계열) 구간. Idle_/Layer_ 와 달리 <b>표본이 적어서</b> 라벨을 묶고 한 번 더 평균한다.</p>' +
-         '<h4>두 갈래로 분리</h4><ul>' +
-         '<li><code>temp_data_lc</code> &mdash; <code>LC_</code> 포함하되 <code>_ADD_</code>/<code>_T_</code>/<code>_TB_</code> 제외</li>' +
-         '<li><code>temp_data_tb</code> &mdash; <code>_ADD_</code>/<code>_T_</code>/<code>_TB_</code> 포함</li></ul>' +
+      h: '<h4>왜 따로 다루나</h4><p>패드 교체 직후(LC 계열) 도 보정이 필요하지만, <b>교체 이벤트 자체가 드물어</b> 앞 단계의 5건 문턱을 넘기 어렵다.</p>' +
+         '<h4>라벨을 합쳐 표본을 모은다</h4><p><code>Offset_Group</code> 이 <code>Y</code> 면 라벨에서 <b>장비 번호를 떼어낸다.</b> 그러면 장비마다 흩어져 있던 같은 성격의 표본이 <b>한 라벨로 합쳐져</b> 문턱을 넘길 수 있다.</p>' +
+         '<h4>실적이 없는 조합도 행으로 남긴다</h4><p>가능한 조합을 모두 만들어 두고, 실적이 있으면 그 평균을, 없으면 <b>비슷한 recipe 끼리 묶은 평균</b>으로 채운다. 조회하는 쪽이 "이 조합은 값이 없다" 를 만나지 않게 하기 위해서다.</p>',
+      c: '<h4>두 갈래로 분리</h4><ul>' +
+         '<li><code>temp_data_lc</code> — <code>LC_</code> 포함하되 <code>_ADD_</code>/<code>_T_</code>/<code>_TB_</code> 제외</li>' +
+         '<li><code>temp_data_tb</code> — <code>_ADD_</code>/<code>_T_</code>/<code>_TB_</code> 포함</li></ul>' +
          '<h4>Offset_Group == \'Y\' 면 라벨 축약</h4><pre>lc: \'_\'.join([split[0], split[2]])\ntb: \'_\'.join([split[0], split[3]])</pre>' +
-         '<p>장비 번호를 떼어 흩어진 표본을 한 라벨로 합친다 &mdash; 교체 이벤트가 드문 공정에서 5건 문턱을 넘기기 위한 장치.</p>' +
          '<h4>_build_idle_table (OFFSET.py:27)</h4><ol>' +
          '<li><code>(eq_recipe_apc, IDLE)</code> 평균 &rarr; <code>OFFSET_Origin</code></li>' +
-         '<li><code>itertools.product</code> 로 <b>모든 조합</b>을 만들어 left join &mdash; 실적이 없는 조합도 행으로 남긴다</li>' +
+         '<li><code>itertools.product</code> 로 모든 조합을 만들어 left join</li>' +
          '<li><code>recipe_group</code>(<code>recipe_id</code> 앞 3토큰) &times; <code>IDLE</code> 평균으로 덮어쓴 값이 최종 <code>OFFSET</code></li></ol>'
     },
     db_os: {
-      sig: 'MICO_OFFSET_{Lot_Code}_{Oper_Desc}_{Fab}',
-      loc: 'MongoDB · mico-platform-mongodb',
-      h: '<p>③ 의 결과. EQ · Recipe · IDLE 라벨별 연마시간 보정량.</p>' +
-         '<div class="warn"><b>한 번의 학습에서 두 함수가 같은 컬렉션에 append 한다.</b> <code>compute_offset</code> 이 Idle_/Layer_ 행을, <code>compute_lc_offset</code> 이 LC 계열 행을 각각 넣는다. 읽을 때는 <code>IDLE</code> 라벨로 어느 쪽인지 구분해야 한다.</div>' +
-         '<p><code>OFFSET</code> 결측은 <code>0</code> 으로 채워 저장한다 &mdash; 조회 쪽에서 NaN 을 만나지 않게.</p>'
+      t: '③ 결과 저장소',
+      loc: 'MongoDB · MICO_OFFSET_…',
+      h: '<p>③의 결과. <b>장비 · recipe · IDLE 라벨별 연마 시간 보정량.</b></p>' +
+         '<div class="warn">한 번의 학습에서 <b>두 곳이 같은 저장소에 쌓는다</b> — 앞 단계가 <code>Idle_</code>/<code>Layer_</code> 행을, LC 단계가 패드 교체 직후 행을 각각 넣는다. 읽을 때 <b>IDLE 라벨로 어느 쪽인지 구분</b>해야 한다.</div>' +
+         '<p>보정량이 없는 칸은 <b>0</b> 으로 채워 저장한다 — 조회하는 쪽이 빈 값을 만나지 않게.</p>',
+      c: '<p><code>MICO_OFFSET_{Lot_Code}_{Oper_Desc}_{Fab}</code> · mico-platform-mongodb</p>' +
+         '<p><code>compute_offset</code> 과 <code>compute_lc_offset</code> 이 각각 append 한다.</p>'
     },
 
     alarm: {
-      sig: 'Module_Get.check_alarm(mico_info_key)',
+      t: '④ 연마율 알람 점검',
       loc: 'Common/Module.py:519',
-      h: '<p>② 가 쓴 RR 컬렉션을 다시 읽어 <code>RR_Alarm_Sigma</code> 이탈을 점검한다.</p>' +
-         '<h4>범위를 맞추는 법</h4><p>RR 컬렉션은 <b>device 단위</b>(<code>MICO_Removal_Rate_{Lot_Code}_{Oper_Desc}_{Fab}</code>)라 같은 device 의 다른 그룹·미그룹 recipe 실적까지 들어 있다. 반면 <code>mico_info_key</code> 는 <b>그룹 단위</b>로 좁혀져 있다.</p>' +
+      h: '<h4>무엇을 하나</h4><p>②가 방금 배운 연마율이 <b>평소 범위를 벗어났는지</b> 확인하고, 벗어났으면 Cube 로 현업에 알린다. 기준은 웹 Set-up 의 <code>RR_Alarm_Sigma</code>.</p>' +
+         '<h4>점검 범위를 맞추는 일이 핵심</h4>' +
+         '<p>②의 저장소는 <b>device 단위</b>라 같은 device 의 <b>다른 그룹·비묶음 recipe 실적까지</b> 들어 있다. 반면 지금 점검해야 할 대상은 <b>이번에 학습한 것</b>뿐이다.</p>' +
+         '<p>그래서 저장소를 통째로 읽지 않고, <b>이번 학습 대상 recipe 와 겹치는 것만</b> 남긴다. 범위를 좁히는 일과 recipe 별 기준값을 붙이는 일이 한 번에 끝난다.</p>' +
+         '<div class="warn"><b>여기서 실제로 터졌던 버그.</b> 그룹 경계를 학습에 반영하면서 학습 대상은 좁아졌는데, 점검은 여전히 <b>저장소 전체</b>를 읽었다. 학습 대상에 없는 recipe 행을 만나자 기준값을 못 찾아 오류가 났다. 재현 조건은 <b>"한 device 안에 학습 덩어리가 둘 이상"</b> — 그룹과 비묶음이 섞인 경우가 대표적이다.</div>' +
+         '<p>고치면서 <b>중복 발송도 사라졌다.</b> 전에는 두 경로가 각각 device 전체를 점검해 같은 알람이 경로마다 나갔는데, 이제 recipe 당 한 번이다.</p>' +
+         '<h4>② 안에도 별도 알람이 하나 더 있다</h4><p>이것과 무관하게 ② 안에서 도는 알람이 따로 있다 — 시간 제어 파라미터 한정, 최근 3건의 연마율 평균이 전체 3&sigma; 를 벗어나면 즉시 보낸다.</p>',
+      c: '<p><code>Module_Get.check_alarm(mico_info_key)</code></p>' +
          '<pre>mico_info_key 의\n(Recipe_ID, APC_Para, RR_Alarm_Sigma)\n를 <b>inner join</b></pre>' +
-         '<p>매칭되지 않는 행(= 다른 그룹·미그룹 recipe)은 join 에서 빠지고, 남은 행은 Sigma 를 컬럼으로 들고 있어 루프에서 바로 읽는다. 범위 제한과 행별 Sigma 부여가 한 번에 끝난다.</p>' +
-         '<div class="warn"><b>여기서 실제로 터졌던 버그.</b> 그룹 경계를 학습에 반영하면서 <code>mico_info_key</code> 가 좁혀졌는데 <code>check_alarm</code> 은 여전히 컬렉션 전체를 읽었다. 그 행의 <code>(Recipe_ID, APC_Para)</code> 가 키에 없어 Sigma 조회가 0행이 되고 <code>.unique()[0]</code> 에서 <code>IndexError</code>. 재현 조건은 &ldquo;한 device 안에 학습 슬라이스가 둘 이상&rdquo; &mdash; <b>그룹/미그룹 혼재</b>가 대표 케이스다.</div>' +
-         '<p>부수 효과로 중복 발송도 사라졌다. 이전에는 두 경로가 각각 device 전체를 점검해 같은 recipe 알람이 경로마다 나갔는데, 이제 recipe 당 1회다.</p>' +
-         '<h4>_check_rr_alarm 과 다른 것</h4><p><code>REMOVAL_RATE._check_rr_alarm</code> (:32) 은 ② 안에서 도는 <b>별개 경로</b>다. TIME 파라 한정, 최근 3건 RR 평균이 전체 3&sigma; 를 벗어나면 즉시 발송한다.</p>'
+         '<p>매칭 안 되는 행(= 다른 그룹·비묶음 recipe)은 join 에서 빠진다. 이전 버그: <code>.unique()[0]</code> 에서 <code>IndexError</code>.</p>' +
+         '<p>별도 경로는 <code>REMOVAL_RATE._check_rr_alarm</code> (:32).</p>'
     }
   };
 
@@ -681,37 +805,125 @@
 
   /* ── 선택 · 상세 ──────────────────────────────────── */
   var cur = null;
+  var impOn = true;   // 영향 범위 모드 : 하류 전체 vs 직접 이웃
   function clear() {
     cur = null;
     panel.classList.remove('open');
-    nodesG.querySelectorAll('.nd').forEach(function (g) { g.classList.remove('sel', 'faded'); });
-    edgeEls.forEach(function (p) { p.classList.remove('hi', 'faded'); });
+    nodesG.querySelectorAll('.nd').forEach(function (g) { g.classList.remove('sel', 'faded', 'imp', 'up'); });
+    edgeEls.forEach(function (p) { p.classList.remove('hi', 'faded', 'up'); });
     labelEls.forEach(function (t) { t.classList.remove('faded'); });
+  }
+
+  /* ── 영향 범위 : EDGES 의 전이 폐포 ───────────────────
+     하류(down) = 이 노드를 고쳤을 때 값이 따라 바뀔 수 있는 범위.
+     상류(up)   = 이 노드의 입력을 만드는 범위 = 고치기 전에 읽어야 할 곳.
+     DB 경유(점선) 엣지도 똑같이 따라간다 — 세 학습이 DataFrame 이 아니라
+     컬렉션으로 이어져 있어서, 그 연결이 영향 범위에서 제일 놓치기 쉽다. */
+  var fwd = {}, rev = {};
+  EDGES.forEach(function (e) {
+    (fwd[e.a] = fwd[e.a] || []).push(e.b);
+    (rev[e.b] = rev[e.b] || []).push(e.a);
+  });
+
+  function closure(id, adj) {
+    var seen = {}, order = [], q = (adj[id] || []).slice();
+    while (q.length) {
+      var n = q.shift();
+      if (seen[n] || n === id) continue;
+      seen[n] = 1; order.push(n);
+      (adj[n] || []).forEach(function (m) { if (!seen[m]) q.push(m); });
+    }
+    return { set: seen, list: order };
+  }
+
+  function tags(ids) {
+    if (!ids.length) return '';
+    return '<div class="imp-tags">' + ids.map(function (i) {
+      var n = byId[i];
+      return '<span class="imp-tag' + (n.g === 'db' ? ' db' : '') +
+             '" data-go="' + i + '">' + n.t + '</span>';
+    }).join('') + '</div>';
+  }
+
+  // 패널 아래에 붙는 영향 범위 섹션을 노드마다 만들어낸다
+  function impactHtml(id) {
+    var down = closure(id, fwd), up = closure(id, rev);
+    var dbs  = down.list.filter(function (i) { return byId[i].g === 'db'; });
+    var fns  = down.list.filter(function (i) { return byId[i].g !== 'db'; });
+
+    var h = '<h4>영향 범위 &mdash; 여기를 고치면</h4>';
+    if (!down.list.length) {
+      h += '<p class="imp-none">하류 없음. 이 노드는 흐름의 끝이라 뒤로 번지지 않는다.</p>';
+    } else {
+      h += '<p class="imp-sum">값이 따라 바뀔 수 있는 범위 <b>' + fns.length + '개 함수 · ' +
+           dbs.length + '개 컬렉션</b>. 클릭하면 이동한다.</p>' + tags(fns);
+      if (dbs.length) {
+        h += '<h4>다시 쓰이는 학습 결과 컬렉션</h4>' + tags(dbs);
+      }
+    }
+
+    // 그림 밖 소비자 — 자기 자신과 하류 전체에 달린 ext 를 모은다.
+    // DB 노드만 보면 안 된다: check_alarm 처럼 컬렉션이 아니라 Cube 로
+    // 바로 나가는 효과도 하류에 있으면 같이 걸려야 한다.
+    // 컬렉션을 먼저 훑어 같은 컬렉션의 소비자끼리 붙게 한다 (BFS 순서는 섞인다)
+    var ext = [];
+    [id].concat(dbs, fns).forEach(function (i) {
+      (byId[i].ext || []).forEach(function (t) { if (ext.indexOf(t) < 0) ext.push(t); });
+    });
+    if (ext.length) {
+      h += '<h4>그림 밖 영향 &mdash; 같이 확인할 것</h4>' +
+           '<ul class="imp-ext"><li>' + ext.join('</li><li>') + '</li></ul>';
+    }
+
+    h += '<h4>입력 &mdash; 고치기 전에 읽어야 할 곳</h4>';
+    h += up.list.length ? tags(up.list)
+                        : '<p class="imp-none">상류 없음. 여기가 진입점이다.</p>';
+    return h;
+  }
+
+  // 코드 세부는 기본으로 접어 둔다 — 개념부터 읽히게
+  function codeHtml(c) {
+    if (!c) return '';
+    return '<details class="fc-code"><summary>코드에서 확인할 것</summary>' +
+           '<div class="fc-code-b">' + c + '</div></details>';
   }
 
   function select(id) {
     cur = id;
-    var d = D[id] || { sig: byId[id].t, loc: byId[id].s, h: '' };
-    document.getElementById('fcTtl').textContent = d.sig;
+    var d = D[id] || { t: byId[id].t, loc: byId[id].s, h: '' };
+    document.getElementById('fcTtl').textContent = d.t;
     document.getElementById('fcLoc').textContent = d.loc;
-    document.getElementById('fcBody').innerHTML = d.h;
+    document.getElementById('fcBody').innerHTML = d.h + codeHtml(d.c) + impactHtml(id);
+    document.getElementById('fcBody').scrollTop = 0;
     panel.classList.add('open');
 
-    var near = {};
-    near[id] = 1;
-    EDGES.forEach(function (e) {
-      if (e.a === id) near[e.b] = 1;
-      if (e.b === id) near[e.a] = 1;
-    });
+    var down, up;
+    if (impOn) {
+      down = closure(id, fwd).set;
+      up   = closure(id, rev).set;
+    } else {
+      // 이웃 모드 : 직접 연결된 한 칸만
+      down = {}; up = {};
+      EDGES.forEach(function (e) {
+        if (e.a === id) down[e.b] = 1;
+        if (e.b === id) up[e.a] = 1;
+      });
+    }
+
     nodesG.querySelectorAll('.nd').forEach(function (g) {
       var i = g.dataset.id;
       g.classList.toggle('sel', i === id);
-      g.classList.toggle('faded', !near[i]);
+      g.classList.toggle('imp', !!down[i]);
+      g.classList.toggle('up',  !!up[i] && !down[i]);
+      g.classList.toggle('faded', i !== id && !down[i] && !up[i]);
     });
     edgeEls.forEach(function (p) {
-      var on = p.dataset.a === id || p.dataset.b === id;
-      p.classList.toggle('hi', on);
-      p.classList.toggle('faded', !on);
+      var a = p.dataset.a, b = p.dataset.b;
+      var isDown = (a === id || down[a]) && !!down[b];
+      var isUp   = (b === id || up[b]) && !!up[a];
+      p.classList.toggle('hi', isDown);
+      p.classList.toggle('up', isUp && !isDown);
+      p.classList.toggle('faded', !isDown && !isUp);
     });
     labelEls.forEach(function (t) { t.classList.remove('faded'); });
     ensureVisible(byId[id]);
@@ -735,8 +947,16 @@
   document.getElementById('fcClose').addEventListener('click', clear);
   document.addEventListener('keydown', function (e) { if (e.key === 'Escape') clear(); });
   document.getElementById('fcBody').addEventListener('click', function (e) {
-    var lk = e.target.closest('.lk');
+    var lk = e.target.closest('.lk, .imp-tag');
     if (lk && lk.dataset.go) select(lk.dataset.go);
+  });
+
+  /* ── 영향 범위 토글 ────────────────────────────────── */
+  document.getElementById('fcImp').addEventListener('click', function () {
+    impOn = !impOn;
+    this.textContent = '영향 범위 ' + (impOn ? 'ON' : 'OFF');
+    this.setAttribute('aria-pressed', impOn ? 'true' : 'false');
+    if (cur) select(cur);
   });
 
   /* ── 그룹 필터 ────────────────────────────────────── */

@@ -19,6 +19,7 @@ local_settings.py
 
 # Claude Code
 .claude/
+AGENTS.md
 
 # macOS
 .DS_Store
