@@ -11,6 +11,7 @@
 
 {% block content %}
 <link rel="stylesheet" href="{% static 'setup_mico/fonts/ibm-plex.css' %}">
+<link rel="stylesheet" href="{% static 'setup_mico/fonts/nanum/nanum-gothic.css' %}">
 
 <style>
 .fc {
@@ -19,7 +20,7 @@
   --c-orch:#5a6b7c; --c-pre:#0e7c86; --c-rr:#1552d4; --c-os:#c2410c; --c-db:#8e2fce;
   --accent:#0e7c86;
   --imp:#c2410c; --imp-fill:#fff4ec; --up-fill:#eef4f8;
-  font-family:'IBM Plex Sans KR','Segoe UI',system-ui,sans-serif;
+  font-family:'Nanum Gothic','Malgun Gothic','Apple SD Gothic Neo',system-ui,sans-serif;
   color:var(--body); -webkit-font-smoothing:antialiased;
 }
 [data-theme="dark"] .fc {
@@ -40,13 +41,13 @@
 /* ── 툴바 ── */
 .fc-bar { display:flex; align-items:center; gap:0.45rem; flex-wrap:wrap; margin-bottom:0.7rem; }
 .fc-btn {
-  font-family:'IBM Plex Mono',monospace; font-size:0.74rem; font-weight:500;
+  font-family:'IBM Plex Mono','Nanum Gothic',monospace; font-size:0.74rem; font-weight:500;
   padding:0.34rem 0.68rem; border-radius:6px; border:1px solid var(--rule);
   background:var(--surface); color:var(--body); cursor:pointer; line-height:1.4;
 }
 .fc-btn:hover { border-color:var(--accent); color:var(--accent); }
 .fc-chip {
-  font-family:'IBM Plex Mono',monospace; font-size:0.72rem; font-weight:600;
+  font-family:'IBM Plex Mono','Nanum Gothic',monospace; font-size:0.72rem; font-weight:600;
   padding:0.3rem 0.62rem; border-radius:20px; cursor:pointer; line-height:1.4;
   border:1px solid currentColor; background:transparent; opacity:0.42;
 }
@@ -70,8 +71,8 @@
 .nd .hit { fill:transparent; stroke:none; pointer-events:all; }
 .nd .nt, .nd .ns { pointer-events:none; }   /* 히트 판정을 상자 하나로 통일 */
 .nd > rect.box { fill:var(--surface); stroke:var(--line); stroke-width:1.5; }
-.nd .nt { font-family:'IBM Plex Mono',monospace; font-size:16px; font-weight:600; fill:var(--ink); }
-.nd .ns { font-family:'IBM Plex Mono',monospace; font-size:12px; fill:var(--muted); }
+.nd .nt { font-family:'IBM Plex Mono','Nanum Gothic',monospace; font-size:16px; font-weight:600; fill:var(--ink); }
+.nd .ns { font-family:'IBM Plex Mono','Nanum Gothic',monospace; font-size:12px; fill:var(--muted); }
 .nd .bar { stroke:none; }
 .nd:hover > rect.box { stroke-width:3; filter:brightness(0.97); }
 .nd.sel > rect.box { stroke-width:4; }
@@ -87,7 +88,7 @@
 .ed { fill:none; stroke:var(--line); stroke-width:1.6; marker-end:url(#fc-ah); }
 .ed.cross { stroke-dasharray:7 5; }
 .ed.hi { stroke:var(--accent); stroke-width:2.8; marker-end:url(#fc-ahi); }
-.el { font-family:'IBM Plex Mono',monospace; font-size:11px; fill:var(--muted); text-anchor:middle; }
+.el { font-family:'IBM Plex Mono','Nanum Gothic',monospace; font-size:11px; fill:var(--muted); text-anchor:middle; }
 .elbg { fill:var(--canvas); }
 
 .nd.imp > rect.box { fill:var(--imp-fill); stroke-width:3; }
@@ -110,9 +111,9 @@
   padding:0.85rem 1rem 0.7rem; border-bottom:1px solid var(--rule);
   display:flex; align-items:flex-start; gap:0.6rem;
 }
-.fc-panel-h .ttl { font-family:'IBM Plex Mono',monospace; font-size:0.9rem; font-weight:700;
+.fc-panel-h .ttl { font-family:'IBM Plex Mono','Nanum Gothic',monospace; font-size:0.9rem; font-weight:700;
                    color:var(--ink); line-height:1.45; word-break:break-word; }
-.fc-panel-h .loc { font-family:'IBM Plex Mono',monospace; font-size:0.7rem; color:var(--muted); margin-top:0.2rem; }
+.fc-panel-h .loc { font-family:'IBM Plex Mono','Nanum Gothic',monospace; font-size:0.7rem; color:var(--muted); margin-top:0.2rem; }
 .fc-x { margin-left:auto; border:none; background:none; color:var(--muted); font-size:1.2rem;
         line-height:1; cursor:pointer; padding:0 0.15rem; }
 .fc-x:hover { color:var(--ink); }
@@ -128,7 +129,7 @@
 .imp-sum b { color:var(--imp); }
 .imp-tags { display:flex; flex-wrap:wrap; gap:0.3rem; margin:0 0 0.7rem; }
 .imp-tag {
-  font-family:'IBM Plex Mono',monospace; font-size:0.7rem; line-height:1.4;
+  font-family:'IBM Plex Mono','Nanum Gothic',monospace; font-size:0.7rem; line-height:1.4;
   padding:0.22rem 0.5rem; border-radius:5px; cursor:pointer;
   border:1px solid var(--rule); background:var(--sunken); color:var(--body);
 }
@@ -150,11 +151,11 @@
 .fc-code-b { padding-top:0.55rem; }
 .fc-code-b > h4:first-child { margin-top:0.4rem; }
 .fc-panel-b code {
-  font-family:'IBM Plex Mono',monospace; font-size:0.88em;
+  font-family:'IBM Plex Mono','Nanum Gothic',monospace; font-size:0.88em;
   background:var(--sunken); padding:0.08em 0.32em; border-radius:3px; color:var(--ink);
 }
 .fc-panel-b pre {
-  font-family:'IBM Plex Mono',monospace; font-size:0.70rem; line-height:1.75;
+  font-family:'IBM Plex Mono','Nanum Gothic',monospace; font-size:0.70rem; line-height:1.75;
   background:var(--sunken); border-left:2px solid var(--accent);
   padding:0.5rem 0.7rem; border-radius:0 5px 5px 0; margin:0 0 0.7rem;
   overflow-x:auto; color:var(--ink); white-space:pre;
