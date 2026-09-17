@@ -12,7 +12,7 @@
 
 {% block content %}
 <link rel="stylesheet" href="{% static 'setup_mico/fonts/ibm-plex.css' %}">
-<link rel="stylesheet" href="{% static 'setup_mico/fonts/nanum/nanum-gothic.css' %}">
+<link rel="stylesheet" href="{% static 'setup_mico/fonts/pretendard/pretendard.css' %}">
 
 <style>
 .az {
@@ -21,7 +21,7 @@
   --az-learn:#0e7c86; --az-learn-w:rgba(14,124,134,0.09);
   --az-dim:#9aa8b4; --az-trend:#33454f;
   --c1:#1552d4; --c2:#e07a00; --c3:#8e2fce; --c4:#d11a4f;
-  font-family:'Nanum Gothic','Malgun Gothic','Apple SD Gothic Neo',system-ui,sans-serif;
+  font-family:'Pretendard Variable','Pretendard','Malgun Gothic','Apple SD Gothic Neo',system-ui,sans-serif;
   color:var(--az-body); -webkit-font-smoothing:antialiased;
 }
 [data-theme="dark"] .az {
@@ -45,7 +45,7 @@
 
 .az-tabs { display:flex; gap:0.4rem; flex-wrap:wrap; margin-bottom:1.4rem; }
 .az-tab {
-  font-family:'IBM Plex Mono','Nanum Gothic',monospace; font-size:0.775rem; font-weight:500;
+  font-family:'IBM Plex Mono','Pretendard Variable',monospace; font-size:0.775rem; font-weight:500;
   padding:0.45rem 0.85rem; border-radius:6px; border:1px solid var(--az-rule);
   background:var(--az-surface); color:var(--az-body); text-decoration:none;
 }
@@ -59,7 +59,7 @@
 .az-caption { padding:1.1rem 1.35rem 1rem; border-bottom:1px solid var(--az-rule);
               background:var(--az-sunken); min-height:126px; }
 .az-caption .step {
-  font-family:'IBM Plex Mono','Nanum Gothic',monospace; font-size:0.7rem; font-weight:600;
+  font-family:'IBM Plex Mono','Pretendard Variable',monospace; font-size:0.7rem; font-weight:600;
   letter-spacing:0.14em; text-transform:uppercase; color:var(--az-learn);
   margin-bottom:0.45rem;
 }
@@ -67,7 +67,7 @@
                  color:var(--az-ink); margin:0 0 0.4rem; }
 .az-caption p { font-size:0.875rem; line-height:1.7; margin:0; max-width:88ch; }
 .az-caption .eq {
-  display:inline-block; margin-top:0.6rem; font-family:'IBM Plex Mono','Nanum Gothic',monospace;
+  display:inline-block; margin-top:0.6rem; font-family:'IBM Plex Mono','Pretendard Variable',monospace;
   font-size:0.815rem; color:var(--az-ink); background:var(--az-surface);
   border:1px solid var(--az-rule); border-radius:5px; padding:0.34rem 0.65rem;
   max-width:100%; overflow-x:auto; white-space:nowrap;
@@ -85,7 +85,7 @@
   background:var(--az-sunken);
 }
 .az-apply .lbl {
-  font-family:'IBM Plex Mono','Nanum Gothic',monospace; font-size:0.7rem; font-weight:600;
+  font-family:'IBM Plex Mono','Pretendard Variable',monospace; font-size:0.7rem; font-weight:600;
   letter-spacing:0.1em; text-transform:uppercase; color:var(--az-learn);
 }
 .az-apply label { display:flex; align-items:center; gap:0.55rem;
@@ -93,14 +93,14 @@
 .az-apply input[type=range] { width:190px; cursor:pointer; }
 #az-w-13p { accent-color:var(--c2); }
 #az-w-shape { accent-color:var(--c4); }
-.az-apply .num { font-family:'IBM Plex Mono','Nanum Gothic',monospace; font-variant-numeric:tabular-nums;
+.az-apply .num { font-family:'IBM Plex Mono','Pretendard Variable',monospace; font-variant-numeric:tabular-nums;
                  font-weight:600; color:var(--az-ink); min-width:4.2rem; }
 
 .az-ctrl { display:flex; align-items:center; gap:0.75rem; flex-wrap:wrap;
            padding:0.85rem 1.35rem; border-top:1px solid var(--az-rule); }
 .az-btn {
   display:inline-flex; align-items:center; gap:0.4rem;
-  font-family:'Nanum Gothic',sans-serif; font-size:0.82rem; font-weight:500;
+  font-family:'Pretendard Variable','Pretendard',sans-serif; font-size:0.82rem; font-weight:500;
   padding:0.42rem 0.85rem; border-radius:6px; cursor:pointer;
   border:1px solid var(--az-rule); background:var(--az-surface); color:var(--az-body);
   transition:border-color .15s, color .15s, background .15s;
@@ -116,7 +116,7 @@
 .az-dot {
   width:26px; height:26px; border-radius:50%; border:1px solid var(--az-rule);
   background:var(--az-surface); color:var(--az-muted); cursor:pointer;
-  font-family:'IBM Plex Mono','Nanum Gothic',monospace; font-size:0.7rem; font-weight:600;
+  font-family:'IBM Plex Mono','Pretendard Variable',monospace; font-size:0.7rem; font-weight:600;
   display:flex; align-items:center; justify-content:center; padding:0;
   transition:all .15s;
 }
@@ -130,7 +130,7 @@
 
 .az-foot { font-size:0.78rem; color:var(--az-muted); line-height:1.7;
            margin-top:1.1rem; max-width:86ch; }
-.az-foot code { font-family:'IBM Plex Mono','Nanum Gothic',monospace; font-size:0.94em;
+.az-foot code { font-family:'IBM Plex Mono','Pretendard Variable',monospace; font-size:0.94em;
                 background:var(--az-sunken); padding:0.08em 0.35em; border-radius:3px; color:var(--az-ink); }
 
 @media (prefers-reduced-motion:reduce) { .az * { transition:none !important; } }
@@ -337,7 +337,7 @@
   function txt(g, x, y, t, o) {
     o = o || {};
     g.appendChild(el('text', { x: x, y: y, 'font-size': o.size || 11,
-      'text-anchor': o.anchor || 'start', 'font-family': 'IBM Plex Mono, Nanum Gothic, monospace',
+      'text-anchor': o.anchor || 'start', 'font-family': 'IBM Plex Mono, Pretendard Variable, monospace',
       fill: o.fill || 'currentColor', 'font-weight': o.weight || 400,
       opacity: o.op === undefined ? 1 : o.op }, t));
   }
@@ -390,7 +390,7 @@
       var rx = WA.cx + WA.R * (d.z.r0 + d.z.r1) / 2;
       // 색 채운 링 위에서도 읽히도록 배경색 외곽선을 두른다
       var t = el('text', { x: rx, y: WA.cy - 9 - (i % 2) * 12, 'text-anchor': 'middle',
-        'font-size': 9.5, 'font-family': 'IBM Plex Mono, Nanum Gothic, monospace', 'font-weight': 600,
+        'font-size': 9.5, 'font-family': 'IBM Plex Mono, Pretendard Variable, monospace', 'font-weight': 600,
         fill: 'currentColor', opacity: st.waferBias ? 0.95 : 0.55,
         stroke: 'var(--az-surface)', 'stroke-width': 2.6, 'stroke-linejoin': 'round',
         'paint-order': 'stroke fill' }, d.z.id);
@@ -493,7 +493,7 @@
         gChart.appendChild(el('line', { x1: lx, x2: lx + 16, y1: ly - 3.5, y2: ly - 3.5,
           stroke: col, 'stroke-width': 2.4, 'stroke-dasharray': dash || null }));
         gChart.appendChild(el('text', { x: lx + 22, y: ly, 'font-size': 10.5,
-          'font-family': 'IBM Plex Mono, Nanum Gothic, monospace', fill: col, 'font-weight': 600 }, label));
+          'font-family': 'IBM Plex Mono, Pretendard Variable, monospace', fill: col, 'font-weight': 600 }, label));
         var w = 0;                       // 한글은 폭이 넓어 따로 센다
         for (var ci = 0; ci < label.length; ci++) {
           w += (label.charCodeAt(ci) > 0x2000) ? 10.4 : 6.3;
