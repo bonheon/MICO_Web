@@ -83,13 +83,15 @@ def run_new_prethk(merge_df, mico_info_key, pol_type):
     APC_Para = mico_info_key['APC_Para'].unique()[0]
     Pre_Target = float(mico_info_key['Pre_Target'].unique()[0])
     Post_Target = float(mico_info_key['Target'].unique()[0])
-    Pad_Para = NEW_Get_data.PadParaGet(APC_Para)
+    Pad_Para = NEW_Get_data.CONSUMABLE_COL['PAD']
     APC_Para_merge = NEW_Get_data.APCParaGet(APC_Para, pol_type)
     Pre_Thk_Period = str(mico_info_key['Pre_Thk_Period'].unique()[0]) + 'D'
 
     merge_df_c = merge_df.copy()
     Thk_Para_13P = mico_info_key[mico_info_key['FB_Type'] == 'TIME']['Thk_Para'].unique()[0]
     merge_df_c['BIAS'] = 0.0
+    # PAD 컬럼명은 eqp_model 마다 다르므로 행 단위로 PAD_TIME 에 정규화
+    merge_df_c = NEW_Get_data.attach_consumable(merge_df_c, APC_Para, kinds=('PAD',))
 
     pre_thk_df = PRE_THK_VM_Get.compute_detrend(merge_df_c, APC_Para_merge, Thk_Para, Pre_Target, Post_Target, Pad_Para)
     if pre_thk_df is None or pre_thk_df.empty:

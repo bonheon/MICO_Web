@@ -1,5 +1,6 @@
 import sys
 import os
+import re
 import pandas as pd
 import numpy as np
 from pathlib import Path
@@ -8,6 +9,36 @@ from datetime import datetime, timedelta
 _ALGO_DIR  = str(Path(__file__).parents[1])   # algorithm_new/
 _MICO_WEB  = str(Path(__file__).parents[2])   # MICO_Web/ (Django root)
 _CSV_PATH  = os.path.join(_ALGO_DIR, 'merge_df_sample.csv')  # [TEST 삭제] 샘플 CSV 경로 — MongoDB_GetData 와 함께 삭제
+
+# ── 소모품(PAD/DISK/HEAD/DRESSER) 컬럼 매핑 ────────────────────────────────
+# merge_df 의 소모품 사용량 컬럼명은 장비 모델(eqp_model)에 따라 다르다.
+#   기존(REFLEXION 계열) : 플래튼 3개 + HEAD 는 P3 도 1번 헤드를 공유
+#   OPTA 계열            : 플래튼 4개, PAD/DISK/HEAD/DRESSER 모두 1:1 (P1~P4 ↔ 1~4)
+# APC_Para 만으로는 구분이 안 되므로(같은 P3 가 모델에 따라 다른 컬럼) eqp_model 을 함께 받는다.
+_OPTA_KEY  = 'OPTA'                       # eqp_model 에 이 문자열이 포함되면 OPTA 매핑 적용
+_PLATEN_RE = re.compile(r'^P(\d+)')       # 'P3', 'P3_ZONE1', 'P2_R-RING' → 플래튼 번호
+
+# 행 단위로 해석한 소모품 값을 담는 고정 컬럼명 (attach_consumable 이 생성)
+CONSUMABLE_COL = {
+    'PAD'                 : 'PAD_TIME',
+    'DISK'                : 'DISK_TIME',
+    'HEAD'                : 'HEAD_TIME',
+    'DRESSER_CUTTING_RATE': 'DRESSER_TIME',
+}
+
+
+def _is_opta(eqp_model):
+    return _OPTA_KEY in str(eqp_model or '').upper()
+
+
+def _opta_col(APC_Para, prefix, default):
+    """OPTA 계열: APC_Para 앞머리의 플래튼 번호(1~4)로 소모품 컬럼명 결정."""
+    m = _PLATEN_RE.match(str(APC_Para or '').upper())
+    if m is None:
+        return default
+    no = int(m.group(1))
+    return f'{prefix}{no}' if 1 <= no <= 4 else default
+
 
 # ── Django setup (읽기 전용 DB 조회용) ────────────────────────────────────
 if _MICO_WEB not in sys.path:
@@ -19,6 +50,9 @@ django.setup()
 
 
 class Get_data:
+
+    # 행 단위로 정규화된 소모품 컬럼명 (attach_consumable 이 생성) — 모듈 상수 노출용
+    CONSUMABLE_COL = CONSUMABLE_COL
 
     def coalesce_substrate_id(df):
         """구컬럼(samp_matl_id/samp_matl_if)과 substrate_id 를 하나의 substrate_id 로 병합.
@@ -147,8 +181,13 @@ class Get_data:
         return [APC_Para]
 
 
-    def PadParaGet(APC_Para):
-        """APC 파라미터에 대응하는 PAD 소모품 컬럼명 반환."""
+    def PadParaGet(APC_Para, eqp_model=None):
+        """APC 파라미터 + 장비 모델에 대응하는 PAD 소모품 컬럼명 반환.
+
+        eqp_model 미지정(None) 시 기존(REFLEXION 계열) 매핑을 그대로 사용한다.
+        """
+        if _is_opta(eqp_model):
+            return _opta_col(APC_Para, 'AMAT_PAD_', 'AMAT_PAD_3')
         mapping = {
             'P1': 'AMAT_PAD_1',
             'P2': 'AMAT_PAD_2',
@@ -157,18 +196,22 @@ class Get_data:
         return mapping.get(APC_Para, 'AMAT_PAD_3')
 
 
-    def HeadParaGet(APC_Para):
-        """APC 파라미터에 대응하는 HEAD 소모품 컬럼명 반환."""
+    def HeadParaGet(APC_Para, eqp_model=None):
+        """APC 파라미터 + 장비 모델에 대응하는 HEAD 소모품 컬럼명 반환."""
+        if _is_opta(eqp_model):
+            return _opta_col(APC_Para, 'AMAT_HEAD_', 'AMAT_HEAD_1')
         mapping = {
             'P1': 'AMAT_HEAD_1',
             'P2': 'AMAT_HEAD_2',
-            'P3': 'AMAT_HEAD_1',
+            'P3': 'AMAT_HEAD_1',   # REFLEXION 계열은 P3 가 1번 헤드를 공유
         }
         return mapping.get(APC_Para, 'AMAT_HEAD_1')
 
 
-    def DiskParaGet(APC_Para):
-        """APC 파라미터에 대응하는 DISK 소모품 컬럼명 반환."""
+    def DiskParaGet(APC_Para, eqp_model=None):
+        """APC 파라미터 + 장비 모델에 대응하는 DISK 소모품 컬럼명 반환."""
+        if _is_opta(eqp_model):
+            return _opta_col(APC_Para, 'AMAT_DISK_', 'AMAT_DISK_3')
         mapping = {
             'P1': 'AMAT_DISK_1',
             'P2': 'AMAT_DISK_2',
@@ -177,14 +220,64 @@ class Get_data:
         return mapping.get(APC_Para, 'AMAT_DISK_3')
 
 
-    def DresserParaGet(APC_Para):
-        """APC 파라미터에 대응하는 DRESSER CUTTING RATE 소모품 컬럼명 반환."""
+    def DresserParaGet(APC_Para, eqp_model=None):
+        """APC 파라미터 + 장비 모델에 대응하는 DRESSER CUTTING RATE 컬럼명 반환."""
+        if _is_opta(eqp_model):
+            return _opta_col(APC_Para, 'DRESSER_CUTTING_RATE_', 'DRESSER_CUTTING_RATE_3')
         mapping = {
             'P1': 'DRESSER_CUTTING_RATE_1',
             'P2': 'DRESSER_CUTTING_RATE_2',
             'P3': 'DRESSER_CUTTING_RATE_3',
         }
         return mapping.get(APC_Para, 'DRESSER_CUTTING_RATE_3')
+
+
+    def ConsumableParaGet(kind, APC_Para, eqp_model=None):
+        """kind(PAD/DISK/HEAD/DRESSER_CUTTING_RATE) 별 소모품 컬럼명 반환."""
+        getter = {
+            'PAD'                 : Get_data.PadParaGet,
+            'DISK'                : Get_data.DiskParaGet,
+            'HEAD'                : Get_data.HeadParaGet,
+            'DRESSER_CUTTING_RATE': Get_data.DresserParaGet,
+        }[kind]
+        return getter(APC_Para, eqp_model)
+
+
+    def attach_consumable(df, APC_Para, kinds=('PAD', 'DISK', 'HEAD', 'DRESSER_CUTTING_RATE')):
+        """eqp_model 별로 다른 소모품 컬럼을 행 단위로 읽어 고정 컬럼으로 정규화.
+
+        소모품 컬럼명은 장비 모델마다 다르지만(REFLEXION 3 플래튼 / OPTA 4 플래튼),
+        학습·시뮬레이션 코드는 컬럼명 문자열 하나를 키 단위로 들고 하류까지 전달한다.
+        한 merge_df 에 두 모델이 섞이면 어느 한쪽 컬럼이 틀리므로, 여기서 eqp_model
+        별로 해당 컬럼을 골라 CONSUMABLE_COL 의 고정 이름(PAD_TIME 등)에 채워 넣는다.
+        → 이후 코드는 모델과 무관하게 고정 컬럼만 쓰면 된다.
+
+        eqp_model 컬럼이 없으면(구버전 merge_df) 기존 매핑으로 단일 컬럼을 복사한다.
+        해당 모델의 컬럼이 merge_df 에 없으면 그 행은 NaN 으로 남는다(기존 dropna 로 처리).
+
+        df 를 제자리(in-place)에서 수정하고 같은 객체를 반환한다.
+        """
+        has_model = 'eqp_model' in df.columns
+        models    = df['eqp_model'].astype(str) if has_model else None
+
+        for kind in kinds:
+            out_col = CONSUMABLE_COL[kind]
+
+            if not has_model:
+                src = Get_data.ConsumableParaGet(kind, APC_Para)
+                if src in df.columns:
+                    df[out_col] = df[src]
+                continue
+
+            df[out_col] = np.nan
+            for model in models.unique():
+                src = Get_data.ConsumableParaGet(kind, APC_Para, model)
+                if src not in df.columns:
+                    continue
+                mask = (models == model)
+                df.loc[mask, out_col] = df.loc[mask, src]
+
+        return df
 
 
     # ── [TEST 삭제] EQPMGetData_HUB ─────────────────────────────────────

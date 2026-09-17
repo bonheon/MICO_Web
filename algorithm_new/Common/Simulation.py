@@ -143,6 +143,10 @@ def _build_base_frame(merge_df, sk, Main_Para, Main_Para_formula, Main_Para_OFFS
     if temp.empty:
         return pd.DataFrame()
 
+    # 소모품 컬럼명은 eqp_model 마다 다르므로 행 단위로 고정 컬럼(PAD_TIME 등)에 정규화.
+    # Pad_Para/Disk_Para/Head_Para 는 이 고정 컬럼명이며 아래 col_list·_finalize 가 그대로 쓴다.
+    temp = Get_data.attach_consumable(temp, sk['APC_Para'])
+
     # RR/OFFSET 학습값 fill 의 groupby 키 (장비+모델+레시피+세부공정)
     temp['eq_model_recipe'] = (
         temp['eqp_id'] + '//' + temp['eqp_model'] + '//'
@@ -556,10 +560,12 @@ def _finalize(df, sk, Main_Para, Pad_Para, Disk_Para, Head_Para, Consumable_Para
         for i, para in enumerate(Main_Para):
             df[f'Pressure_{i + 1}'] = df[para]
 
-    df['PAD_TIME']  = df[Pad_Para]
-    df['DISK_TIME'] = df[Disk_Para]
-    df['HEAD_TIME'] = df[Head_Para]
-    df['THK']       = df[sk['Thk_Para']]
+    # Pad/Disk/Head_Para 는 attach_consumable 이 만든 고정 컬럼명(PAD_TIME 등)이므로
+    # 이름이 다를 때만 복사한다 (같으면 자기대입 → skip)
+    for out_col, src_col in (('PAD_TIME', Pad_Para), ('DISK_TIME', Disk_Para), ('HEAD_TIME', Head_Para)):
+        if out_col != src_col:
+            df[out_col] = df[src_col]
+    df['THK'] = df[sk['Thk_Para']]
 
     Pad_Seperation = sk['Pad_Seperation']
 
@@ -663,9 +669,10 @@ class Simulation_Get:
         Main_Para         = Get_data.APCParaGet(sk['APC_Para'], pol_type)
         Main_Para_formula = [x + '_formula' for x in Main_Para]
         Main_Para_OFFSET  = [x + '_OFFSET' for x in Main_Para]
-        Pad_Para          = Get_data.PadParaGet(sk['APC_Para'])
-        Disk_Para         = Get_data.DiskParaGet(sk['APC_Para'])
-        Head_Para         = Get_data.HeadParaGet(sk['APC_Para'])
+        # 소모품 컬럼은 _build_base_frame 에서 eqp_model 별로 고정 컬럼에 정규화된다
+        Pad_Para          = Get_data.CONSUMABLE_COL['PAD']
+        Disk_Para         = Get_data.CONSUMABLE_COL['DISK']
+        Head_Para         = Get_data.CONSUMABLE_COL['HEAD']
         Consumable_Para   = _get_consumable_para(sk, Pad_Para, Disk_Para, Head_Para)
 
         if sk['APC_Para'] not in merge_df.columns:

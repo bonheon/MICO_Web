@@ -66,7 +66,7 @@ class OFFSET_Get:
         mongo = OFFSET_Get._make_offset_mongo(Lot_Code, Oper_Desc, Fab)
 
         Pol_Para = Get_data.APCParaGet(APC_Para, pol_type)
-        Pad_Para = Get_data.PadParaGet(APC_Para)
+        Pad_Para = Get_data.CONSUMABLE_COL['PAD']
 
         temp_data = merge_df[
             (merge_df['operation_id'] == Oper_Code) &
@@ -75,6 +75,9 @@ class OFFSET_Get:
 
         if temp_data.empty:
             return None
+
+        # PAD 컬럼명은 eqp_model 마다 다르므로 행 단위로 PAD_TIME 에 정규화
+        temp_data = Get_data.attach_consumable(temp_data, APC_Para, kinds=('PAD',))
 
         # IDLE이 전부 NaN이면 float dtype이 되어 .str accessor 사용 불가 → 문자열로 정규화
         temp_data['IDLE'] = temp_data['IDLE'].fillna('').astype(str)
@@ -194,11 +197,14 @@ class OFFSET_Get:
 
         mongo    = OFFSET_Get._make_offset_mongo(Lot_Code, Oper_Desc, Fab)
         Pol_Para = Get_data.APCParaGet(APC_Para, pol_type)
-        Pad_Para = Get_data.PadParaGet(APC_Para)
+        Pad_Para = Get_data.CONSUMABLE_COL['PAD']
 
         temp_data = merge_df[merge_df['operation_id'] == Oper_Code].copy()
         if temp_data.empty:
             return None
+
+        # PAD 컬럼명은 eqp_model 마다 다르므로 행 단위로 PAD_TIME 에 정규화
+        temp_data = Get_data.attach_consumable(temp_data, APC_Para, kinds=('PAD',))
 
         # IDLE이 전부 NaN이면 float dtype이 되어 .str accessor 사용 불가 → 문자열로 정규화
         temp_data['IDLE'] = temp_data['IDLE'].fillna('').astype(str)

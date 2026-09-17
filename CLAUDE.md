@@ -159,6 +159,28 @@ ADMIN (superuser만 노출)
 - Category 선택 시 드롭다운에 `product / oper_id — oper_desc` 표시
 - 선택 후 카드 하단에 oper_desc 설명 표시
 
+### 소모품(PAD/DISK/HEAD/DRESSER) 컬럼 — eqp_model 별 매핑
+
+- merge_df 의 소모품 사용량 컬럼명은 **장비 모델(`eqp_model`)마다 다르다.** APC_Para 만으로는 구분 불가
+  - REFLEXION 계열: 플래튼 3개, HEAD 는 `P3` 도 `AMAT_HEAD_1` 을 공유
+  - **OPTA 계열: 플래튼 4개, PAD/DISK/HEAD/DRESSER 전부 1:1** (`P1`~`P4` ↔ `AMAT_PAD_1`~`4` 등)
+- `Get_Data.py`
+  - `PadParaGet / DiskParaGet / HeadParaGet / DresserParaGet(APC_Para, eqp_model=None)`
+    — `eqp_model` 생략 시 기존(REFLEXION) 매핑 그대로
+  - OPTA 판정: `eqp_model` 문자열에 `OPTA` 포함 (`_OPTA_KEY`). 플래튼 번호는 APC_Para 앞머리
+    `P(\d+)` 로 추출 → `P2_ZONE3` 도 2번으로 잡힌다 (OPTA 경로만. REFLEXION 은 기존 exact match 유지)
+  - `attach_consumable(df, APC_Para, kinds=...)` — `eqp_model` 별로 맞는 컬럼을 **행 단위**로 읽어
+    고정 컬럼 `PAD_TIME / DISK_TIME / HEAD_TIME / DRESSER_TIME`(`Get_data.CONSUMABLE_COL`)에 채운다
+- **하류 코드는 `PadParaGet` 을 직접 부르지 않고 `attach_consumable` 후 고정 컬럼명을 쓴다.**
+  컬럼명 문자열을 키 단위로 하류까지 넘기는 구조라, 한 merge_df 에 두 모델이 섞이면 한쪽이 틀리기 때문
+  - 호출 지점: `REMOVAL_RATE.compute_rr / compute_rr_group`(사이클 판정 전에 먼저),
+    `OFFSET.compute_offset / compute_offset_group`, `Module.compute_pre_thk_vm`(detrend 직전),
+    `Simulation._build_base_frame`
+  - `eqp_model` 컬럼이 없는 구버전 merge_df → 기존 매핑으로 단일 컬럼 복사(동작 동일)
+  - 해당 모델의 원본 컬럼이 merge_df 에 없으면 그 행만 NaN (기존 dropna 로 걸러짐)
+- RR 학습 결과는 `EQ`+`Recipe_ID` 로만 저장되고 `eqp_model` 은 안 들어간다.
+  eqp_id 하나가 모델 하나인 전제 — 한 eqp_id 의 모델이 바뀌면 과거 학습값과 섞인다
+
 ### Merge Hub route(process_id) 적재 제외
 - `Merge_Data.run(..., exclude_process_ids=[...])`: 목록의 process_id 행은 적재에서 제외
 - merge DB: DataLake 초기 로드·HUB 업데이트 공통 적용 (`_prepare_merge_df`에서 필터)

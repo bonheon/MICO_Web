@@ -275,12 +275,14 @@ class Removal_Rate_Get:
         Recipe_ID = key.Recipe_ID
         RR_Para   = key.RR_Para
 
-        Pol_Para     = Get_data.APCParaGet(APC_Para, pol_type)
-        Head_Para    = Get_data.HeadParaGet(APC_Para)
-        Pad_Para     = Get_data.PadParaGet(APC_Para)
-        Disk_Para    = Get_data.DiskParaGet(APC_Para)
-        Dresser_Para = Get_data.DresserParaGet(APC_Para)
-        RR_Para      = RR_Para.upper()
+        Pol_Para = Get_data.APCParaGet(APC_Para, pol_type)
+        RR_Para  = RR_Para.upper()
+
+        # 소모품 컬럼은 eqp_model 마다 이름이 달라 고정 컬럼(PAD_TIME 등)으로 정규화
+        Head_Para    = Get_data.CONSUMABLE_COL['HEAD']
+        Pad_Para     = Get_data.CONSUMABLE_COL['PAD']
+        Disk_Para    = Get_data.CONSUMABLE_COL['DISK']
+        Dresser_Para = Get_data.CONSUMABLE_COL['DRESSER_CUTTING_RATE']
 
         if RR_Para == 'HEAD':
             consumable_Para = Head_Para
@@ -296,6 +298,9 @@ class Removal_Rate_Get:
             (merge_df['recipe_id'] == Recipe_ID) &
             ((merge_df['IDLE'] == '') | (merge_df['IDLE'].isna()))
         ].copy()
+
+        # 사이클 판정(_detect_cycles)이 소모품 값을 쓰므로 정규화를 먼저 수행해야 한다
+        temp_data = Get_data.attach_consumable(temp_data, APC_Para)
 
         temp_data3 = Removal_Rate_Get._detect_cycles(temp_data, consumable_Para)
         if temp_data3.empty:
@@ -317,12 +322,14 @@ class Removal_Rate_Get:
         APC_Para = key.APC_Para
         RR_Para  = key.RR_Para
 
-        Pol_Para     = Get_data.APCParaGet(APC_Para, pol_type)
-        Head_Para    = Get_data.HeadParaGet(APC_Para)
-        Pad_Para     = Get_data.PadParaGet(APC_Para)
-        Disk_Para    = Get_data.DiskParaGet(APC_Para)
-        Dresser_Para = Get_data.DresserParaGet(APC_Para)
-        RR_Para      = RR_Para.upper()
+        Pol_Para = Get_data.APCParaGet(APC_Para, pol_type)
+        RR_Para  = RR_Para.upper()
+
+        # 소모품 컬럼은 eqp_model 마다 이름이 달라 고정 컬럼(PAD_TIME 등)으로 정규화
+        Head_Para    = Get_data.CONSUMABLE_COL['HEAD']
+        Pad_Para     = Get_data.CONSUMABLE_COL['PAD']
+        Disk_Para    = Get_data.CONSUMABLE_COL['DISK']
+        Dresser_Para = Get_data.CONSUMABLE_COL['DRESSER_CUTTING_RATE']
 
         if RR_Para == 'HEAD':
             consumable_Para = Head_Para
@@ -336,6 +343,9 @@ class Removal_Rate_Get:
         temp_data = merge_df[
             ((merge_df['IDLE'] == '') | (merge_df['IDLE'].isna()))
         ].copy()
+
+        # 사이클 판정(_detect_cycles)이 소모품 값을 쓰므로 정규화를 먼저 수행해야 한다
+        temp_data = Get_data.attach_consumable(temp_data, APC_Para)
 
         temp_data3 = Removal_Rate_Get._detect_cycles(temp_data, consumable_Para)
         if temp_data3.empty:

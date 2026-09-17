@@ -230,7 +230,9 @@ class Module_Get:
                         Target_13P   = mico_info_key[(mico_info_key['Recipe_ID'] == Recipe_ID) & (mico_info_key['FB_Type'] == 'TIME')]['Target'].unique()[0]
 
                         merge_df['BIAS']       = (merge_df[Thk_Para] - merge_df[Thk_Para_13P]) - (Post_Target - Target_13P)
-                        Pad_Para               = Get_data.PadParaGet(APC_Para)
+                        # PAD 컬럼명은 eqp_model 마다 다르므로 행 단위로 PAD_TIME 에 정규화
+                        merge_df               = Get_data.attach_consumable(merge_df, APC_Para, kinds=('PAD',))
+                        Pad_Para               = Get_data.CONSUMABLE_COL['PAD']
                         APC_Para_merge         = Get_data.APCParaGet(APC_Para, pol_type)
 
                         pre_thk_df             = PRE_THK_VM_Get.compute_detrend(merge_df, APC_Para_merge, Thk_Para, Pre_Target, Post_Target, Pad_Para, use_pressure=use_pressure)
