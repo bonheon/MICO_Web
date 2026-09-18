@@ -41,13 +41,13 @@
 /* ── 툴바 ── */
 .fc-bar { display:flex; align-items:center; gap:0.45rem; flex-wrap:wrap; margin-bottom:0.7rem; }
 .fc-btn {
-  font-family:'IBM Plex Mono','Pretendard Variable',monospace; font-size:0.74rem; font-weight:500;
+  font-family:'Pretendard Variable','Pretendard','Malgun Gothic','Apple SD Gothic Neo',system-ui,sans-serif; font-size:0.74rem; font-weight:500;
   padding:0.34rem 0.68rem; border-radius:6px; border:1px solid var(--rule);
   background:var(--surface); color:var(--body); cursor:pointer; line-height:1.4;
 }
 .fc-btn:hover { border-color:var(--accent); color:var(--accent); }
 .fc-chip {
-  font-family:'IBM Plex Mono','Pretendard Variable',monospace; font-size:0.72rem; font-weight:600;
+  font-family:'Pretendard Variable','Pretendard','Malgun Gothic','Apple SD Gothic Neo',system-ui,sans-serif; font-size:0.72rem; font-weight:600;
   padding:0.3rem 0.62rem; border-radius:20px; cursor:pointer; line-height:1.4;
   border:1px solid currentColor; background:transparent; opacity:0.42;
 }
@@ -73,6 +73,10 @@
 .nd > rect.box { fill:var(--surface); stroke:var(--line); stroke-width:1.5; }
 .nd .nt { font-family:'IBM Plex Mono','Pretendard Variable',monospace; font-size:16px; font-weight:600; fill:var(--ink); }
 .nd .ns { font-family:'IBM Plex Mono','Pretendard Variable',monospace; font-size:12px; fill:var(--muted); }
+/* 코드명이 아닌 한글 라벨은 본문 글꼴로 — 고정폭은 코드·경로용으로 남긴다 */
+.nd .nt.kr, .nd .ns.kr, .el.kr {
+  font-family:'Pretendard Variable','Pretendard','Malgun Gothic','Apple SD Gothic Neo',system-ui,sans-serif;
+}
 .nd .bar { stroke:none; }
 .nd:hover > rect.box { stroke-width:3; filter:brightness(0.97); }
 .nd.sel > rect.box { stroke-width:4; }
@@ -111,6 +115,7 @@
   padding:0.85rem 1rem 0.7rem; border-bottom:1px solid var(--rule);
   display:flex; align-items:flex-start; gap:0.6rem;
 }
+.fc-panel-h .ttl.kr { font-family:'Pretendard Variable','Pretendard','Malgun Gothic','Apple SD Gothic Neo',system-ui,sans-serif; }
 .fc-panel-h .ttl { font-family:'IBM Plex Mono','Pretendard Variable',monospace; font-size:0.9rem; font-weight:700;
                    color:var(--ink); line-height:1.45; word-break:break-word; }
 .fc-panel-h .loc { font-family:'IBM Plex Mono','Pretendard Variable',monospace; font-size:0.7rem; color:var(--muted); margin-top:0.2rem; }
@@ -659,6 +664,11 @@
     for (var k in attrs) e.setAttribute(k, attrs[k]);
     return e;
   }
+  // 코드명·경로가 아닌 순수 한글 라벨에만 'kr' (본문 글꼴) 을 붙인다
+  function krCls(s) {
+    s = String(s === undefined || s === null ? '' : s);
+    return (/[\uAC00-\uD7A3]/.test(s) && !/[()_]|\.py|:\d/.test(s)) ? ' kr' : '';
+  }
 
   var svg     = document.getElementById('fcSvg');
   var vp      = document.getElementById('fcVp');
@@ -699,7 +709,7 @@
     edgesG.appendChild(p);
     edgeEls.push(p);
     if (e.l) {
-      var t = el('text', { x: r.lx, y: r.ly, class: 'el' });
+      var t = el('text', { x: r.lx, y: r.ly, class: 'el' + krCls(e.l) });
       t.textContent = e.l;
       edgesG.appendChild(t);
       labelEls.push(t);
@@ -719,8 +729,8 @@
     // 테두리 바깥으로 12 만큼 넓힌 투명 히트 영역 — 모서리·글자 사이 여백에서도 집힌다
     g.appendChild(el('rect', { x: -12, y: -12, width: n.w + 24, height: n.h + 24, rx: 14, class: 'hit' }));
     g.appendChild(el('rect', { x: 0, y: 0, width: n.w, height: n.h, rx: 10, class: 'box' }));
-    var t1 = el('text', { x: 17, y: 35, class: 'nt' }); t1.textContent = n.t;
-    var t2 = el('text', { x: 17, y: 59, class: 'ns' }); t2.textContent = n.s;
+    var t1 = el('text', { x: 17, y: 35, class: 'nt' + krCls(n.t) }); t1.textContent = n.t;
+    var t2 = el('text', { x: 17, y: 59, class: 'ns' + krCls(n.s) }); t2.textContent = n.s;
     g.appendChild(t1); g.appendChild(t2);
     nodesG.appendChild(g);
   });
@@ -892,7 +902,9 @@
   function select(id) {
     cur = id;
     var d = D[id] || { t: byId[id].t, loc: byId[id].s, h: '' };
-    document.getElementById('fcTtl').textContent = d.t;
+    var ttlEl = document.getElementById('fcTtl');
+    ttlEl.textContent = d.t;
+    ttlEl.className = 'ttl' + krCls(d.t);
     document.getElementById('fcLoc').textContent = d.loc;
     document.getElementById('fcBody').innerHTML = d.h + codeHtml(d.c) + impactHtml(id);
     document.getElementById('fcBody').scrollTop = 0;

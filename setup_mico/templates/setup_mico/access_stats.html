@@ -132,7 +132,7 @@
             {% for p in top_pages %}
             <tr>
               <td style="color:#8993a8;">{{ forloop.counter }}</td>
-              <td style="font-size:0.8rem;font-family:monospace;">{{ p.path }}</td>
+              <td style="font-size:0.8rem;font-family: ui-monospace, SFMono-Regular, Menlo, Consolas, 'Pretendard Variable', monospace;">{{ p.path }}</td>
               <td>
                 <span class="badge-pill" style="background:#f0fdf4;color:#22c55e;">
                   {{ p.cnt }}
@@ -177,7 +177,7 @@
           <td>
             <span class="fw-semibold">{{ log.user.username|default:"(탈퇴회원)" }}</span>
           </td>
-          <td style="font-size:0.8rem;font-family:monospace;">{{ log.path }}</td>
+          <td style="font-size:0.8rem;font-family: ui-monospace, SFMono-Regular, Menlo, Consolas, 'Pretendard Variable', monospace;">{{ log.path }}</td>
           <td style="font-size:0.8rem;color:#8993a8;">{{ log.ip_address|default:"-" }}</td>
         </tr>
         {% empty %}

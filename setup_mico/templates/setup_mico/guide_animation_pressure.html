@@ -45,7 +45,7 @@
 
 .az-tabs { display:flex; gap:0.4rem; flex-wrap:wrap; margin-bottom:1.4rem; }
 .az-tab {
-  font-family:'IBM Plex Mono','Pretendard Variable',monospace; font-size:0.775rem; font-weight:500;
+  font-family:'Pretendard Variable','Pretendard','Malgun Gothic','Apple SD Gothic Neo',system-ui,sans-serif; font-size:0.775rem; font-weight:500;
   padding:0.45rem 0.85rem; border-radius:6px; border:1px solid var(--az-rule);
   background:var(--az-surface); color:var(--az-body); text-decoration:none;
 }
@@ -85,7 +85,7 @@
   background:var(--az-sunken);
 }
 .az-apply .lbl {
-  font-family:'IBM Plex Mono','Pretendard Variable',monospace; font-size:0.7rem; font-weight:600;
+  font-family:'Pretendard Variable','Pretendard','Malgun Gothic','Apple SD Gothic Neo',system-ui,sans-serif; font-size:0.7rem; font-weight:600;
   letter-spacing:0.1em; text-transform:uppercase; color:var(--az-learn);
 }
 .az-apply label { display:flex; align-items:center; gap:0.55rem;
@@ -327,10 +327,22 @@
   var gTable = document.getElementById('az-table');
   var svgEl  = document.getElementById('az-svg');
 
+  // 한글 라벨은 고정폭(IBM Plex Mono) 대신 본문 글꼴로 그린다 — 코드·변수명은 그대로 고정폭
+  var KR_FF = "'Pretendard Variable','Pretendard','Malgun Gothic','Apple SD Gothic Neo',system-ui,sans-serif";
+  function isKrLabel(s) {
+    s = String(s === undefined || s === null ? '' : s);
+    if (!/[\uAC00-\uD7A3]/.test(s)) { return false; }
+    // 함수 호출·변수명·파일명이 섞인 라벨만 고정폭으로 남긴다 (괄호 단독은 한글 설명에도 흔하다)
+    return !/\w\(|[A-Za-z]\w*_|_\w|\.py/.test(s);
+  }
+
   function el(tag, attrs, text) {
     var n = document.createElementNS(NS, tag);
     for (var a in attrs) { if (attrs[a] !== null) { n.setAttribute(a, attrs[a]); } }
-    if (text !== undefined) { n.textContent = text; }
+    if (text !== undefined) {
+      n.textContent = text;
+      if (tag === 'text' && isKrLabel(text)) { n.setAttribute('font-family', KR_FF); }
+    }
     return n;
   }
   function clear(g) { while (g.firstChild) { g.removeChild(g.firstChild); } }

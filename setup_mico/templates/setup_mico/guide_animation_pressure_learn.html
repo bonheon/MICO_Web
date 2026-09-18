@@ -46,7 +46,7 @@
 
 .az-tabs { display:flex; gap:0.4rem; flex-wrap:wrap; margin-bottom:1.4rem; }
 .az-tab {
-  font-family:'IBM Plex Mono','Pretendard Variable',monospace; font-size:0.775rem; font-weight:500;
+  font-family:'Pretendard Variable','Pretendard','Malgun Gothic','Apple SD Gothic Neo',system-ui,sans-serif; font-size:0.775rem; font-weight:500;
   padding:0.45rem 0.85rem; border-radius:6px; border:1px solid var(--az-rule);
   background:var(--az-surface); color:var(--az-body); text-decoration:none;
 }
@@ -68,7 +68,7 @@
   display:flex; align-items:center; justify-content:center;
   background:var(--az-sunken); color:var(--az-muted);
 }
-.az-act .rng { margin-left:auto; font-family:'IBM Plex Mono','Pretendard Variable',monospace;
+.az-act .rng { margin-left:auto; font-family:'Pretendard Variable','Pretendard','Malgun Gothic','Apple SD Gothic Neo',system-ui,sans-serif;
                font-size:0.7rem; opacity:0.7; }
 .az-act.on { border-color:var(--az-learn); background:var(--az-learn-w); color:var(--az-ink); }
 a.az-act { text-decoration:none; }
@@ -87,7 +87,8 @@ a.az-act:hover { border-color:var(--az-learn); color:var(--az-learn); }
   margin-bottom:0.45rem;
 }
 /* TIME 판(①·②) 의 어느 화면에 해당하는지 — 두 판을 나란히 읽기 위한 표시 */
-.az-caption .step .map { color:var(--az-muted); font-weight:500; letter-spacing:0.06em; }
+.az-caption .step .map { color:var(--az-muted); font-weight:500; letter-spacing:0.06em;
+                         font-family:'Pretendard Variable','Pretendard','Malgun Gothic','Apple SD Gothic Neo',system-ui,sans-serif; }
 .az-caption h2 { font-size:1.12rem; font-weight:650; letter-spacing:-0.018em;
                  color:var(--az-ink); margin:0 0 0.4rem; }
 .az-caption p { font-size:0.875rem; line-height:1.7; margin:0; max-width:88ch; }
@@ -123,7 +124,7 @@ a.az-act:hover { border-color:var(--az-learn); color:var(--az-learn); }
 
 .az-case { display:flex; align-items:center; gap:0.35rem; margin-left:1rem;
            padding-left:1rem; border-left:1px solid var(--az-rule); }
-.az-case .cl { font-family:'IBM Plex Mono','Pretendard Variable',monospace; font-size:0.68rem; font-weight:600;
+.az-case .cl { font-family:'Pretendard Variable','Pretendard','Malgun Gothic','Apple SD Gothic Neo',system-ui,sans-serif; font-size:0.68rem; font-weight:600;
                letter-spacing:0.08em; color:var(--az-muted); margin-right:0.25rem; }
 .az-case-btn {
   font-family:'Pretendard Variable','Pretendard',sans-serif; font-size:0.76rem; font-weight:500;
@@ -565,10 +566,22 @@ a.az-act:hover { border-color:var(--az-learn); color:var(--az-learn); }
   var gPts  = document.getElementById('az-pts');
   var gOver = document.getElementById('az-over');
 
+  // 한글 라벨은 고정폭(IBM Plex Mono) 대신 본문 글꼴로 그린다 — 코드·변수명은 그대로 고정폭
+  var KR_FF = "'Pretendard Variable','Pretendard','Malgun Gothic','Apple SD Gothic Neo',system-ui,sans-serif";
+  function isKrLabel(s) {
+    s = String(s === undefined || s === null ? '' : s);
+    if (!/[\uAC00-\uD7A3]/.test(s)) { return false; }
+    // 함수 호출·변수명·파일명이 섞인 라벨만 고정폭으로 남긴다 (괄호 단독은 한글 설명에도 흔하다)
+    return !/\w\(|[A-Za-z]\w*_|_\w|\.py/.test(s);
+  }
+
   function el(tag, attrs, text) {
     var n = document.createElementNS(NS, tag);
     for (var a in attrs) { if (attrs[a] !== null) { n.setAttribute(a, attrs[a]); } }
-    if (text !== undefined) { n.textContent = text; }
+    if (text !== undefined) {
+      n.textContent = text;
+      if (tag === 'text' && isKrLabel(text)) { n.setAttribute('font-family', KR_FF); }
+    }
     return n;
   }
   function clear(g) { while (g.firstChild) { g.removeChild(g.firstChild); } }

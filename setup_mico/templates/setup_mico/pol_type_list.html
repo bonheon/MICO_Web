@@ -63,7 +63,7 @@
     display: inline-block;
     padding: 0.22em 0.75em;
     border-radius: 6px;
-    font-family: 'Consolas', 'Courier New', monospace;
+    font-family: ui-monospace, SFMono-Regular, Menlo, Consolas, 'Pretendard Variable', monospace;
     font-size: 0.82rem; font-weight: 600;
     background: #eef2ff; color: #4338ca;
     border: 1px solid #c7d2fe;
@@ -72,7 +72,7 @@
     display: inline-block;
     padding: 0.18em 0.65em;
     border-radius: 6px;
-    font-family: 'Consolas', 'Courier New', monospace;
+    font-family: ui-monospace, SFMono-Regular, Menlo, Consolas, 'Pretendard Variable', monospace;
     font-size: 0.78rem;
     background: #f0fdf4; color: #15803d;
     border: 1px solid #bbf7d0;
@@ -107,7 +107,7 @@
     gap: 0.4rem;
     margin-bottom: 0.4rem;
   }
-  .mapping-input-row input { font-family: 'Consolas', 'Courier New', monospace; font-size: 0.81rem; }
+  .mapping-input-row input { font-family: ui-monospace, SFMono-Regular, Menlo, Consolas, 'Pretendard Variable', monospace; font-size: 0.81rem; }
   .mapping-arrow { text-align: center; color: #8993a8; }
   .btn-del-row {
     width: 28px; height: 28px; border: none; border-radius: 6px;
@@ -275,7 +275,7 @@
       <div class="cat-row">
         <span class="badge-pill flex-shrink-0" style="background:{% if cat.family == 'DRAM' %}#fff1f2;color:#f43f5e{% else %}#eef2ff;color:#6366f1{% endif %};font-size:0.72rem;">{{ cat.family }}</span>
         <span class="fw-semibold" style="min-width:80px;">{{ cat.product }}</span>
-        <span class="badge-pill flex-shrink-0" style="background:#f0f2f7;color:#344054;font-size:0.72rem;font-family:monospace;">{{ cat.oper_id }}</span>
+        <span class="badge-pill flex-shrink-0" style="background:#f0f2f7;color:#344054;font-size:0.72rem;font-family: ui-monospace, SFMono-Regular, Menlo, Consolas, 'Pretendard Variable', monospace;">{{ cat.oper_id }}</span>
         <span style="flex:1;">{{ cat.oper_desc }}</span>
         <form method="post" action="{% url 'pol_type_assign_category' %}" style="margin:0;">
           {% csrf_token %}
@@ -323,7 +323,7 @@
     <div class="cat-row">
       <span class="badge-pill flex-shrink-0" style="background:{% if cat.family == 'DRAM' %}#fff1f2;color:#f43f5e{% else %}#eef2ff;color:#6366f1{% endif %};font-size:0.72rem;">{{ cat.family }}</span>
       <span class="fw-semibold" style="min-width:80px;">{{ cat.product }}</span>
-      <span class="badge-pill flex-shrink-0" style="background:#f0f2f7;color:#344054;font-size:0.72rem;font-family:monospace;">{{ cat.oper_id }}</span>
+      <span class="badge-pill flex-shrink-0" style="background:#f0f2f7;color:#344054;font-size:0.72rem;font-family: ui-monospace, SFMono-Regular, Menlo, Consolas, 'Pretendard Variable', monospace;">{{ cat.oper_id }}</span>
       <span style="flex:1;">{{ cat.oper_desc }}</span>
       <form method="post" action="{% url 'pol_type_assign_category' %}" class="d-flex align-items-center gap-1" style="margin:0;">
         {% csrf_token %}
@@ -342,7 +342,7 @@
     <div class="cat-row">
       <span class="badge-pill flex-shrink-0" style="background:{% if cat.family == 'DRAM' %}#fff1f2;color:#f43f5e{% else %}#eef2ff;color:#6366f1{% endif %};font-size:0.72rem;">{{ cat.family }}</span>
       <span class="fw-semibold" style="min-width:80px;">{{ cat.product }}</span>
-      <span class="badge-pill flex-shrink-0" style="background:#f0f2f7;color:#344054;font-size:0.72rem;font-family:monospace;">{{ cat.oper_id }}</span>
+      <span class="badge-pill flex-shrink-0" style="background:#f0f2f7;color:#344054;font-size:0.72rem;font-family: ui-monospace, SFMono-Regular, Menlo, Consolas, 'Pretendard Variable', monospace;">{{ cat.oper_id }}</span>
       <span style="flex:1;">{{ cat.oper_desc }}</span>
       <span class="badge-pill me-1" style="background:#fff7ed;color:#c2410c;font-size:0.72rem;">Type {{ cat.pol_type }} (미등록)</span>
       <form method="post" action="{% url 'pol_type_assign_category' %}" class="d-flex align-items-center gap-1" style="margin:0;">
