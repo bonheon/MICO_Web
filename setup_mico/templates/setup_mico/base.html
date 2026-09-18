@@ -28,6 +28,9 @@
     body { background: #f0f2f7; font-family: var(--mico-font-kr); }
     /* 폼 컨트롤은 UA 기본 글꼴(Arial 등)을 쓰므로 명시해 준다 — 드롭다운 옵션·버튼 포함 */
     button, input, select, textarea, optgroup, option { font-family: var(--mico-font-kr); }
+    /* 인라인 코드 표기도 본문 글꼴로 통일 — 들여쓰기 정렬이 필요한 pre 블록만 고정폭 유지 */
+    code, kbd, samp { font-family: var(--mico-font-kr); }
+    pre, pre code { font-family: ui-monospace, SFMono-Regular, Menlo, Consolas, 'Pretendard Variable', monospace; }
 
     /* ── Sidebar ── */
     #sidebar {
