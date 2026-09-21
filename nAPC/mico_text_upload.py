@@ -124,8 +124,32 @@ def _get_rows(model_input):
     return x["data"]
 
 
-# ── 6. 로깅 + 등록 ────────────────────────────────────────
+# ── 6. 올리기 전 자가 점검 ────────────────────────────────
+def preflight(cls):
+    """올리기 전에 서빙에서 깨질 조건을 여기서 먼저 잡는다.
+
+    특히 predict_stream: 사내 게이트웨이는 이걸 직접 부르는데,
+    없으면 MLflow 기본 구현이 NotImplementedError 를 내고 게이트웨이가
+        {"error_type":"NotImplementedError","hcp_error_type":"NOT_IMPLEMENTED",
+         "error_message":"Inference Error"}
+    로 감싸서 돌려준다. 로컬 `mlflow models serve` 에는 스트리밍 경로가 없어서
+    predict_stream 을 아예 부르지 않는다 -> **로컬 200 으로는 절대 안 걸린다.**
+    그래서 업로드 직전에 확인한다.
+    """
+    base = mlflow.pyfunc.PythonModel
+    if cls.predict_stream is base.predict_stream:
+        raise RuntimeError(
+            f"{cls.__name__} 에 predict_stream 이 없다. 이대로 올리면 엔드포인트에서 "
+            "NOT_IMPLEMENTED 가 난다 (로컬 서빙으로는 안 걸린다)"
+        )
+    if cls.predict is base.predict:
+        raise RuntimeError(f"{cls.__name__} 에 predict 가 없다")
+    print("preflight OK — predict / predict_stream 둘 다 있음")
+
+
+# ── 7. 로깅 + 등록 ────────────────────────────────────────
 if __name__ == "__main__":
+    preflight(TextWrapper)
     connect()
     with mlflow.start_run() as run:
         mlflow.log_metrics({"sample_rows": len(sample_data)})
@@ -139,3 +163,6 @@ if __name__ == "__main__":
         )
         print(f"run_id  = {run.info.run_id}")
         print(f"version = {info.registered_model_version}")
+        print()
+        print("올라간 모델이 맞는지 확인하려면:")
+        print(f"  python3 mico_check_model.py --model runs:/{run.info.run_id}/ai_studio")

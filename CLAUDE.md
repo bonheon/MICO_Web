@@ -205,6 +205,14 @@ MICO를 HCP → nAPC로 전환하면서 핵심 알고리즘을 MLflow 기반 AI 
   - `input_example`과 호출 payload가 다르면 `Failed to enforce schema of data`
   - `predict_stream`을 구현 안 하면 MLflow 기본 구현이 `NotImplementedError` → 게이트웨이가 `NOT_IMPLEMENTED`로 감쌈
     (pyfunc에서 이 예외를 직접 던지는 곳은 `PythonModel.predict_stream` 하나뿐. `predict`는 본문이 비어 있음)
+    - ⚠️ **로컬 서빙으로는 절대 안 걸린다** — MLflow `/invocations`에는 스트리밍 경로가 없어
+      `predict_stream`을 아예 안 부른다. 로컬 200이어도 엔드포인트는 NOT_IMPLEMENTED가 날 수 있음
+    - `streamable` 플래그는 `log_model` 때 클래스를 보고 자동 결정 (`pyfunc/model.py:423`).
+      MLmodel에 `streamable: false`면 오버라이드 없이 올라간 것
+    - 진단: `python3 nAPC/mico_check_model.py --model "models:/MICO_Text/3"` →
+      배포된 클래스의 predict_stream 유무·signature·predict/predict_stream 실호출까지 확인.
+      소스가 아니라 **올라간 것이 기준** (엔드포인트가 예전 버전을 물고 있는 경우가 흔함)
+    - `mico_text_upload.py`는 업로드 직전 `preflight()`로 이 조건을 먼저 막는다
   - 출력이 2차원이면 `setting an array element with a sequence`
 - 에러 단계 읽기: `NOT_IMPLEMENTED`(입력 처리 실패) → `Failed to enforce schema`(payload/signature 불일치)
   → `Inference Error`(입력 통과, predict 안/출력 처리에서 실패)

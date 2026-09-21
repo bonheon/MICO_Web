@@ -8,6 +8,7 @@ MICO를 HCP → nAPC로 전환하면서, 핵심 알고리즘을 MLflow 기반 AI
 - `mico_text_upload.py` / `mico_text_call.py` — **문자 in / 문자 out 최소 예제.**
   문자열만 보내고 문자열만 받는다. 문자로 학습을 부를 수 있는지 확인하는 가장 짧은 경로
 - `mico_train_upload.py` — 문자+숫자를 한 행 dict 로 섞어 보내는 예제 (학습 트리거)
+- `mico_check_model.py` — **올라간 모델 자가 진단.** NOT_IMPLEMENTED 가 뜨면 이것부터 돌린다
 - `simple_example.py` — MLflow pyfunc 개념 확인용 (로컬 저장까지)
 - `mico_deploy/` — 작업지시서 구조를 그대로 구현한 전체 예제
 
@@ -276,6 +277,43 @@ outputs: [{"type":"string","name":"lot_code"},
 
 더 단순하게 가려면 숫자를 문자열 안에 넣어 1차원 str 로만 돌려주면 된다
 (`mico_text_upload.py` 의 기본 구현).
+
+#### `NOT_IMPLEMENTED` / `Inference Error` — 로컬 200 인데 엔드포인트만 실패
+
+```json
+{"error_code":"15001","error_type":"NotImplementedError",
+ "hcp_error_type":"NOT_IMPLEMENTED","error_message":"Inference Error"}
+```
+
+**원인은 하나뿐이다 — 배포된 클래스에 `predict_stream` 오버라이드가 없다.**
+MLflow 전체에서 `NotImplementedError` 를 던지는 곳은
+`PythonModel.predict_stream` 기본 구현(`mlflow/pyfunc/model.py:137`) 하나다.
+
+왜 로컬에서는 안 걸리나 — **MLflow 자체 서빙의 `/invocations` 에는 스트리밍
+경로가 아예 없다.** `predict_stream` 을 부르지 않으므로 `predict` 만 멀쩡하면
+로컬은 200 이 나온다. 사내 게이트웨이는 `predict_stream` 을 직접 부른다.
+**로컬 200 은 이 에러가 없다는 증거가 못 된다.**
+
+확인 순서 (추측하지 말 것):
+
+```bash
+python3 mico_check_model.py --model "models:/MICO_Text/3"
+```
+
+```
+[2] 배포된 클래스
+    predict_stream  : 없음 (이게 원인)
+[4] 실제 호출
+    predict()       -> ['E2 | period=3 | ...']        <- 이건 된다
+    predict_stream() 실패 -> ...                      <- 엔드포인트가 죽는 지점
+```
+
+`streamable` 플래그는 `log_model` 시점에 클래스를 보고 자동으로 정해진다
+(`model.py:423`). MLmodel 에 `streamable: false` 면 오버라이드 없이 올라간 것이다.
+소스에 있어도 소용없고 **올라간 것이 기준**이므로, 엔드포인트가 보는 버전을 확인할 것
+(엔드포인트가 예전 버전을 물고 있는 경우가 흔하다).
+
+`mico_text_upload.py` 는 이제 올리기 전에 `preflight()` 로 이걸 먼저 막는다.
 
 #### 노트북에서 호출할 때 — `unrecognized arguments: -f kernel.json`
 
