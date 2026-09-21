@@ -5,6 +5,9 @@ MICO를 HCP → nAPC로 전환하면서, 핵심 알고리즘을 MLflow 기반 AI
 
 - `MICO MLflow 작업지시서.md` — 원본 작업지시서
 - `mico_upload.py` / `mico_call.py` — **여기부터 시작.** 숫자 배열만 주고받는 업로드/호출 한 쌍
+- `mico_text_upload.py` / `mico_text_call.py` — **문자 in / 문자 out 최소 예제.**
+  문자열만 보내고 문자열만 받는다. 문자로 학습을 부를 수 있는지 확인하는 가장 짧은 경로
+- `mico_train_upload.py` — 문자+숫자를 한 행 dict 로 섞어 보내는 예제 (학습 트리거)
 - `simple_example.py` — MLflow pyfunc 개념 확인용 (로컬 저장까지)
 - `mico_deploy/` — 작업지시서 구조를 그대로 구현한 전체 예제
 
@@ -230,6 +233,49 @@ data: Array({fab: string, lot_code: string, oper_code: string,
 
 문자열 키만 필요하면 숫자 필드를 빼면 된다. 형식은 그대로고
 `data: Array(Array(string))` 이 된다(이것도 확인 완료).
+
+#### 문자만 주고받는 최소 형태 — `mico_text_upload.py` / `mico_text_call.py`
+
+가장 짧은 경로. `data` 를 문자열 리스트로 두고 결과도 문자열 리스트로 받는다.
+
+```json
+{"input": [{"name": "mico_text", "shape": [3], "datatype": "ndarray",
+            "data": ["E2", "NA", "AG"]}]}
+```
+
+```
+inputs : data: Array(string)
+outputs: string
+```
+
+로컬 `mlflow models serve` 실측 — `serving_input_example.json` 그대로 POST 시 200,
+예시에 없던 문자열(`"ZZ"`)·다른 행 수로도 200. 입력 문자에 따라 결과가 갈리는 것까지 확인:
+
+```
+["E2 | period=3 | rr=98.5 | OK", "ZZ | NO_DATA", "NA | period=5 | rr=102.1 | OK"]
+```
+
+#### 결과에도 문자와 숫자를 같이 담을 수 있다 — 행을 dict 로 반환
+
+입력과 같은 규칙이 출력에도 적용된다. 배열 하나에 타입을 섞는 건 안 되지만,
+**dict 를 반환하면 필드마다 타입이 달라도 된다.** 로컬 서빙 200 확인:
+
+```python
+return [{"lot_code": "E2", "period": 3, "status": "OK"}, ...]
+```
+
+```
+outputs: [{"type":"string","name":"lot_code"},
+          {"type":"long","name":"period"},
+          {"type":"string","name":"status"}]
+```
+
+```json
+[{"lot_code": "E2", "period": 3, "status": "OK"}, ...]
+```
+
+더 단순하게 가려면 숫자를 문자열 안에 넣어 1차원 str 로만 돌려주면 된다
+(`mico_text_upload.py` 의 기본 구현).
 
 #### 안 되는 것 — 한 **배열** 안에 문자열과 숫자 섞기
 

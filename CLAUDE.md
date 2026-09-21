@@ -225,6 +225,12 @@ MICO를 HCP → nAPC로 전환하면서 핵심 알고리즘을 MLflow 기반 AI 
 - **숫자는 실수로 보낼 것**: signature가 `double`이라 `1` 같은 정수는 400 (`Expected type array, received type list`)
 - **문자열 입력·타입 혼합 OK** — 제약은 "타입 혼합 금지"가 아니라 **"한 배열 안의 값은 전부 같은 타입"**.
   **한 행을 배열이 아니라 dict로** 보내면 필드마다 타입이 달라도 된다 (`nAPC/mico_train_upload.py`)
+  - **문자만 주고받는 최소 예제**: `nAPC/mico_text_upload.py` / `mico_text_call.py`.
+    `data`가 문자열 리스트(`Array(string)`) → 출력도 문자열 리스트. 로컬 서빙 200 확인,
+    예시에 없던 문자열·다른 행 수도 200. 입력 문자에 따라 결과가 갈리는 것까지 확인
+  - **반환값에도 문자+숫자 같이 가능** — 출력 한 행을 dict로 반환하면 필드별 타입이 잡힌다
+    (`[{"lot_code":"E2","period":3,"status":"OK"}]` → `string/long/string`, 로컬 서빙 200 확인).
+    더 단순하게는 숫자를 문자열 안에 넣어 1차원 str로만 돌려줘도 된다
   ```json
   "data": [{"lot_code":"E2","oper_code":"V5077000E","fab":"M10","post_thk":1.0,"target":10.0}]
   ```
