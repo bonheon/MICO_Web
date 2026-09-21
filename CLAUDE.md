@@ -127,6 +127,7 @@ ADMIN (superuser만 노출)
 | `/guide/animation/pressure/learn/` | guide_animation_pressure_learn | 핵심 알고리즘 애니메이션 ⑤ PRESSURE 학습 ① Pre_Thk_VM |
 | `/guide/animation/pressure/learn/rr/` | guide_animation_pressure_rr | 핵심 알고리즘 애니메이션 ⑥ PRESSURE 학습 ② Removal Rate |
 | `/guide/algorithm/` | algorithm_guide | 알고리즘 가이드 (교육 시각자료, 정적) |
+| `/guide/code-flow/` | guide_code_flow | 학습 코드 흐름 (노드 클릭 → 설명 · 함수 안쪽 흐름) |
 | `/voc/` | voc_list | VOC 게시판 |
 | `/admin-stats/` | access_stats | 접속 현황 (superuser only) |
 
@@ -166,6 +167,42 @@ ADMIN (superuser만 노출)
   - 단, PRE_THK 데이터 소스 쿼리 결과에 process_id 컬럼(대소문자 무관)이 있어야 동작 — 없으면 해당 소스는 필터 없이 기존 동작
 - 각 `algorithm_new/merge/*/Merge_Hub.py`의 `EXCLUDE_PROCESS_IDS` 리스트에 route ID를 등록해서 사용 (기본 `[]` = 제외 없음)
 - 이미 적재된 과거 데이터는 지우지 않음 — 필요 시 MongoDB에서 해당 process_id 문서 수동 삭제
+
+### 학습 코드 흐름 (`/guide/code-flow/`)
+
+`setup_mico/templates/setup_mico/guide_code_flow.html` **한 파일**에 그래프·설명·스크립트가 전부 들어 있다.
+좌표를 손으로 적는 구조 — 데이터만 고치면 그림이 바뀐다.
+
+| 변수 | 무엇 |
+|------|------|
+| `MAIN_NODES` / `MAIN_EDGES` / `MAIN_FRAMES` | 전체 흐름의 노드 · 화살표 · `for` 루프 점선 박스 |
+| `MAIN_D` | 노드별 패널 내용 (`t` 제목 / `loc` 코드 위치 / `h` 본문 / `c` 접힌 코드 세부) |
+| `SUBS` | 함수 안쪽 흐름 5개 — `detrend`, `rr`, `rr_models`, `offset`, `offset_lc` |
+
+- 노드에 `sub:'키'` 를 달면 **클릭 시 그 서브 흐름으로 바로 진입**한다 (`안쪽 ⤵` 표시가 붙음).
+  서브의 `introFrom` 은 메인 노드 id — 그 노드 설명을 서브의 들머리로 재사용해서 설명을 두 벌 관리하지 않는다.
+- 패널 안 링크: `data-go`(같은 흐름의 노드) / `data-sub`(서브 진입) / `data-main`(메인으로 복귀 후 선택)
+- `g` 그룹: `orch` / `pre` / `rr` / `os` / `db` / `cat`(데이터가 합쳐지는 지점)
+- 글 스타일: **한 문장 정의 → 표·목록 → 주의 한 줄**. 과거 버그 서사·배경 설명은 넣지 않는다.
+  코드 위치·변수명·함정은 `c`(접힌 "코드에서 확인할 것") 로 내린다.
+
+#### 레이아웃 점검 — `tools/flow_audit.py`
+
+```bash
+python3 tools/flow_audit.py     # 문제 있으면 종료 코드 1
+```
+
+좌표만으로 검사한다 (화면·서버 불필요). **노드를 추가하거나 옮기면 반드시 한 번 돌릴 것.**
+
+1. 글자 넘침 — 제목/부제 폭 > 상자 너비
+2. 상자 간격 — 겹침, 가로 40px·세로 30px 미만 (클릭 판정이 ±12 라 26px 면 서로 닿는다)
+3. `for` 루프 박스 여백 24px 미만
+4. 박스 제목이 안쪽 노드를 덮는지
+5. 화살표 라벨이 상자를 덮거나 상자 사이 간격보다 넓은지
+
+기준값은 파일 상단 `MIN_GAP_X` / `MIN_GAP_Y` / `MIN_FRAME_PAD`.
+
+⚠️ `DEBUG=False` 라 **템플릿이 캐시된다** — 수정 후에는 서버를 재시작해야 화면에 반영된다.
 
 ### Jupyter 노트북
 - `notebooks/mico_setup_query.ipynb`: Set-up 전체 계층 DataFrame 조회
