@@ -302,9 +302,19 @@ outputs: [{"type":"string","name":"lot_code"},
 | mico_train_upload | `array(string)` name=`aiu_output` | `{'aiu_output': ['E2_..._M10:OK', ...]}` | `['E2_..._M10:OK', ...]` |
 | mico_text_upload | `array(string)` name=`aiu_output` | `{'aiu_output': ['E2 | period=3 ...']}` | `['E2 | period=3 ...']` |
 
-⚠️ **로컬 서빙 응답도 같이 바뀐다.** 전에는 배열이 그대로(`["E2 | ..."]`) 왔는데
-이제 `{"aiu_output": ["E2 | ..."]}` 가 온다. 호출 쪽 추출은 아직 이 형태를 모른다
-(게이트웨이 형태 `output.aiu_output` 과 예전 배열 형태만 처리) — 호출 스크립트 수정 시 같이 반영할 것.
+**로컬 서빙 응답도 같이 바뀐다.** 전에는 배열이 그대로(`["E2 | ..."]`) 왔는데
+이제 `{"aiu_output": ["E2 | ..."]}` 가 온다. 호출 쪽(`mico_call.py` / `mico_text_call.py`)에
+이 형태를 더했다. **사내 엔드포인트 경로는 바뀐 게 없다** — 게이트웨이가 감싼
+`output.aiu_output` 은 원래대로 처리된다.
+
+| 응답 본문 | 어디서 오나 | 처리 |
+|---|---|---|
+| `{"output":{"aiu_output":[...]}}` | 사내 게이트웨이 | 전부터 OK |
+| `{"aiu_output":[...]}` | 로컬 서빙 (이번에 추가) | OK |
+| `[...]` | 로컬 서빙 (예전) | OK |
+| `{"predictions":[...]}` | MLflow 원본 | OK |
+| `{"error_code":...}` | 에러 (HTTP 200) | `[]` + 에러 표시 |
+| `{"output": [...]}` (dict 아님) | 방어 | `[]` (예외 없음) |
 
 `mico_deploy/model_wrapper.py` 는 DataFrame 입출력의 별개 설계(작업지시서 예제)라 적용하지 않았다.
 참고로 이 파일에는 `predict_stream` 도 없어서, 그대로 배포하면 NOT_IMPLEMENTED 가 난다.

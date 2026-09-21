@@ -66,9 +66,14 @@ def extract_preds(body):
     """응답 본문에서 결과 배열을 꺼낸다 (mico_call.py 와 동일)."""
     if not isinstance(body, dict):
         return body
+    # 1) 사내 게이트웨이: 모델의 {"aiu_output": [...]} 를 output 으로 한 번 더 감싼다
     out = body.get("output")
     if isinstance(out, dict) and out.get("aiu_output"):
         return out["aiu_output"]
+    # 2) 로컬 `mlflow models serve`: 모델 반환이 그대로 온다 (감싸지 않는다)
+    if body.get("aiu_output"):
+        return body["aiu_output"]
+    # 3) MLflow 원본 형식
     return body.get("predictions", [])
 
 

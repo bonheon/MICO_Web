@@ -235,7 +235,9 @@ MICO를 HCP → nAPC로 전환하면서 핵심 알고리즘을 MLflow 기반 AI 
   - `_run()` → `return {"aiu_output": [...]}`, `predict_stream()` → `self._run(...)["aiu_output"]` 순회
   - `mico_upload.py` / `mico_train_upload.py` / `mico_text_upload.py` 세 파일 모두 적용
   - output signature 가 `[{"name":"aiu_output","type":"array",...}]` 로 잡힌다 (로컬 확인)
-  - ⚠️ **로컬 서빙 응답도 같이 바뀐다**: 배열 그대로가 아니라 `{"aiu_output": [...]}` 가 온다
+  - **로컬 서빙 응답도 같이 바뀐다**: 배열 그대로가 아니라 `{"aiu_output": [...]}` 가 온다.
+    호출 쪽(`mico_call.py` / `mico_text_call.py`)에 이 형태를 추가함.
+    사내 엔드포인트 경로(`output.aiu_output`)는 바뀐 게 없다
   - `mico_deploy/model_wrapper.py` 는 DataFrame 입출력의 별개 설계라 미적용 (predict_stream 도 없음)
 - **응답 본문 형식이 로컬/엔드포인트에서 다름**: 사내 엔벨로프(`{"input": ...}`)로 POST 하면
   로컬 `mlflow models serve`는 결과 배열을 그대로(`[7.0, 12.0, 22.0]`), 사내 게이트웨이는
