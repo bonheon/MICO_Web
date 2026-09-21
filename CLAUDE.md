@@ -268,6 +268,19 @@ MICO를 HCP → nAPC로 전환하면서 핵심 알고리즘을 MLflow 기반 AI 
     `optional`로 잡힘. **타입은 `input_example`과 정확히 일치**해야 함 (예시가 `3`이면 호출도 정수)
   - **업로드 스크립트는 import 하지 말고 직접 실행** — import 하면 cloudpickle이 래퍼 클래스를 참조로만 저장해
     서빙에서 `ModuleNotFoundError`. `__main__` 정의 클래스라야 값으로 저장됨
+- **`nAPC/mico_train/` — 학습 이관 1단계 (Set-up 전달 + 데이터 경로).** 상세는 `nAPC/mico_train/README.md`
+  - web 이 Set-up(SubCategory×Detail 전부)을 payload 로 넘기고, 컨테이너는 Django 없이 받는다
+    (`setup_payload.py`: `build_payload`(web) / `to_info_table`(컨테이너), `INFO_COLUMNS` 40개는
+     `baseinfoGetData` 와 **같은 컬럼** — selftest 가 소스를 읽어 대조)
+  - **merge_df 는 MongoDB 가 아니라 DataLake(과거 N일)+DataHub(최신) 직접 조회** (`data_source.py`).
+    겹치는 substrate_id 는 HUB 가 이긴다. 정리 단계는 `Merge_Data._prepare_merge_df` 와 동일
+    (동등성도 selftest 에서 대조 — 저쪽은 pymongo/Django 때문에 컨테이너에서 import 불가라 재구현)
+  - 사내 조회 함수 연결: `set_provider(obj)` → `Common.Merge_Data.Merge_Get_data` → 에러.
+    `getdatalake`/`getdatahub` 가 아직 `{TODO}` 스텁이라 지금은 키마다 `no_data` 로 떨어진다(죽지는 않음)
+  - 학습 순서(키 생성→그룹 분기→oper/recipe 필터→파이프라인)는 `Module.run` 과 동일하게 유지
+  - 검증: `python3 -m nAPC.mico_train.selftest` (Django·pymongo 없는 환경에서 19/19 통과)
+  - 남은 것: 사내 조회 함수 본문, 사전공정(PRE_THK_INFO, MongoDB upsert 전제라 미이관),
+    학습 결과 저장 경로, `Get_Data.py` 의 import 시점 `django.setup()` 지연 초기화
 - `nAPC/simple_example.py` — MLflow pyfunc 개념 확인용 (로컬 저장까지)
 - `nAPC/mico_deploy/` — 작업지시서 구조 전체 예제 (save/register/test)
 - 핵심: MLflow pyfunc는 ML 모델이 아니어도 됨. `predict()` 메서드만 있으면 임의 파이썬 코드 서빙 가능
