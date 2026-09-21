@@ -22,6 +22,7 @@ web Set-up 을 통째로 넘겨받아, merge_df 를 **DataLake + DataHub 에서 
 | `data_source.py` | 컨테이너 | DataLake+DataHub → merge_df. pymongo 없음 |
 | `entry.py` | 컨테이너 | payload → 키별 merge_df → 학습 호출 |
 | `export_setup.py` | web | payload JSON 뽑기 (CLI) |
+| `result_collector.py` | 컨테이너 | 학습값을 가로채 응답에 싣는다 |
 | `sample_provider.py` | 테스트 | `merge_df_sample.csv` 를 DataLake/DataHub 대역으로 |
 | `run_sample.py` | 테스트 | 샘플로 **실제 학습 파이프라인**까지 한 번 돌리기 |
 | `selftest.py` | 아무데나 | 사내 시스템 없이 전 경로 검증 |
@@ -187,13 +188,33 @@ MongoDB 가 없어 **Offset 과 Alarm 은 끝까지 못 간다** — RR 학습 �
             "data": [{ ...위 payload... }]}]}
 ```
 
-### 돌아오는 것 — 키별 요약
-
-`run_training()` 의 반환은 **학습값이 아니라 키마다 무슨 일이 있었는지**다.
+### 돌아오는 것 — 키별 요약 + 학습값
 
 ```json
-[{"key": "E2_V5077000E_M10", "status": "trained", "rows": 20000}]
+[{
+  "key": "E2_V5077000E_M10",
+  "status": "trained",
+  "rows": 20000,
+  "counts": {"MICO_Removal_Rate_E2_M1 CU CMP_M10": 10,
+             "MICO_OFFSET_E2_M1 CU CMP_M10": 20},
+  "results": {
+    "MICO_Removal_Rate_E2_M1 CU CMP_M10": [
+      {"Date": "2026-09-21T08:41:20.066035", "Fab": "M10", "Lot_Code": "E2",
+       "Oper_Code": "V5077000E", "Oper_Desc": "M1 CU CMP", "APC_Para": "P3",
+       "EQ": "KCMP43", "Recipe_ID": "E2_M1CU_R17_TSV.CAS", "Count": 1901,
+       "b1": -0.0891, "b0": 4.5078, "b1_weighted": -0.0876, "b0_weighted": 4.472}
+    ],
+    "MICO_OFFSET_E2_M1 CU CMP_M10": [
+      {"eqp_id": "KCMP41", "recipe_id": "E2_M1CU_R12_TSV.CAS",
+       "IDLE": "LC_CMP_M2CU", "OFFSET": 0.0, "APC_Para": "P3",
+       "Date": "2026-09-21T08:41:20.579"}
+    ]
+  }
+}]
 ```
+
+`counts` 는 **잘라서 보내도 원래 건수**를 알 수 있게 항상 전체 수다.
+샘플 실행 기준 한 키(RR 10 + OFFSET 20)에 **5,849 bytes** — 엔드포인트로 충분하다.
 
 | status | 뜻 |
 |---|---|
@@ -208,9 +229,30 @@ MongoDB 가 없어 **Offset 과 Alarm 은 끝까지 못 간다** — RR 학습 �
 {"output": {"aiu_output": [{"key": "E2_V5077000E_M10", "status": "trained", "rows": 20000}]}}
 ```
 
-### 학습값 자체는 반환되지 않는다 — 컬렉션에 쌓인다
+### 학습값은 어떻게 응답에 실리나
 
-실제 학습 결과는 return 이 아니라 결과 컬렉션으로 들어간다. 샘플 실행 실측:
+학습 코드는 결과를 `mongodb_controller` 로 쓴다. 값을 돌려주려고 알고리즘을
+고치는 대신 **그 controller 를 감싸서 쓰는 내용을 기록**한다
+(`result_collector.py`). 알고리즘은 한 줄도 바뀌지 않는다.
+
+기본은 **tee** 다 — 기록하면서 원래 controller 에 그대로 넘긴다.
+그래서 **MongoDB 적재는 기존대로 일어나고 응답에도 값이 실린다.**
+
+```python
+run_training(payload)                        # 적재 + 응답 (기본)
+run_training(payload, keep_mongo=False)      # 응답만, Mongo 에 안 씀
+run_training(payload, max_rows=50)           # 컬렉션마다 50건까지만 싣기
+run_training(payload, collect_results=False) # 예전처럼 요약만
+```
+
+> `Module.py` / `OFFSET.py` 가 `from ... import mongodb_controller` 로 **import
+> 시점에 이름을 묶어** 두기 때문에, `Common.MongoDB_Control` 쪽을 바꿔선 안 먹는다.
+> 쓰는 쪽 모듈의 속성을 직접 갈아 끼우고 끝나면 되돌린다.
+
+⚠️ `keep_mongo=False` 는 주의 — Offset 이 RR 결과를 Mongo 에서 **되읽는** 경로가
+있어서, 적재를 끄면 그 경로가 막힌다.
+
+샘플 실행 실측 (컬렉션에 쌓인 것 = 응답에 실린 것):
 
 ```
 MICO_PRE_THK_E2_M1 CU CMP_M10_Period :  0건   (Pre_Oper_Code 미설정이라 학습 없음)
@@ -250,10 +292,6 @@ MICO_OFFSET_E2_M1 CU CMP_M10         : 20건
 ```bash
 python3 -m nAPC.mico_train.run_sample --show-results
 ```
-
-> 지금은 결과 저장이 MongoDB 경로 그대로다. 학습값을 **응답으로 돌려줄지**
-> (엔드포인트는 60초 제한이라 양이 문제) **컨테이너가 직접 적재할지**는 아직 미정 —
-> 남은 과제의 "학습 결과 저장 경로" 항목이다.
 
 ### ⚠️ Set-up 값이 데이터와 안 맞으면 조용히 0건이 된다
 
@@ -319,6 +357,6 @@ web 의 `Detail.rr_para` 는 `blank=True, default=''` 라 **빈 값이 정상적
 - **사전공정(PRE_THK_INFO)** — `Merge_Data` 의 `_process_pre_oper` 계열은 MongoDB
   upsert 전제라 그대로는 못 쓴다. Pre_Thk_VM 의 ITM/detrend 경로와 Pre_Oper2~4
   회귀에 필요하므로 다음 단계에서 같은 방식(직접 조회)으로 옮긴다
-- **학습 결과 저장** — 지금은 기존 `_run_pipeline` 에 맡긴다(MongoDB 에 쓴다).
-  결과도 nAPC 쪽으로 옮길지는 별도 결정
+- **MongoDB 적재를 끊을지** — 지금은 적재와 응답 둘 다 한다(`keep_mongo=True`).
+  끊으려면 Offset 이 RR 을 되읽는 경로를 먼저 정리해야 한다
 - **RR_Para 빈 값 처리** — 위 `consumable_Para` 건. 스킵인지 기본값인지 결정 필요

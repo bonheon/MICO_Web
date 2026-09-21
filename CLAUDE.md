@@ -289,14 +289,21 @@ MICO를 HCP → nAPC로 전환하면서 핵심 알고리즘을 MLflow 기반 AI 
     REMOVAL_RATE/Module/Simulation 이 import 단계에서 pymongo 를 쓴다
   - **주고받는 데이터**: 보내는 것은 Set-up payload(컬럼 40개 행들)뿐 — merge_df 는 안 보낸다
     (컨테이너가 DataLake+DataHub 직접 조회, 샘플 기준 20000행×52컬럼).
-    반환은 학습값이 아니라 키별 요약 `[{"key":...,"status":"trained","rows":20000}]`.
-    **학습값 자체는 결과 컬렉션에 쌓인다** (RR: EQ/Recipe_ID/Count/b1/b0/b1_weighted/b0_weighted,
-    OFFSET: eqp_id/recipe_id/IDLE/OFFSET/APC_Para). 예시는 `nAPC/mico_train/README.md`
+    반환은 키별 요약 + **학습값**: `[{key, status, rows, counts, results}]`.
+    `results` 는 컬렉션별 학습값 (RR: EQ/Recipe_ID/Count/b1/b0/b1_weighted/b0_weighted,
+    OFFSET: eqp_id/recipe_id/IDLE/OFFSET/APC_Para), `counts` 는 잘라 보내도 전체 건수.
+    샘플 한 키(RR 10+OFFSET 20) = 5,849 bytes. 예시는 `nAPC/mico_train/README.md`
+  - **학습값 수집 방식** (`result_collector.py`): 알고리즘을 안 고치고 `mongodb_controller` 를
+    감싸 쓰는 내용을 기록한다. 기본은 tee — **Mongo 적재는 그대로 하고 응답에도 싣는다**.
+    `Module.py`/`OFFSET.py` 가 import 시점에 이름을 묶어 두므로 `Common.MongoDB_Control` 이 아니라
+    **쓰는 쪽 모듈의 속성**을 갈아 끼워야 한다 (끝나면 복구).
+    옵션: `keep_mongo=False`(응답만 — 단 Offset 이 RR 을 되읽는 경로가 막힘),
+    `max_rows=N`(컬렉션별 상한), `collect_results=False`(요약만)
   - ⚠️ **Set-up 값이 데이터와 안 맞으면 RR 이 에러 없이 0건** — `_process_models` 가 소모품 범위를
     4분위로 나눠 각 구간 25건 초과를 요구해서, `RR_Para_Max` 가 실제 범위보다 크면 첫 구간에 몰려
     조건을 못 넘는다. "Removal Rate 완료" 는 찍히는데 저장은 0건이라 로그만 보면 성공처럼 보인다
   - 남은 것: 사내 조회 함수 본문, 사전공정(PRE_THK_INFO, MongoDB upsert 전제라 미이관),
-    학습 결과 저장 경로(응답으로 돌려줄지 컨테이너가 직접 적재할지 미정)
+    MongoDB 적재를 끊을지(지금은 적재+응답 둘 다)
   - ⚠️ **발견한 잠재 버그**: `REMOVAL_RATE.compute_rr`(300행 근처)의 `consumable_Para` 분기에
     `else` 가 없다. `Detail.rr_para` 는 `blank=True, default=''` 라 빈 값이 정상 Set-up 인데,
     그 키는 `UnboundLocalError` 로 RR 학습이 통째로 빠진다. try/except 가 Cube 메시지로

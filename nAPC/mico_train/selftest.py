@@ -23,6 +23,7 @@ import pandas as pd
 sys.path.insert(0, str(Path(__file__).parents[2]))
 
 from nAPC.mico_train import data_source, entry
+from nAPC.mico_train.result_collector import ResultCollector, _json_safe
 from nAPC.mico_train.setup_payload import INFO_COLUMNS, SCHEMA_VERSION, to_info_table
 
 _ALGO = Path(__file__).parents[2] / 'algorithm_new'
@@ -192,10 +193,116 @@ def test_dry_run():
           str([r['rows'] for r in res]))
 
 
+def test_result_collector():
+    """수집기가 mongodb_controller 를 갈아 끼워 기록하고, 끝나면 되돌리는지."""
+    import sys as _sys
+    import types
+
+    # 가짜 학습 모듈 두 개를 만들어 Common.Module / Common.OFFSET 자리에 놓는다
+    written = []
+
+    class FakeController:
+        def __init__(self, url, db, coll): self.coll = coll
+        def insert_row(self, row):  written.append(('inner', self.coll, row))
+        def push_df(self, df):      written.append(('inner', self.coll, len(df)))
+        def count_row(self):        return 7
+
+    made = {}
+    for name in ('Common.Module', 'Common.OFFSET'):
+        mod = types.ModuleType(name)
+        mod.mongodb_controller = FakeController
+        _sys.modules[name] = mod
+        made[name] = mod
+
+    with ResultCollector() as rc:
+        m = made['Common.Module'].mongodb_controller('u', 'd', 'MICO_Removal_Rate_X')
+        m.insert_row({'EQ': 'KCMP41', 'b1': 0.5})
+        check('위임도 된다 (원본 controller 에 전달)', written and written[0][0] == 'inner')
+        check('위임 안 가로챈 메서드도 동작', m.count_row() == 7)
+        o = made['Common.OFFSET'].mongodb_controller('u', 'd', 'MICO_OFFSET_X')
+        o.push_df(pd.DataFrame([{'eqp_id': 'KCMP41', 'OFFSET': 0.0}]))
+
+    res = rc.results()
+    check('두 컬렉션 모두 기록', set(res) == {'MICO_Removal_Rate_X', 'MICO_OFFSET_X'}, str(list(res)))
+    check('insert_row 기록', res['MICO_Removal_Rate_X'][0]['EQ'] == 'KCMP41')
+    check('push_df 기록', res['MICO_OFFSET_X'][0]['OFFSET'] == 0.0)
+    check('counts', rc.counts() == {'MICO_Removal_Rate_X': 1, 'MICO_OFFSET_X': 1}, str(rc.counts()))
+    check('빠져나오면 원래 controller 로 복구',
+          made['Common.Module'].mongodb_controller is FakeController)
+
+    # delegate=False 면 원본에 안 넘긴다
+    written.clear()
+    with ResultCollector(delegate=False) as rc2:
+        made['Common.Module'].mongodb_controller('u', 'd', 'C').insert_row({'a': 1})
+    check('delegate=False 면 Mongo 에 안 쓴다', written == [] and rc2.counts() == {'C': 1})
+
+    for name in made:
+        _sys.modules.pop(name, None)
+
+
+def test_json_safe():
+    import numpy as np
+    row = _json_safe({
+        'ts': pd.Timestamp('2026-09-21 08:00:00'),
+        'np_f': np.float64(1.5), 'np_i': np.int64(3),
+        'nan': float('nan'), 'inf': float('inf'),
+        'txt': 'E2', 'none': None,
+    })
+    import json
+    check('Timestamp -> ISO 문자열', row['ts'].startswith('2026-09-21T'), row['ts'])
+    check('numpy 스칼라 -> 파이썬 수', row['np_f'] == 1.5 and row['np_i'] == 3)
+    check('NaN/Inf -> None (JSON 표준)', row['nan'] is None and row['inf'] is None)
+    check('json.dumps 가능', json.dumps(row) and True)
+
+
+def test_results_in_response():
+    """run_training 반환에 학습값이 실리는지 — 학습기가 쓴 것을 그대로 받아야 한다."""
+    import sys as _sys, types
+    written = []
+
+    class FakeController:
+        def __init__(self, url, db, coll): self.coll = coll
+        def insert_row(self, row): written.append(row)
+        def push_df(self, df): pass
+
+    mod = types.ModuleType('Common.Module')
+    mod.mongodb_controller = FakeController
+    _sys.modules['Common.Module'] = mod
+
+    def fake_trainer(rcp, vm, key, use_group_rr=False):
+        lot = key['Lot_Code'].unique()[0]
+        m = _sys.modules['Common.Module'].mongodb_controller('u', 'd', f'MICO_Removal_Rate_{lot}')
+        m.insert_row({'EQ': 'KCMP41', 'b1': 0.5, 'Lot_Code': lot})
+
+    entry.set_trainer(fake_trainer)
+    res = entry.run_training(make_payload(), provider=FakeProvider)
+
+    single = [r for r in res if r['key'] == 'E2_V5077000E_M10'][0]
+    check('반환에 results 가 붙는다', 'results' in single and single['results'], str(single.get('counts')))
+    check('반환에 counts 가 붙는다', single['counts'] == {'MICO_Removal_Rate_E2': 1}, str(single['counts']))
+    check('학습값 내용이 실린다',
+          single['results']['MICO_Removal_Rate_E2'][0]['b1'] == 0.5)
+
+    # max_rows 로 자르기
+    res2 = entry.run_training(make_payload(), provider=FakeProvider, max_rows=0)
+    g = [r for r in res2 if r['key'] == 'G1#7'][0]
+    check('max_rows=0 이면 값은 비고 counts 는 남는다',
+          all(v == [] for v in g['results'].values()) and sum(g['counts'].values()) == 2,
+          f"results={g['results']} counts={g['counts']}")
+
+    # 끄기
+    res3 = entry.run_training(make_payload(), provider=FakeProvider, collect_results=False)
+    check('collect_results=False 면 results 가 없다',
+          all('results' not in r for r in res3))
+
+    _sys.modules.pop('Common.Module', None)
+
+
 if __name__ == '__main__':
     for fn in (test_columns_match_source, test_info_table, test_combine_hub_wins,
                test_prepare_matches_merge_data, test_end_to_end,
-               test_empty_provider_message, test_dry_run):
+               test_empty_provider_message, test_dry_run,
+               test_result_collector, test_json_safe, test_results_in_response):
         print(f'\n=== {fn.__name__} ===')
         try:
             fn()

@@ -18,6 +18,7 @@ import traceback
 import pandas as pd
 
 from . import data_source
+from .result_collector import ResultCollector
 from .setup_payload import to_info_table
 
 _trainer = None
@@ -40,17 +41,25 @@ def get_trainer():
 # ── 메인 ──────────────────────────────────────────────────────────────────
 
 def run_training(payload, provider=None, days=None, exclude_process_ids=None,
-                 trainer=None, dry_run=False):
+                 trainer=None, dry_run=False,
+                 collect_results=True, max_rows=None, keep_mongo=True):
     """payload 하나를 학습한다.
 
     Args:
-        payload : build_payload() 결과 (Set-up 전체)
-        provider: DataLake/DataHub 조회 객체 (없으면 data_source 기본 경로)
-        days    : DataLake 조회 기간. 없으면 payload['days']
-        dry_run : 데이터만 모으고 학습은 돌리지 않는다 (데이터 경로 점검용)
+        payload        : build_payload() 결과 (Set-up 전체)
+        provider       : DataLake/DataHub 조회 객체 (없으면 data_source 기본 경로)
+        days           : DataLake 조회 기간. 없으면 payload['days']
+        dry_run        : 데이터만 모으고 학습은 돌리지 않는다 (데이터 경로 점검용)
+        collect_results: 학습값을 응답에 실어 돌려준다 (기본 True)
+        max_rows       : 컬렉션마다 응답에 실을 최대 건수. None 이면 전부.
+                         잘려도 `counts` 로 원래 건수는 알 수 있다
+        keep_mongo     : True 면 기존대로 MongoDB 에도 적재하고 응답에도 싣는다.
+                         False 면 적재 없이 응답으로만 돌려준다
+                         (주의: Offset 이 RR 결과를 되읽는 경로가 막힌다)
 
     Returns:
         키마다 무슨 일이 있었는지 담은 리스트. 한 키가 실패해도 나머지는 계속한다.
+        collect_results 면 각 항목에 `results`(컬렉션별 학습값)와 `counts` 가 붙는다.
     """
     info_table = to_info_table(payload)
     days       = days if days is not None else payload.get('days', 30)
@@ -62,24 +71,30 @@ def run_training(payload, provider=None, days=None, exclude_process_ids=None,
     print(f'  merge_df 소스: DataLake({days}일) + DataHub  (MongoDB 미사용)')
     print(f'{"#" * 60}')
 
+    collect = collect_results and not dry_run
+    opts = {'collect': collect, 'max_rows': max_rows, 'keep_mongo': keep_mongo}
+
     results = []
     for group_name in info_table['Group_Name'].unique():
         keys = info_table[info_table['Group_Name'] == group_name]['for_key_list'].unique()
         if group_name == 'not_group':
             results += _run_single(info_table, keys, days, provider,
-                                   exclude_process_ids, trainer, dry_run)
+                                   exclude_process_ids, trainer, dry_run, opts)
         else:
             results.append(_run_grouped(info_table, group_name, days, provider,
-                                        exclude_process_ids, trainer, dry_run))
+                                        exclude_process_ids, trainer, dry_run, opts))
 
     ok = sum(1 for r in results if r['status'] == 'trained')
     print(f'\n{"#" * 60}')
     print(f'  학습 완료: {ok}/{len(results)} 키')
+    if collect:
+        total = sum(sum(r.get('counts', {}).values()) for r in results)
+        print(f'  학습값 {total}건을 응답에 실음')
     print(f'{"#" * 60}')
     return results
 
 
-def _run_single(info_table, keys, days, provider, exclude, trainer, dry_run):
+def _run_single(info_table, keys, days, provider, exclude, trainer, dry_run, opts):
     """그룹 미지정: 키마다 독립적으로 merge_df 를 만들어 학습한다."""
     out = []
     for idx, key in enumerate(keys, 1):
@@ -92,12 +107,12 @@ def _run_single(info_table, keys, days, provider, exclude, trainer, dry_run):
 
         print(f'\n[{idx}/{len(keys)}] {key}')
         out.append(_one_key(key, info_key, info_key['Recipe_ID'].dropna().unique(),
-                            days, provider, exclude, trainer, dry_run,
+                            days, provider, exclude, trainer, dry_run, opts,
                             label='단독', use_group_rr=False))
     return out
 
 
-def _run_grouped(info_table, group_name, days, provider, exclude, trainer, dry_run):
+def _run_grouped(info_table, group_name, days, provider, exclude, trainer, dry_run, opts):
     """그룹 지정: 그룹의 모든 키 데이터를 합친 뒤 키마다 같은 merge_df 로 학습한다."""
     rows = info_table[info_table['Group_Name'] == group_name]
     keys = rows['for_key_list'].unique()
@@ -145,12 +160,15 @@ def _run_grouped(info_table, group_name, days, provider, exclude, trainer, dry_r
     if dry_run:
         return {'key': group_name, 'status': 'dry_run', 'rows': len(merge_df_rcp)}
 
-    for info_key in info_keys:
-        _train(trainer, merge_df_rcp, merge_df_vm, info_key, True, group_name)
-    return {'key': group_name, 'status': 'trained', 'rows': len(merge_df_rcp)}
+    out = {'key': group_name, 'status': 'trained', 'rows': len(merge_df_rcp)}
+    with _collector(opts) as rc:
+        for info_key in info_keys:
+            _train(trainer, merge_df_rcp, merge_df_vm, info_key, True, group_name)
+    _attach(out, rc, opts)
+    return out
 
 
-def _one_key(key, info_key, recipes, days, provider, exclude, trainer, dry_run,
+def _one_key(key, info_key, recipes, days, provider, exclude, trainer, dry_run, opts,
              label, use_group_rr):
     # merge_df_vm : recipe 필터 전(= 이 Lot_Code 전체) -> Pre_Thk_VM 용
     merge_df_vm = _fetch(info_key, days, provider, exclude, key)
@@ -173,8 +191,37 @@ def _one_key(key, info_key, recipes, days, provider, exclude, trainer, dry_run,
     if dry_run:
         return {'key': key, 'status': 'dry_run', 'rows': len(merge_df_rcp)}
 
-    ok = _train(trainer, merge_df_rcp, merge_df_vm, info_key, use_group_rr, key)
-    return {'key': key, 'status': 'trained' if ok else 'failed', 'rows': len(merge_df_rcp)}
+    with _collector(opts) as rc:
+        ok = _train(trainer, merge_df_rcp, merge_df_vm, info_key, use_group_rr, key)
+    out = {'key': key, 'status': 'trained' if ok else 'failed', 'rows': len(merge_df_rcp)}
+    _attach(out, rc, opts)
+    return out
+
+
+def _collector(opts):
+    """학습값을 모을 수집기. collect=False 면 아무것도 안 하는 것으로 대체한다."""
+    if not opts.get('collect'):
+        return _NullCollector()
+    return ResultCollector(delegate=opts.get('keep_mongo', True))
+
+
+class _NullCollector:
+    def __enter__(self): return self
+    def __exit__(self, *e): return False
+    def results(self, max_rows=None): return {}
+    def counts(self): return {}
+    def is_empty(self): return True
+
+
+def _attach(out, rc, opts):
+    """학습 결과를 반환 dict 에 붙인다."""
+    if not opts.get('collect'):
+        return
+    out['results'] = rc.results(max_rows=opts.get('max_rows'))
+    out['counts']  = rc.counts()
+    if out['counts']:
+        summary = ', '.join(f'{k.split("_")[1]}={v}' for k, v in out['counts'].items())
+        print(f'    학습값: {summary}')
 
 
 def _fetch(info_key, days, provider, exclude, key):
