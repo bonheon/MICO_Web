@@ -38,14 +38,20 @@ def _extract_preds(body):
     """응답 본문에서 결과 배열을 꺼낸다.
 
     사내 게이트웨이: {"output": {"aiu_output": [...]}}   <- 실제로 오는 형식
+    로컬 서빙:       {"aiu_output": [...]}              <- 모델 반환이 그대로 온다
     MLflow 원본:     {"predictions": [...]}
     그 외:           본문 자체가 배열
+
+    aiu_output 키는 모델이 만든다(`mico_upload.py` 의 `_run`). 게이트웨이는
+    그걸 output 으로 한 번 더 감쌀 뿐이라, 로컬에서는 감싸는 층이 없다.
     """
     if not isinstance(body, dict):
         return body
-    preds = body.get("output", {}).get("aiu_output", [])
-    if preds:
-        return preds
+    out = body.get("output")
+    if isinstance(out, dict) and out.get("aiu_output"):
+        return out["aiu_output"]
+    if body.get("aiu_output"):
+        return body["aiu_output"]
     return body.get("predictions", [])
 
 

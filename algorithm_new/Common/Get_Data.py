@@ -10,12 +10,30 @@ _MICO_WEB  = str(Path(__file__).parents[2])   # MICO_Web/ (Django root)
 _CSV_PATH  = os.path.join(_ALGO_DIR, 'merge_df_sample.csv')  # [TEST 삭제] 샘플 CSV 경로 — MongoDB_GetData 와 함께 삭제
 
 # ── Django setup (읽기 전용 DB 조회용) ────────────────────────────────────
-if _MICO_WEB not in sys.path:
-    sys.path.insert(0, _MICO_WEB)
-os.environ.setdefault('DJANGO_SETTINGS_MODULE', 'config.settings')
+# import 시점이 아니라 **실제로 web DB 를 읽을 때** 띄운다.
+#
+# 이 파일을 import 하는 것만으로 django.setup() 이 돌면, Django 가 없는 곳에서는
+# Common 트리 전체(Module / OFFSET / REMOVAL_RATE ...)를 import 조차 못 한다.
+# nAPC 학습 컨테이너가 바로 그 경우다 — Set-up 은 web 에서 payload 로 받으므로
+# Django 가 아예 필요 없는데도 import 에서 막혔다.
+#
+# Django 가 필요한 곳은 baseinfoGetData 하나뿐이라 거기서만 부른다.
+# 사내 서버 동작은 그대로다 (첫 호출 때 한 번 초기화되고 이후 재사용).
 
-import django
-django.setup()
+_django_ready = False
+
+
+def _ensure_django():
+    """web DB 를 읽기 직전에 Django 를 초기화한다. 두 번째부터는 아무것도 안 한다."""
+    global _django_ready
+    if _django_ready:
+        return
+    if _MICO_WEB not in sys.path:
+        sys.path.insert(0, _MICO_WEB)
+    os.environ.setdefault('DJANGO_SETTINGS_MODULE', 'config.settings')
+    import django
+    django.setup()
+    _django_ready = True
 
 
 class Get_data:
@@ -56,6 +74,7 @@ class Get_data:
         Django DB(Category / SubCategory / Detail / RecipeGroup)에서
         Set-up 정보를 읽어 mico_info_table DataFrame으로 반환.
         """
+        _ensure_django()
         from setup_mico.models import Category, SubCategory, Detail, RecipeGroup
 
         cats = Category.objects.filter(family=Family, oper_desc=oper_desc)

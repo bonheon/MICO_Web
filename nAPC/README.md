@@ -5,6 +5,10 @@ MICO를 HCP → nAPC로 전환하면서, 핵심 알고리즘을 MLflow 기반 AI
 
 - `MICO MLflow 작업지시서.md` — 원본 작업지시서
 - `mico_upload.py` / `mico_call.py` — **여기부터 시작.** 숫자 배열만 주고받는 업로드/호출 한 쌍
+- `mico_text_upload.py` / `mico_text_call.py` — **문자 in / 문자 out 최소 예제.**
+  문자열만 보내고 문자열만 받는다. 문자로 학습을 부를 수 있는지 확인하는 가장 짧은 경로
+- `mico_train_upload.py` — 문자+숫자를 한 행 dict 로 섞어 보내는 예제 (학습 트리거)
+- `mico_check_model.py` — **올라간 모델 자가 진단.** NOT_IMPLEMENTED 가 뜨면 이것부터 돌린다
 - `simple_example.py` — MLflow pyfunc 개념 확인용 (로컬 저장까지)
 - `mico_deploy/` — 작업지시서 구조를 그대로 구현한 전체 예제
 
@@ -230,6 +234,166 @@ data: Array({fab: string, lot_code: string, oper_code: string,
 
 문자열 키만 필요하면 숫자 필드를 빼면 된다. 형식은 그대로고
 `data: Array(Array(string))` 이 된다(이것도 확인 완료).
+
+#### 문자만 주고받는 최소 형태 — `mico_text_upload.py` / `mico_text_call.py`
+
+가장 짧은 경로. `data` 를 문자열 리스트로 두고 결과도 문자열 리스트로 받는다.
+
+```json
+{"input": [{"name": "mico_text", "shape": [3], "datatype": "ndarray",
+            "data": ["E2", "NA", "AG"]}]}
+```
+
+```
+inputs : data: Array(string)
+outputs: string
+```
+
+로컬 `mlflow models serve` 실측 — `serving_input_example.json` 그대로 POST 시 200,
+예시에 없던 문자열(`"ZZ"`)·다른 행 수로도 200. 입력 문자에 따라 결과가 갈리는 것까지 확인:
+
+```
+["E2 | period=3 | rr=98.5 | OK", "ZZ | NO_DATA", "NA | period=5 | rr=102.1 | OK"]
+```
+
+#### 결과에도 문자와 숫자를 같이 담을 수 있다 — 행을 dict 로 반환
+
+입력과 같은 규칙이 출력에도 적용된다. 배열 하나에 타입을 섞는 건 안 되지만,
+**dict 를 반환하면 필드마다 타입이 달라도 된다.** 로컬 서빙 200 확인:
+
+```python
+return [{"lot_code": "E2", "period": 3, "status": "OK"}, ...]
+```
+
+```
+outputs: [{"type":"string","name":"lot_code"},
+          {"type":"long","name":"period"},
+          {"type":"string","name":"status"}]
+```
+
+```json
+[{"lot_code": "E2", "period": 3, "status": "OK"}, ...]
+```
+
+더 단순하게 가려면 숫자를 문자열 안에 넣어 1차원 str 로만 돌려주면 된다
+(`mico_text_upload.py` 의 기본 구현).
+
+#### 모델은 `{"aiu_output": [...]}` 를 반환해야 한다
+
+게이트웨이 응답이 `{"output": {"aiu_output": [...]}}` 인 이유가 여기 있다 —
+**`aiu_output` 키는 모델이 만들고, 게이트웨이는 그걸 `output` 으로 한 번 더 감쌀 뿐이다.**
+모델이 배열을 그대로 주면 게이트웨이가 꺼낼 키가 없다.
+
+```python
+    def predict_stream(self, context, model_input, params=None):
+        for v in self._run(model_input)["aiu_output"]:
+            yield v
+
+    def _run(self, model_input):
+        return {"aiu_output": [str(learn(x)) for x in _get_rows(model_input)]}
+```
+
+`mico_upload.py` / `mico_train_upload.py` / `mico_text_upload.py` 세 파일 모두 적용.
+로컬에서 업로드·서빙까지 확인한 결과:
+
+| | output signature | predict() | predict_stream() |
+|---|---|---|---|
+| mico_upload (숫자) | `array(double)` name=`aiu_output` | `{'aiu_output': [7.0, 12.0, 22.0]}` | `[7.0, 12.0, 22.0]` |
+| mico_train_upload | `array(string)` name=`aiu_output` | `{'aiu_output': ['E2_..._M10:OK', ...]}` | `['E2_..._M10:OK', ...]` |
+| mico_text_upload | `array(string)` name=`aiu_output` | `{'aiu_output': ['E2 | period=3 ...']}` | `['E2 | period=3 ...']` |
+
+**로컬 서빙 응답도 같이 바뀐다.** 전에는 배열이 그대로(`["E2 | ..."]`) 왔는데
+이제 `{"aiu_output": ["E2 | ..."]}` 가 온다. 호출 쪽(`mico_call.py` / `mico_text_call.py`)에
+이 형태를 더했다. **사내 엔드포인트 경로는 바뀐 게 없다** — 게이트웨이가 감싼
+`output.aiu_output` 은 원래대로 처리된다.
+
+| 응답 본문 | 어디서 오나 | 처리 |
+|---|---|---|
+| `{"output":{"aiu_output":[...]}}` | 사내 게이트웨이 | 전부터 OK |
+| `{"aiu_output":[...]}` | 로컬 서빙 (이번에 추가) | OK |
+| `[...]` | 로컬 서빙 (예전) | OK |
+| `{"predictions":[...]}` | MLflow 원본 | OK |
+| `{"error_code":...}` | 에러 (HTTP 200) | `[]` + 에러 표시 |
+| `{"output": [...]}` (dict 아님) | 방어 | `[]` (예외 없음) |
+
+`mico_deploy/model_wrapper.py` 는 DataFrame 입출력의 별개 설계(작업지시서 예제)라 적용하지 않았다.
+참고로 이 파일에는 `predict_stream` 도 없어서, 그대로 배포하면 NOT_IMPLEMENTED 가 난다.
+
+#### `NOT_IMPLEMENTED` / `Inference Error` — 로컬 200 인데 엔드포인트만 실패
+
+```json
+{"error_code":"15001","error_type":"NotImplementedError",
+ "hcp_error_type":"NOT_IMPLEMENTED","error_message":"Inference Error"}
+```
+
+**원인은 하나뿐이다 — 배포된 클래스에 `predict_stream` 오버라이드가 없다.**
+MLflow 전체에서 `NotImplementedError` 를 던지는 곳은
+`PythonModel.predict_stream` 기본 구현(`mlflow/pyfunc/model.py:137`) 하나다.
+
+왜 로컬에서는 안 걸리나 — **MLflow 자체 서빙의 `/invocations` 에는 스트리밍
+경로가 아예 없다.** `predict_stream` 을 부르지 않으므로 `predict` 만 멀쩡하면
+로컬은 200 이 나온다. 사내 게이트웨이는 `predict_stream` 을 직접 부른다.
+**로컬 200 은 이 에러가 없다는 증거가 못 된다.**
+
+확인 순서 (추측하지 말 것):
+
+```bash
+python3 mico_check_model.py --model "models:/MICO_Text/3"
+```
+
+```
+[2] 배포된 클래스
+    predict_stream  : 없음 (이게 원인)
+[4] 실제 호출
+    predict()       -> ['E2 | period=3 | ...']        <- 이건 된다
+    predict_stream() 실패 -> ...                      <- 엔드포인트가 죽는 지점
+```
+
+`streamable` 플래그는 `log_model` 시점에 클래스를 보고 자동으로 정해진다
+(`model.py:423`). MLmodel 에 `streamable: false` 면 오버라이드 없이 올라간 것이다.
+소스에 있어도 소용없고 **올라간 것이 기준**이므로, 엔드포인트가 보는 버전을 확인할 것
+(엔드포인트가 예전 버전을 물고 있는 경우가 흔하다).
+
+`mico_text_upload.py` 는 이제 올리기 전에 `preflight()` 로 이걸 먼저 막는다.
+
+##### "결과 배열을 못 찾았다" 는 별개 문제가 아니다
+
+게이트웨이는 **에러도 HTTP 200 으로** 준다. 그래서 상태코드는 성공인데 결과 배열이 없고,
+호출 스크립트가 "결과 배열을 못 찾았다" 를 찍는다. 추출 코드(`body["output"]["aiu_output"]`)
+문제가 아니다 — `mico_call.py` 와 `mico_text_call.py` 의 추출 로직은 동일하고,
+네 가지 응답 형태로 대조 확인했다:
+
+| 응답 본문 | 결과 |
+|---|---|
+| `{"error_code":..., "hcp_error_type":"NOT_IMPLEMENTED"}` | 양쪽 다 `[]` |
+| `{"output":{"aiu_output":[...]}}` | 양쪽 다 정상 추출 |
+| `[...]` (로컬 서빙) | 양쪽 다 그대로 |
+| `{"output":{"aiu_output":[]}}` | 양쪽 다 `[]` |
+
+`mico_text_call.py` 는 이제 `error_in()` 으로 **에러 본문**과 **빈 결과**를 갈라서 찍는다.
+에러면 `error_code`/`error_type` 을 그대로 보여주고, NOT_IMPLEMENTED 면 다음 확인 단계까지 안내한다.
+
+#### 노트북에서 호출할 때 — `unrecognized arguments: -f kernel.json`
+
+```
+ipykernel_launcher.py: error: unrecognized arguments: -f /home/.../kernel.json
+SystemExit: 2
+```
+
+**MLflow 에러가 아니다.** 호출은 시도조차 안 된 상태다. 노트북 커널은 자기 자신을
+`ipykernel_launcher.py -f /.../kernel.json` 으로 띄우는데, 호출 스크립트의
+`argparse` 가 `sys.argv` 를 읽다가 그 `-f` 를 모르는 인자라며 죽는 것이다.
+
+노트북에서는 `call()` 을 직접 부른다:
+
+```python
+from mico_text_call import call
+call(["E2", "NA"], url="https://...")
+```
+
+`mico_text_call.py` 는 통째로 실행해도 죽지 않게 해 뒀다 —
+`ipykernel` 이 로드돼 있으면 CLI 인자를 아예 읽지 않고,
+아니면 `parse_known_args()` 로 남의 인자를 무시한다. 셋 다 로컬 서빙 200 확인.
 
 #### 안 되는 것 — 한 **배열** 안에 문자열과 숫자 섞기
 

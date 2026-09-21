@@ -111,11 +111,14 @@ class TrainWrapper(mlflow.pyfunc.PythonModel):
 
     # 구현 안 하면 MLflow 기본 구현이 NotImplementedError -> 게이트웨이 NOT_IMPLEMENTED
     def predict_stream(self, context, model_input, params=None):
-        for v in self._run(model_input):
+        for v in self._run(model_input)["aiu_output"]:
             yield v
 
     def _run(self, model_input):
-        return [str(run_training(row)) for row in _get_rows(model_input)]
+    # 반환은 **{"aiu_output": [...]} dict** 다. 게이트웨이가 이걸 한 번 더 감싸
+    # {"output": {"aiu_output": [...]}} 로 돌려준다. 모델이 배열을 그대로 주면
+    # 게이트웨이가 꺼낼 키가 없다 -> aiu_output 키는 모델이 만들어야 한다.
+        return {"aiu_output": [str(run_training(row)) for row in _get_rows(model_input)]}
 
 
 def _get_rows(model_input):

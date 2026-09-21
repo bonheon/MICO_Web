@@ -205,6 +205,17 @@ MICO를 HCP → nAPC로 전환하면서 핵심 알고리즘을 MLflow 기반 AI 
   - `input_example`과 호출 payload가 다르면 `Failed to enforce schema of data`
   - `predict_stream`을 구현 안 하면 MLflow 기본 구현이 `NotImplementedError` → 게이트웨이가 `NOT_IMPLEMENTED`로 감쌈
     (pyfunc에서 이 예외를 직접 던지는 곳은 `PythonModel.predict_stream` 하나뿐. `predict`는 본문이 비어 있음)
+    - ⚠️ **로컬 서빙으로는 절대 안 걸린다** — MLflow `/invocations`에는 스트리밍 경로가 없어
+      `predict_stream`을 아예 안 부른다. 로컬 200이어도 엔드포인트는 NOT_IMPLEMENTED가 날 수 있음
+    - `streamable` 플래그는 `log_model` 때 클래스를 보고 자동 결정 (`pyfunc/model.py:423`).
+      MLmodel에 `streamable: false`면 오버라이드 없이 올라간 것
+    - 진단: `python3 nAPC/mico_check_model.py --model "models:/MICO_Text/3"` →
+      배포된 클래스의 predict_stream 유무·signature·predict/predict_stream 실호출까지 확인.
+      소스가 아니라 **올라간 것이 기준** (엔드포인트가 예전 버전을 물고 있는 경우가 흔함)
+    - `mico_text_upload.py`는 업로드 직전 `preflight()`로 이 조건을 먼저 막는다
+    - ⚠️ **게이트웨이는 에러도 HTTP 200으로 준다** → 호출 스크립트에서 "결과 배열을 못 찾았다"가
+      뜨면 추출 코드 문제가 아니라 본문이 에러인 경우가 대부분. `mico_text_call.py`는
+      `error_in()`으로 에러 본문과 빈 결과를 구분해서 출력한다
   - 출력이 2차원이면 `setting an array element with a sequence`
 - 에러 단계 읽기: `NOT_IMPLEMENTED`(입력 처리 실패) → `Failed to enforce schema`(payload/signature 불일치)
   → `Inference Error`(입력 통과, predict 안/출력 처리에서 실패)
@@ -218,6 +229,16 @@ MICO를 HCP → nAPC로 전환하면서 핵심 알고리즘을 MLflow 기반 AI 
   | `input` | 그대로 | 엄격 (`long`에 `5.0` → 400) | 배열 그대로 |
   | `inputs` | `{"inputs":{...}}`로 감싸야 함 | 느슨 (int↔float 자동) | `{"predictions":[...]}` |
   | 그 외 평평한 dict | 400 BAD_REQUEST | - | - |
+- **모델이 `{"aiu_output": [...]}` dict 를 반환해야 한다** (사내 LLM 확인, 2026-09-21 반영)
+  - 게이트웨이가 그걸 한 번 더 감싸 `{"output": {"aiu_output": [...]}}` 로 준다.
+    모델이 배열을 그대로 주면 게이트웨이가 꺼낼 키가 없다 → `aiu_output` 키는 **모델이** 만든다
+  - `_run()` → `return {"aiu_output": [...]}`, `predict_stream()` → `self._run(...)["aiu_output"]` 순회
+  - `mico_upload.py` / `mico_train_upload.py` / `mico_text_upload.py` 세 파일 모두 적용
+  - output signature 가 `[{"name":"aiu_output","type":"array",...}]` 로 잡힌다 (로컬 확인)
+  - **로컬 서빙 응답도 같이 바뀐다**: 배열 그대로가 아니라 `{"aiu_output": [...]}` 가 온다.
+    호출 쪽(`mico_call.py` / `mico_text_call.py`)에 이 형태를 추가함.
+    사내 엔드포인트 경로(`output.aiu_output`)는 바뀐 게 없다
+  - `mico_deploy/model_wrapper.py` 는 DataFrame 입출력의 별개 설계라 미적용 (predict_stream 도 없음)
 - **응답 본문 형식이 로컬/엔드포인트에서 다름**: 사내 엔벨로프(`{"input": ...}`)로 POST 하면
   로컬 `mlflow models serve`는 결과 배열을 그대로(`[7.0, 12.0, 22.0]`), 사내 게이트웨이는
   `{"output": {"aiu_output": [...]}}`로 감싸서 준다. `predictions` 키는 어느 쪽에도 없다
@@ -225,6 +246,15 @@ MICO를 HCP → nAPC로 전환하면서 핵심 알고리즘을 MLflow 기반 AI 
 - **숫자는 실수로 보낼 것**: signature가 `double`이라 `1` 같은 정수는 400 (`Expected type array, received type list`)
 - **문자열 입력·타입 혼합 OK** — 제약은 "타입 혼합 금지"가 아니라 **"한 배열 안의 값은 전부 같은 타입"**.
   **한 행을 배열이 아니라 dict로** 보내면 필드마다 타입이 달라도 된다 (`nAPC/mico_train_upload.py`)
+  - **문자만 주고받는 최소 예제**: `nAPC/mico_text_upload.py` / `mico_text_call.py`.
+    `data`가 문자열 리스트(`Array(string)`) → 출력도 문자열 리스트. 로컬 서빙 200 확인,
+    예시에 없던 문자열·다른 행 수도 200. 입력 문자에 따라 결과가 갈리는 것까지 확인
+  - **노트북에서 호출 시 `unrecognized arguments: -f kernel.json` / `SystemExit: 2`** →
+    MLflow 에러가 아니다. 노트북 커널의 `-f kernel.json` 을 호출 스크립트의 argparse 가
+    물고 죽는 것. 노트북에서는 `from mico_text_call import call; call(["E2"], url=...)` 를 쓸 것
+  - **반환값에도 문자+숫자 같이 가능** — 출력 한 행을 dict로 반환하면 필드별 타입이 잡힌다
+    (`[{"lot_code":"E2","period":3,"status":"OK"}]` → `string/long/string`, 로컬 서빙 200 확인).
+    더 단순하게는 숫자를 문자열 안에 넣어 1차원 str로만 돌려줘도 된다
   ```json
   "data": [{"lot_code":"E2","oper_code":"V5077000E","fab":"M10","post_thk":1.0,"target":10.0}]
   ```
@@ -238,6 +268,51 @@ MICO를 HCP → nAPC로 전환하면서 핵심 알고리즘을 MLflow 기반 AI 
     `optional`로 잡힘. **타입은 `input_example`과 정확히 일치**해야 함 (예시가 `3`이면 호출도 정수)
   - **업로드 스크립트는 import 하지 말고 직접 실행** — import 하면 cloudpickle이 래퍼 클래스를 참조로만 저장해
     서빙에서 `ModuleNotFoundError`. `__main__` 정의 클래스라야 값으로 저장됨
+- **`nAPC/mico_train/` — 학습 이관 1단계 (Set-up 전달 + 데이터 경로).** 상세는 `nAPC/mico_train/README.md`
+  - web 이 Set-up(SubCategory×Detail 전부)을 payload 로 넘기고, 컨테이너는 Django 없이 받는다
+    (`setup_payload.py`: `build_payload`(web) / `to_info_table`(컨테이너), `INFO_COLUMNS` 40개는
+     `baseinfoGetData` 와 **같은 컬럼** — selftest 가 소스를 읽어 대조)
+  - **merge_df 는 MongoDB 가 아니라 DataLake(과거 N일)+DataHub(최신) 직접 조회** (`data_source.py`).
+    겹치는 substrate_id 는 HUB 가 이긴다. 정리 단계는 `Merge_Data._prepare_merge_df` 와 동일
+    (동등성도 selftest 에서 대조 — 저쪽은 pymongo/Django 때문에 컨테이너에서 import 불가라 재구현)
+  - 사내 조회 함수 연결: `set_provider(obj)` → `Common.Merge_Data.Merge_Get_data` → 에러.
+    `getdatalake`/`getdatahub` 가 아직 `{TODO}` 스텁이라 지금은 키마다 `no_data` 로 떨어진다(죽지는 않음)
+  - 학습 순서(키 생성→그룹 분기→oper/recipe 필터→파이프라인)는 `Module.run` 과 동일하게 유지
+  - 검증: `python3 -m nAPC.mico_train.selftest` (Django·pymongo 없는 환경에서 19/19 통과)
+  - **샘플로 실제 학습까지**: `python3 -m nAPC.mico_train.run_sample` →
+    `merge_df_sample.csv` 를 DataLake/DataHub 대역으로 써서 `Common.Module._run_pipeline` 까지 탄다.
+    Pre_Thk_VM·Removal Rate 는 실제로 돌고, Offset·Alarm 은 MongoDB 없어 스킵
+  - **`Get_Data.py` 의 `django.setup()` 을 지연 초기화로 변경** (`_ensure_django()`).
+    import 만으로 Django 를 부르면 Common 트리 전체를 컨테이너에서 import 못 했다.
+    Django 가 필요한 곳은 `baseinfoGetData` 하나뿐 — 사내 서버 동작은 그대로
+  - **컨테이너에 pymongo 는 설치해야 함** — merge_df 는 Mongo 에서 안 가져와도
+    REMOVAL_RATE/Module/Simulation 이 import 단계에서 pymongo 를 쓴다
+  - **주고받는 데이터**: 보내는 것은 Set-up payload(컬럼 40개 행들)뿐 — merge_df 는 안 보낸다
+    (컨테이너가 DataLake+DataHub 직접 조회, 샘플 기준 20000행×52컬럼).
+    반환은 키별 요약 + **학습값**: `[{key, status, rows, counts, results}]`.
+    `results` 는 컬렉션별 학습값 **세 가지 다** (PRE_THK: pre_eq_ch/Pre_Thk/Count/THK_Para,
+    RR: EQ/Recipe_ID/Count/b1/b0/b1_weighted/b0_weighted,
+    OFFSET: eqp_id/recipe_id/IDLE/OFFSET/APC_Para), `counts` 는 잘라 보내도 전체 건수.
+    샘플 한 키(PRE 16+RR 10+OFFSET 20=46건) = 9,461 bytes. 예시는 `nAPC/mico_train/README.md`
+  - ⚠️ **Pre_Thk_VM 은 Set-up 에 따라 안 도는 게 정상** — ITM(`Pre_Thk_Para_ITM`) /
+    moving avg(`Pre_Oper_Code`) / 회귀(`Pre_Oper_Code2`) 셋 다 없으면 `→ 스킵 (학습 불필요)`
+    로 빠져 PRE_THK 가 0건. 응답에 없으면 수집 실패가 아니라 학습할 게 없었던 것 — 로그의 `경로=` 줄 확인
+  - 로컬 실행에는 `openpyxl` 도 필요 (`load_pre_thk_data` 의 Excel 캐시 경로)
+  - **학습값 수집 방식** (`result_collector.py`): 알고리즘을 안 고치고 `mongodb_controller` 를
+    감싸 쓰는 내용을 기록한다. 기본은 tee — **Mongo 적재는 그대로 하고 응답에도 싣는다**.
+    `Module.py`/`OFFSET.py` 가 import 시점에 이름을 묶어 두므로 `Common.MongoDB_Control` 이 아니라
+    **쓰는 쪽 모듈의 속성**을 갈아 끼워야 한다 (끝나면 복구).
+    옵션: `keep_mongo=False`(응답만 — 단 Offset 이 RR 을 되읽는 경로가 막힘),
+    `max_rows=N`(컬렉션별 상한), `collect_results=False`(요약만)
+  - ⚠️ **Set-up 값이 데이터와 안 맞으면 RR 이 에러 없이 0건** — `_process_models` 가 소모품 범위를
+    4분위로 나눠 각 구간 25건 초과를 요구해서, `RR_Para_Max` 가 실제 범위보다 크면 첫 구간에 몰려
+    조건을 못 넘는다. "Removal Rate 완료" 는 찍히는데 저장은 0건이라 로그만 보면 성공처럼 보인다
+  - 남은 것: 사내 조회 함수 본문, 사전공정(PRE_THK_INFO, MongoDB upsert 전제라 미이관),
+    MongoDB 적재를 끊을지(지금은 적재+응답 둘 다)
+  - ⚠️ **발견한 잠재 버그**: `REMOVAL_RATE.compute_rr`(300행 근처)의 `consumable_Para` 분기에
+    `else` 가 없다. `Detail.rr_para` 는 `blank=True, default=''` 라 빈 값이 정상 Set-up 인데,
+    그 키는 `UnboundLocalError` 로 RR 학습이 통째로 빠진다. try/except 가 Cube 메시지로
+    삼켜서 로그를 안 보면 모른다 (샘플 실행에서 재현). 의도(스킵/기본값)를 정해야 고칠 수 있어 미수정
 - `nAPC/simple_example.py` — MLflow pyfunc 개념 확인용 (로컬 저장까지)
 - `nAPC/mico_deploy/` — 작업지시서 구조 전체 예제 (save/register/test)
 - 핵심: MLflow pyfunc는 ML 모델이 아니어도 됨. `predict()` 메서드만 있으면 임의 파이썬 코드 서빙 가능
