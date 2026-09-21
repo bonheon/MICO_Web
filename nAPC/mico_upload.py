@@ -110,13 +110,17 @@ class ModelWrapper(mlflow.pyfunc.PythonModel):
     # 로 감싸서 돌려준다. pyfunc 에서 NotImplementedError 를 직접 던지는 곳은
     # PythonModel.predict_stream 기본 구현 하나뿐이다.
     def predict_stream(self, context, model_input, params=None):
-        for v in self._run(model_input):
+        for v in self._run(model_input)["aiu_output"]:
             yield v
 
     def _run(self, model_input):
+    # 반환은 **{"aiu_output": [...]} dict** 다. 게이트웨이가 이걸 한 번 더 감싸
+    # {"output": {"aiu_output": [...]}} 로 돌려준다. 모델이 배열을 그대로 주면
+    # 게이트웨이가 꺼낼 키가 없다 -> aiu_output 키는 모델이 만들어야 한다.
         gain = float(getattr(self, "params", {}).get("gain", 1.0))
         rows = _get_rows(model_input)
-        return [float(v) for v in compute_offset(rows, gain)]   # 1차원 순수 float
+        # 리스트는 1차원 순수 float. 2차원이면 배열 변환에서 깨진다
+        return {"aiu_output": [float(v) for v in compute_offset(rows, gain)]}
 
 
 def _get_rows(model_input):

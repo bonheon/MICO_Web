@@ -278,6 +278,37 @@ outputs: [{"type":"string","name":"lot_code"},
 더 단순하게 가려면 숫자를 문자열 안에 넣어 1차원 str 로만 돌려주면 된다
 (`mico_text_upload.py` 의 기본 구현).
 
+#### 모델은 `{"aiu_output": [...]}` 를 반환해야 한다
+
+게이트웨이 응답이 `{"output": {"aiu_output": [...]}}` 인 이유가 여기 있다 —
+**`aiu_output` 키는 모델이 만들고, 게이트웨이는 그걸 `output` 으로 한 번 더 감쌀 뿐이다.**
+모델이 배열을 그대로 주면 게이트웨이가 꺼낼 키가 없다.
+
+```python
+    def predict_stream(self, context, model_input, params=None):
+        for v in self._run(model_input)["aiu_output"]:
+            yield v
+
+    def _run(self, model_input):
+        return {"aiu_output": [str(learn(x)) for x in _get_rows(model_input)]}
+```
+
+`mico_upload.py` / `mico_train_upload.py` / `mico_text_upload.py` 세 파일 모두 적용.
+로컬에서 업로드·서빙까지 확인한 결과:
+
+| | output signature | predict() | predict_stream() |
+|---|---|---|---|
+| mico_upload (숫자) | `array(double)` name=`aiu_output` | `{'aiu_output': [7.0, 12.0, 22.0]}` | `[7.0, 12.0, 22.0]` |
+| mico_train_upload | `array(string)` name=`aiu_output` | `{'aiu_output': ['E2_..._M10:OK', ...]}` | `['E2_..._M10:OK', ...]` |
+| mico_text_upload | `array(string)` name=`aiu_output` | `{'aiu_output': ['E2 | period=3 ...']}` | `['E2 | period=3 ...']` |
+
+⚠️ **로컬 서빙 응답도 같이 바뀐다.** 전에는 배열이 그대로(`["E2 | ..."]`) 왔는데
+이제 `{"aiu_output": ["E2 | ..."]}` 가 온다. 호출 쪽 추출은 아직 이 형태를 모른다
+(게이트웨이 형태 `output.aiu_output` 과 예전 배열 형태만 처리) — 호출 스크립트 수정 시 같이 반영할 것.
+
+`mico_deploy/model_wrapper.py` 는 DataFrame 입출력의 별개 설계(작업지시서 예제)라 적용하지 않았다.
+참고로 이 파일에는 `predict_stream` 도 없어서, 그대로 배포하면 NOT_IMPLEMENTED 가 난다.
+
 #### `NOT_IMPLEMENTED` / `Inference Error` — 로컬 200 인데 엔드포인트만 실패
 
 ```json

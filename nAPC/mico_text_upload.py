@@ -100,16 +100,20 @@ class TextWrapper(mlflow.pyfunc.PythonModel):
     # 구현 안 하면 MLflow 기본 구현이 NotImplementedError
     # -> 게이트웨이가 NOT_IMPLEMENTED 로 감싼다
     def predict_stream(self, context, model_input, params=None):
-        for v in self._run(model_input):
+        for v in self._run(model_input)["aiu_output"]:
             yield v
 
     def _run(self, model_input):
-        # 출력은 1차원 순수 str. 2차원 배열이면 배열 변환에서 깨진다
-        return [str(learn(x)) for x in _get_rows(model_input)]
+    # 반환은 **{"aiu_output": [...]} dict** 다. 게이트웨이가 이걸 한 번 더 감싸
+    # {"output": {"aiu_output": [...]}} 로 돌려준다. 모델이 배열을 그대로 주면
+    # 게이트웨이가 꺼낼 키가 없다 -> aiu_output 키는 모델이 만들어야 한다.
+        # 리스트는 1차원 순수 str. 2차원 배열이면 배열 변환에서 깨진다
+        return {"aiu_output": [str(learn(x)) for x in _get_rows(model_input)]}
 
-        # 문자+숫자를 같이 돌려주려면 위를 지우고 아래처럼 dict 행으로 반환한다
-        # return [{"lot_code": str(x), "period": 3, "rr": 98.5, "status": "OK"}
-        #         for x in _get_rows(model_input)]
+        # 문자+숫자를 같이 돌려주려면 리스트 원소를 dict 로 바꾼다
+        # return {"aiu_output": [
+        #     {"lot_code": str(x), "period": 3, "rr": 98.5, "status": "OK"}
+        #     for x in _get_rows(model_input)]}
 
 
 def _get_rows(model_input):
