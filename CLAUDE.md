@@ -213,6 +213,9 @@ MICO를 HCP → nAPC로 전환하면서 핵심 알고리즘을 MLflow 기반 AI 
       배포된 클래스의 predict_stream 유무·signature·predict/predict_stream 실호출까지 확인.
       소스가 아니라 **올라간 것이 기준** (엔드포인트가 예전 버전을 물고 있는 경우가 흔함)
     - `mico_text_upload.py`는 업로드 직전 `preflight()`로 이 조건을 먼저 막는다
+    - ⚠️ **게이트웨이는 에러도 HTTP 200으로 준다** → 호출 스크립트에서 "결과 배열을 못 찾았다"가
+      뜨면 추출 코드 문제가 아니라 본문이 에러인 경우가 대부분. `mico_text_call.py`는
+      `error_in()`으로 에러 본문과 빈 결과를 구분해서 출력한다
   - 출력이 2차원이면 `setting an array element with a sequence`
 - 에러 단계 읽기: `NOT_IMPLEMENTED`(입력 처리 실패) → `Failed to enforce schema`(payload/signature 불일치)
   → `Inference Error`(입력 통과, predict 안/출력 처리에서 실패)

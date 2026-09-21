@@ -315,6 +315,23 @@ python3 mico_check_model.py --model "models:/MICO_Text/3"
 
 `mico_text_upload.py` 는 이제 올리기 전에 `preflight()` 로 이걸 먼저 막는다.
 
+##### "결과 배열을 못 찾았다" 는 별개 문제가 아니다
+
+게이트웨이는 **에러도 HTTP 200 으로** 준다. 그래서 상태코드는 성공인데 결과 배열이 없고,
+호출 스크립트가 "결과 배열을 못 찾았다" 를 찍는다. 추출 코드(`body["output"]["aiu_output"]`)
+문제가 아니다 — `mico_call.py` 와 `mico_text_call.py` 의 추출 로직은 동일하고,
+네 가지 응답 형태로 대조 확인했다:
+
+| 응답 본문 | 결과 |
+|---|---|
+| `{"error_code":..., "hcp_error_type":"NOT_IMPLEMENTED"}` | 양쪽 다 `[]` |
+| `{"output":{"aiu_output":[...]}}` | 양쪽 다 정상 추출 |
+| `[...]` (로컬 서빙) | 양쪽 다 그대로 |
+| `{"output":{"aiu_output":[]}}` | 양쪽 다 `[]` |
+
+`mico_text_call.py` 는 이제 `error_in()` 으로 **에러 본문**과 **빈 결과**를 갈라서 찍는다.
+에러면 `error_code`/`error_type` 을 그대로 보여주고, NOT_IMPLEMENTED 면 다음 확인 단계까지 안내한다.
+
 #### 노트북에서 호출할 때 — `unrecognized arguments: -f kernel.json`
 
 ```

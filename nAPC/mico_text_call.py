@@ -66,10 +66,29 @@ def extract_preds(body):
     """응답 본문에서 결과 배열을 꺼낸다 (mico_call.py 와 동일)."""
     if not isinstance(body, dict):
         return body
-    preds = body.get("output", {}).get("aiu_output", [])
-    if preds:
-        return preds
+    out = body.get("output")
+    if isinstance(out, dict) and out.get("aiu_output"):
+        return out["aiu_output"]
     return body.get("predictions", [])
+
+
+def error_in(body):
+    """본문이 결과가 아니라 에러면 그 내용을 돌려준다.
+
+    게이트웨이는 에러도 **HTTP 200** 으로 준다. 그래서 상태코드만 보면 성공처럼
+    보이는데 결과 배열이 없다. 이 경우를 "응답 구조를 확인할 것" 으로 뭉뚱그리면
+    추출 코드가 틀린 줄 알고 엉뚱한 데를 보게 된다.
+
+        {"error_code":"15001","error_type":"NotImplementedError",
+         "hcp_error_type":"NOT_IMPLEMENTED","error_message":"Inference Error"}
+    """
+    if not isinstance(body, dict):
+        return None
+    if not any(k in body for k in ("error_code", "error_type", "hcp_error_type")):
+        return None
+    return {k: body.get(k) for k in
+            ("error_code", "error_type", "hcp_error_type", "error_message")
+            if body.get(k) is not None}
 
 
 def call(lot_codes=None, url=url, verbose=True):
@@ -91,10 +110,24 @@ def call(lot_codes=None, url=url, verbose=True):
     if resp.status_code != 200:
         return []
 
-    preds = extract_preds(resp.json())
+    body = resp.json()
+
+    # 에러도 HTTP 200 으로 온다 — 결과 없음과 구분해서 알려 준다
+    err = error_in(body)
+    if err:
+        if verbose:
+            print("서버가 에러를 돌려줬다 (HTTP 200 이지만 결과가 아니다):")
+            for k, v in err.items():
+                print(f"    {k}: {v}")
+            if err.get("hcp_error_type") == "NOT_IMPLEMENTED":
+                print("    -> 배포된 클래스에 predict_stream 이 없다.")
+                print("       python3 mico_check_model.py --model <모델 URI> 로 확인할 것")
+        return []
+
+    preds = extract_preds(body)
     if verbose:
         if not preds:
-            print("결과 배열을 못 찾았다. 응답 본문 구조를 확인할 것")
+            print("결과 배열이 비어 있다. 응답 본문 구조를 확인할 것:", body)
         for line in preds:
             print("  ", line)
     return preds
