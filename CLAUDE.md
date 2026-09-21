@@ -279,8 +279,20 @@ MICO를 HCP → nAPC로 전환하면서 핵심 알고리즘을 MLflow 기반 AI 
     `getdatalake`/`getdatahub` 가 아직 `{TODO}` 스텁이라 지금은 키마다 `no_data` 로 떨어진다(죽지는 않음)
   - 학습 순서(키 생성→그룹 분기→oper/recipe 필터→파이프라인)는 `Module.run` 과 동일하게 유지
   - 검증: `python3 -m nAPC.mico_train.selftest` (Django·pymongo 없는 환경에서 19/19 통과)
+  - **샘플로 실제 학습까지**: `python3 -m nAPC.mico_train.run_sample` →
+    `merge_df_sample.csv` 를 DataLake/DataHub 대역으로 써서 `Common.Module._run_pipeline` 까지 탄다.
+    Pre_Thk_VM·Removal Rate 는 실제로 돌고, Offset·Alarm 은 MongoDB 없어 스킵
+  - **`Get_Data.py` 의 `django.setup()` 을 지연 초기화로 변경** (`_ensure_django()`).
+    import 만으로 Django 를 부르면 Common 트리 전체를 컨테이너에서 import 못 했다.
+    Django 가 필요한 곳은 `baseinfoGetData` 하나뿐 — 사내 서버 동작은 그대로
+  - **컨테이너에 pymongo 는 설치해야 함** — merge_df 는 Mongo 에서 안 가져와도
+    REMOVAL_RATE/Module/Simulation 이 import 단계에서 pymongo 를 쓴다
   - 남은 것: 사내 조회 함수 본문, 사전공정(PRE_THK_INFO, MongoDB upsert 전제라 미이관),
-    학습 결과 저장 경로, `Get_Data.py` 의 import 시점 `django.setup()` 지연 초기화
+    학습 결과 저장 경로
+  - ⚠️ **발견한 잠재 버그**: `REMOVAL_RATE.compute_rr`(300행 근처)의 `consumable_Para` 분기에
+    `else` 가 없다. `Detail.rr_para` 는 `blank=True, default=''` 라 빈 값이 정상 Set-up 인데,
+    그 키는 `UnboundLocalError` 로 RR 학습이 통째로 빠진다. try/except 가 Cube 메시지로
+    삼켜서 로그를 안 보면 모른다 (샘플 실행에서 재현). 의도(스킵/기본값)를 정해야 고칠 수 있어 미수정
 - `nAPC/simple_example.py` — MLflow pyfunc 개념 확인용 (로컬 저장까지)
 - `nAPC/mico_deploy/` — 작업지시서 구조 전체 예제 (save/register/test)
 - 핵심: MLflow pyfunc는 ML 모델이 아니어도 됨. `predict()` 메서드만 있으면 임의 파이썬 코드 서빙 가능

@@ -22,6 +22,8 @@ web Set-up 을 통째로 넘겨받아, merge_df 를 **DataLake + DataHub 에서 
 | `data_source.py` | 컨테이너 | DataLake+DataHub → merge_df. pymongo 없음 |
 | `entry.py` | 컨테이너 | payload → 키별 merge_df → 학습 호출 |
 | `export_setup.py` | web | payload JSON 뽑기 (CLI) |
+| `sample_provider.py` | 테스트 | `merge_df_sample.csv` 를 DataLake/DataHub 대역으로 |
+| `run_sample.py` | 테스트 | 샘플로 **실제 학습 파이프라인**까지 한 번 돌리기 |
 | `selftest.py` | 아무데나 | 사내 시스템 없이 전 경로 검증 |
 
 ## 쓰는 법
@@ -116,6 +118,80 @@ Django·pymongo 없는 환경(= 컨테이너와 같은 조건)에서 19개 항�
 - 조회 함수가 비어 있어도 `no_data` 로 넘어가고 죽지 않음
 - `dry_run` 은 행 수만 세고 학습기를 안 부름
 
+## 샘플로 실제 학습까지 돌려보기
+
+사내 조회 함수가 비어 있어도 `algorithm_new/merge_df_sample.csv` 를 DataLake/DataHub
+대역으로 써서 **진짜 학습 파이프라인**(`Common.Module._run_pipeline`)까지 태울 수 있다.
+
+```bash
+cd /path/to/MICO_Web
+python3 -m nAPC.mico_train.run_sample            # 학습까지
+python3 -m nAPC.mico_train.run_sample --dry-run  # 데이터 경로만
+```
+
+확인된 결과 (Django 없이, pymongo 만 설치된 상태):
+
+```
+[1/1] E2_V5077000E_M10
+    [데이터] DataLake(30일) + DataHub 조회 ... 20000행
+    Oper 필터 후: 20000행 / recipe 필터 후: 20000행
+  [Pre_Thk_VM]   시작 -> 완료
+  [Removal Rate] 시작 -> E2_M1CU_R17_TSV.CAS / E2_M1CU_R12_TSV.CAS 둘 다 학습 -> 완료
+  [Offset]       시작 -> RR 데이터 없음(MongoDB) 스킵
+  [Alarm 점검]   시작 -> MongoDB 연결 없음
+```
+
+MongoDB 가 없어 **Offset 과 Alarm 은 끝까지 못 간다** — RR 학습 결과를 Mongo 에서
+다시 읽는 구조이기 때문이다. 데이터가 흘러 학습 모듈이 실제로 도는지 확인하는 용도다.
+
+## algorithm_new import 조건
+
+`Get_Data.py` 가 import 시점에 `django.setup()` 을 불러서, Django 가 없으면
+`Common` 트리 전체를 import 조차 못 했다. **Django 가 필요한 곳은 `baseinfoGetData`
+하나뿐**이라 그 함수 안에서만 초기화하도록 바꿨다(`_ensure_django()`).
+사내 서버 동작은 그대로다.
+
+바꾼 뒤 Django 없이 import 되는 것:
+
+| 모듈 | Django 없이 | 비고 |
+|---|---|---|
+| `Common.Get_Data` | OK | |
+| `Common.PRE_THK_VM` | OK | 원래부터 순수 (pandas/numpy/sklearn) |
+| `Common.OFFSET` | OK | |
+| `Common.REMOVAL_RATE` | pymongo 필요 | |
+| `Common.Module` | pymongo 필요 | |
+| `Common.Simulation` | pymongo 필요 | |
+
+→ 컨테이너에는 **pymongo 를 설치**해야 한다. merge_df 를 Mongo 에서 가져오지
+않더라도 학습 결과 저장·RR 재조회가 아직 Mongo 경로라 import 가 필요하다.
+
+## 발견한 것 — RR_Para 가 비면 RR 학습이 통째로 날아간다
+
+`REMOVAL_RATE.compute_rr` (300행 근처)는 `RR_Para` 를 네 값
+(`HEAD`/`PAD`/`DISK`/`DRESSER_CUTTING_RATE`)으로 분기해 `consumable_Para` 를 정하는데
+**`else` 가 없다.**
+
+```python
+if RR_Para == 'HEAD':      consumable_Para = Head_Para
+elif RR_Para == 'PAD':     consumable_Para = Pad_Para
+elif RR_Para == 'DISK':    consumable_Para = Disk_Para
+elif RR_Para == 'DRESSER_CUTTING_RATE': consumable_Para = Dresser_Para
+...
+temp_data3 = Removal_Rate_Get._detect_cycles(temp_data, consumable_Para)   # UnboundLocalError
+```
+
+web 의 `Detail.rr_para` 는 `blank=True, default=''` 라 **빈 값이 정상적인 Set-up
+상태**다. 그 키는 `UnboundLocalError` 로 RR 학습이 통째로 빠지는데,
+`compute_removal_rate` 의 try/except 가 Cube 메시지로 삼켜서 **로그를 안 보면
+모르고 지나간다**. 실제로 샘플 실행에서 재현했다.
+
+```
+[Cube] ... Module RR Failed : cannot access local variable 'consumable_Para'
+```
+
+의도한 동작(스킵인지, 기본값을 쓸지)이 무엇인지에 따라 고칠 방향이 갈려서
+여기서는 고치지 않았다.
+
 ## 아직 안 된 것
 
 - **사내 `getdatalake` / `getdatahub` 본문** — 이게 들어와야 실제 데이터가 흐른다
@@ -124,6 +200,4 @@ Django·pymongo 없는 환경(= 컨테이너와 같은 조건)에서 19개 항�
   회귀에 필요하므로 다음 단계에서 같은 방식(직접 조회)으로 옮긴다
 - **학습 결과 저장** — 지금은 기존 `_run_pipeline` 에 맡긴다(MongoDB 에 쓴다).
   결과도 nAPC 쪽으로 옮길지는 별도 결정
-- **`Common/Module.py` 의 Django 의존** — `Get_Data.py` 가 import 시점에
-  `django.setup()` 을 부른다. 사내 서버에서는 문제없지만 컨테이너로 옮기려면
-  이 부분을 지연 초기화로 바꿔야 한다 (`set_trainer()` 로 우회 가능)
+- **RR_Para 빈 값 처리** — 위 `consumable_Para` 건. 스킵인지 기본값인지 결정 필요
