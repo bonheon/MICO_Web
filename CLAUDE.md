@@ -228,6 +228,9 @@ MICO를 HCP → nAPC로 전환하면서 핵심 알고리즘을 MLflow 기반 AI 
   - **문자만 주고받는 최소 예제**: `nAPC/mico_text_upload.py` / `mico_text_call.py`.
     `data`가 문자열 리스트(`Array(string)`) → 출력도 문자열 리스트. 로컬 서빙 200 확인,
     예시에 없던 문자열·다른 행 수도 200. 입력 문자에 따라 결과가 갈리는 것까지 확인
+  - **노트북에서 호출 시 `unrecognized arguments: -f kernel.json` / `SystemExit: 2`** →
+    MLflow 에러가 아니다. 노트북 커널의 `-f kernel.json` 을 호출 스크립트의 argparse 가
+    물고 죽는 것. 노트북에서는 `from mico_text_call import call; call(["E2"], url=...)` 를 쓸 것
   - **반환값에도 문자+숫자 같이 가능** — 출력 한 행을 dict로 반환하면 필드별 타입이 잡힌다
     (`[{"lot_code":"E2","period":3,"status":"OK"}]` → `string/long/string`, 로컬 서빙 200 확인).
     더 단순하게는 숫자를 문자열 안에 넣어 1차원 str로만 돌려줘도 된다

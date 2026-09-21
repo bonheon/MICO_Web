@@ -277,6 +277,28 @@ outputs: [{"type":"string","name":"lot_code"},
 더 단순하게 가려면 숫자를 문자열 안에 넣어 1차원 str 로만 돌려주면 된다
 (`mico_text_upload.py` 의 기본 구현).
 
+#### 노트북에서 호출할 때 — `unrecognized arguments: -f kernel.json`
+
+```
+ipykernel_launcher.py: error: unrecognized arguments: -f /home/.../kernel.json
+SystemExit: 2
+```
+
+**MLflow 에러가 아니다.** 호출은 시도조차 안 된 상태다. 노트북 커널은 자기 자신을
+`ipykernel_launcher.py -f /.../kernel.json` 으로 띄우는데, 호출 스크립트의
+`argparse` 가 `sys.argv` 를 읽다가 그 `-f` 를 모르는 인자라며 죽는 것이다.
+
+노트북에서는 `call()` 을 직접 부른다:
+
+```python
+from mico_text_call import call
+call(["E2", "NA"], url="https://...")
+```
+
+`mico_text_call.py` 는 통째로 실행해도 죽지 않게 해 뒀다 —
+`ipykernel` 이 로드돼 있으면 CLI 인자를 아예 읽지 않고,
+아니면 `parse_known_args()` 로 남의 인자를 무시한다. 셋 다 로컬 서빙 200 확인.
+
 #### 안 되는 것 — 한 **배열** 안에 문자열과 숫자 섞기
 
 ```python
