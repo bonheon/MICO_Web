@@ -81,7 +81,8 @@ class SampleProvider:
 def payload_from_sample(family='DRAM', oper_desc='M1 CU CMP', days=30):
     """샘플 CSV 의 실제 값에 맞춘 payload 를 만든다 (학습 시연용).
 
-    Target / Pre_Target / RR_Para_Max 를 **데이터에서 뽑아** 맞춘다.
+    Target / Pre_Target / RR_Para_Max 를 **데이터에서 뽑아** 맞추고,
+    Pre_Oper_Code 를 채워 Pre_Thk_VM 까지 학습되게 한다.
     임의값을 쓰면 RR 이 조용히 0건이 된다 — `_process_models` 는 소모품 범위를
     4분위로 나눠 각 구간에 25건 넘게 있어야 저장하므로, RR_Para_Max 가 실제
     범위보다 크면 데이터가 첫 구간에 몰려 조건을 못 넘는다.
@@ -110,6 +111,9 @@ def payload_from_sample(family='DRAM', oper_desc='M1 CU CMP', days=30):
             'Pre_Thk_Period': 3, 'RR_Para': 'PAD', 'Offset_Group': 'A',
             'RR_Para_Max': round(pad_max) + 1, 'RR_Period': 7, 'Pad_Seperation': 1,
             'Pre_Thk_Para_ITM': '', 'Pre_Thk_VM_Source': 'AUTO',
+            # Pre_Oper_Code 가 있어야 Pre_Thk_VM 이 detrend+MA 경로로 학습한다.
+            # 비어 있으면 'ITM/MA/회귀 아무것도 없음' 으로 스킵되어 PRE_THK 가 0건이 된다
+            'Pre_Oper_Code': 'V5076000E', 'Pre_Oper_Desc': 'M1 CU PRE',
             'RR_Weight': 1, 'RR_Count': 10, 'FB_Type': 'TIME',
             'RR_Alarm_Sigma': 10, 'Pol_Type': 3, 'Group_Name': None,
         })

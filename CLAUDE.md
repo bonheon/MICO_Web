@@ -290,9 +290,14 @@ MICO를 HCP → nAPC로 전환하면서 핵심 알고리즘을 MLflow 기반 AI 
   - **주고받는 데이터**: 보내는 것은 Set-up payload(컬럼 40개 행들)뿐 — merge_df 는 안 보낸다
     (컨테이너가 DataLake+DataHub 직접 조회, 샘플 기준 20000행×52컬럼).
     반환은 키별 요약 + **학습값**: `[{key, status, rows, counts, results}]`.
-    `results` 는 컬렉션별 학습값 (RR: EQ/Recipe_ID/Count/b1/b0/b1_weighted/b0_weighted,
+    `results` 는 컬렉션별 학습값 **세 가지 다** (PRE_THK: pre_eq_ch/Pre_Thk/Count/THK_Para,
+    RR: EQ/Recipe_ID/Count/b1/b0/b1_weighted/b0_weighted,
     OFFSET: eqp_id/recipe_id/IDLE/OFFSET/APC_Para), `counts` 는 잘라 보내도 전체 건수.
-    샘플 한 키(RR 10+OFFSET 20) = 5,849 bytes. 예시는 `nAPC/mico_train/README.md`
+    샘플 한 키(PRE 16+RR 10+OFFSET 20=46건) = 9,461 bytes. 예시는 `nAPC/mico_train/README.md`
+  - ⚠️ **Pre_Thk_VM 은 Set-up 에 따라 안 도는 게 정상** — ITM(`Pre_Thk_Para_ITM`) /
+    moving avg(`Pre_Oper_Code`) / 회귀(`Pre_Oper_Code2`) 셋 다 없으면 `→ 스킵 (학습 불필요)`
+    로 빠져 PRE_THK 가 0건. 응답에 없으면 수집 실패가 아니라 학습할 게 없었던 것 — 로그의 `경로=` 줄 확인
+  - 로컬 실행에는 `openpyxl` 도 필요 (`load_pre_thk_data` 의 Excel 캐시 경로)
   - **학습값 수집 방식** (`result_collector.py`): 알고리즘을 안 고치고 `mongodb_controller` 를
     감싸 쓰는 내용을 기록한다. 기본은 tee — **Mongo 적재는 그대로 하고 응답에도 싣는다**.
     `Module.py`/`OFFSET.py` 가 import 시점에 이름을 묶어 두므로 `Common.MongoDB_Control` 이 아니라

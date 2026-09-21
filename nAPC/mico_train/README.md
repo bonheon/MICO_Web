@@ -136,14 +136,14 @@ python3 -m nAPC.mico_train.run_sample --dry-run  # 데이터 경로만
 [1/1] E2_V5077000E_M10
     [데이터] DataLake(30일) + DataHub 조회 ... 20000행
     Oper 필터 후: 20000행 / recipe 필터 후: 20000행
-  [Pre_Thk_VM]   시작 -> 완료
-  [Removal Rate] 시작 -> E2_M1CU_R17_TSV.CAS / E2_M1CU_R12_TSV.CAS 둘 다 학습 -> 완료
-  [Offset]       시작 -> RR 데이터 없음(MongoDB) 스킵
-  [Alarm 점검]   시작 -> MongoDB 연결 없음
+  [Pre_Thk_VM]   경로=Detrend+MA -> 16건
+  [Removal Rate] E2_M1CU_R17_TSV.CAS / E2_M1CU_R12_TSV.CAS 둘 다 학습 -> 10건
+  [Offset]       20건
+  [Alarm 점검]   MongoDB 연결 없음 (로컬만 해당)
 ```
 
-MongoDB 가 없어 **Offset 과 Alarm 은 끝까지 못 간다** — RR 학습 결과를 Mongo 에서
-다시 읽는 구조이기 때문이다. 데이터가 흘러 학습 모듈이 실제로 도는지 확인하는 용도다.
+로컬 실행에는 **`openpyxl` 이 필요하다** — `load_pre_thk_data` 의 Excel 캐시
+경로(`pre_thk_cache/*.xlsx`)를 탄다. 없으면 RR 이 ImportError 로 끊긴다.
 
 ## 주고받는 데이터 예시 (실제 실행값)
 
@@ -195,9 +195,16 @@ MongoDB 가 없어 **Offset 과 Alarm 은 끝까지 못 간다** — RR 학습 �
   "key": "E2_V5077000E_M10",
   "status": "trained",
   "rows": 20000,
-  "counts": {"MICO_Removal_Rate_E2_M1 CU CMP_M10": 10,
+  "counts": {"MICO_PRE_THK_E2_M1 CU CMP_M10_Period": 16,
+             "MICO_Removal_Rate_E2_M1 CU CMP_M10": 10,
              "MICO_OFFSET_E2_M1 CU CMP_M10": 20},
   "results": {
+    "MICO_PRE_THK_E2_M1 CU CMP_M10_Period": [
+      {"pre_oper_time": "2026-05-16T17:05:00.440990", "pre_eq_ch": "6KTSD503_2",
+       "Pre_Thk": 0.8587967630748634, "Count": 255.0,
+       "THK_Para": "AMAT_POST_OCD_AVG", "Date": "2026-09-21T08:50:00.650926",
+       "Oper_Code": "V5077000E"}
+    ],
     "MICO_Removal_Rate_E2_M1 CU CMP_M10": [
       {"Date": "2026-09-21T08:41:20.066035", "Fab": "M10", "Lot_Code": "E2",
        "Oper_Code": "V5077000E", "Oper_Desc": "M1 CU CMP", "APC_Para": "P3",
@@ -213,8 +220,20 @@ MongoDB 가 없어 **Offset 과 Alarm 은 끝까지 못 간다** — RR 학습 �
 }]
 ```
 
+세 가지 학습값이 전부 실린다 — **Pre_Thk_VM / Removal Rate / OFFSET**.
 `counts` 는 **잘라서 보내도 원래 건수**를 알 수 있게 항상 전체 수다.
-샘플 실행 기준 한 키(RR 10 + OFFSET 20)에 **5,849 bytes** — 엔드포인트로 충분하다.
+샘플 실행 기준 한 키(PRE 16 + RR 10 + OFFSET 20 = 46건)에 **9,461 bytes** — 엔드포인트로 충분하다.
+
+| 컬렉션 | 단위 | 주요 필드 |
+|---|---|---|
+| `MICO_PRE_THK_..._Period` | 사전공정 장비채널(`pre_eq_ch`) | `Pre_Thk`, `Count`, `THK_Para` |
+| `MICO_Removal_Rate_...` | 장비 × recipe | `b1`, `b0`, `b1_weighted`, `b0_weighted`, `Count` |
+| `MICO_OFFSET_...` | 장비 × recipe × 직전공정(`IDLE`) | `OFFSET` |
+
+⚠️ **Pre_Thk_VM 은 Set-up 에 따라 아예 안 도는 게 정상이다.** ITM(`Pre_Thk_Para_ITM`),
+moving avg(`Pre_Oper_Code`), 회귀(`Pre_Oper_Code2`) 셋 중 아무것도 없으면
+`→ 스킵 (학습 불필요)` 로 빠져 PRE_THK 가 0건이 된다. 응답에 PRE_THK 가 없으면
+수집이 안 된 게 아니라 **학습할 게 없었던 것**이므로 로그의 `경로=` 줄을 볼 것.
 
 | status | 뜻 |
 |---|---|
@@ -255,7 +274,7 @@ run_training(payload, collect_results=False) # 예전처럼 요약만
 샘플 실행 실측 (컬렉션에 쌓인 것 = 응답에 실린 것):
 
 ```
-MICO_PRE_THK_E2_M1 CU CMP_M10_Period :  0건   (Pre_Oper_Code 미설정이라 학습 없음)
+MICO_PRE_THK_E2_M1 CU CMP_M10_Period : 16건   (경로=Detrend+MA)
 MICO_Removal_Rate_E2_M1 CU CMP_M10   : 10건
 MICO_OFFSET_E2_M1 CU CMP_M10         : 20건
 ```
