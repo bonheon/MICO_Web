@@ -24,6 +24,7 @@ def main():
                     help="RR_Para (HEAD/PAD/DISK/DRESSER_CUTTING_RATE). "
                          "빈 값이면 REMOVAL_RATE 가 UnboundLocalError 를 낸다")
     ap.add_argument('--days', type=int, default=30)
+    ap.add_argument('--show-results', action='store_true', help='학습 결과 한 건씩 출력')
     args = ap.parse_args([] if 'ipykernel' in sys.modules else None)
 
     root = str(Path(__file__).parents[2])
@@ -42,9 +43,20 @@ def main():
           f'{[r["Recipe_ID"] for r in payload["rows"]]}\n')
 
     res = run_training(payload, provider=SampleProvider(), dry_run=args.dry_run)
-    print('\n결과:')
+
+    print('\n반환값:')
     for r in res:
         print(f'  {r["key"]:<24} {r["status"]:<10} {r["rows"]}행')
+
+    if not args.dry_run:
+        # 학습 결과는 반환되지 않고 컬렉션에 쌓인다 (로컬은 인메모리 Mock)
+        import Common.MongoDB_Control as mc
+        print('\n학습 결과 (컬렉션):')
+        for coll, recs in mc._STORE.items():
+            print(f'  {coll}: {len(recs)}건')
+            if recs and args.show_results:
+                import json
+                print(json.dumps(recs[0], ensure_ascii=False, indent=4, default=str))
 
 
 if __name__ == '__main__':

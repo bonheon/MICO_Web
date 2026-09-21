@@ -287,8 +287,16 @@ MICO를 HCP → nAPC로 전환하면서 핵심 알고리즘을 MLflow 기반 AI 
     Django 가 필요한 곳은 `baseinfoGetData` 하나뿐 — 사내 서버 동작은 그대로
   - **컨테이너에 pymongo 는 설치해야 함** — merge_df 는 Mongo 에서 안 가져와도
     REMOVAL_RATE/Module/Simulation 이 import 단계에서 pymongo 를 쓴다
+  - **주고받는 데이터**: 보내는 것은 Set-up payload(컬럼 40개 행들)뿐 — merge_df 는 안 보낸다
+    (컨테이너가 DataLake+DataHub 직접 조회, 샘플 기준 20000행×52컬럼).
+    반환은 학습값이 아니라 키별 요약 `[{"key":...,"status":"trained","rows":20000}]`.
+    **학습값 자체는 결과 컬렉션에 쌓인다** (RR: EQ/Recipe_ID/Count/b1/b0/b1_weighted/b0_weighted,
+    OFFSET: eqp_id/recipe_id/IDLE/OFFSET/APC_Para). 예시는 `nAPC/mico_train/README.md`
+  - ⚠️ **Set-up 값이 데이터와 안 맞으면 RR 이 에러 없이 0건** — `_process_models` 가 소모품 범위를
+    4분위로 나눠 각 구간 25건 초과를 요구해서, `RR_Para_Max` 가 실제 범위보다 크면 첫 구간에 몰려
+    조건을 못 넘는다. "Removal Rate 완료" 는 찍히는데 저장은 0건이라 로그만 보면 성공처럼 보인다
   - 남은 것: 사내 조회 함수 본문, 사전공정(PRE_THK_INFO, MongoDB upsert 전제라 미이관),
-    학습 결과 저장 경로
+    학습 결과 저장 경로(응답으로 돌려줄지 컨테이너가 직접 적재할지 미정)
   - ⚠️ **발견한 잠재 버그**: `REMOVAL_RATE.compute_rr`(300행 근처)의 `consumable_Para` 분기에
     `else` 가 없다. `Detail.rr_para` 는 `blank=True, default=''` 라 빈 값이 정상 Set-up 인데,
     그 키는 `UnboundLocalError` 로 RR 학습이 통째로 빠진다. try/except 가 Cube 메시지로

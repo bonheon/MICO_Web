@@ -79,12 +79,23 @@ class SampleProvider:
 
 
 def payload_from_sample(family='DRAM', oper_desc='M1 CU CMP', days=30):
-    """샘플 CSV 의 실제 recipe/oper 값으로 payload 를 만든다 (학습 시연용)."""
+    """샘플 CSV 의 실제 값에 맞춘 payload 를 만든다 (학습 시연용).
+
+    Target / Pre_Target / RR_Para_Max 를 **데이터에서 뽑아** 맞춘다.
+    임의값을 쓰면 RR 이 조용히 0건이 된다 — `_process_models` 는 소모품 범위를
+    4분위로 나눠 각 구간에 25건 넘게 있어야 저장하므로, RR_Para_Max 가 실제
+    범위보다 크면 데이터가 첫 구간에 몰려 조건을 못 넘는다.
+    """
     from .setup_payload import INFO_COLUMNS, SCHEMA_VERSION
 
     df = pd.read_csv(_CSV, nrows=20000, low_memory=False)
-    recipes = list(df['recipe_id'].dropna().unique())
-    oper    = df['operation_id'].dropna().unique()[0]
+    recipes  = list(df['recipe_id'].dropna().unique())
+    oper     = df['operation_id'].dropna().unique()[0]
+
+    thk_para  = 'AMAT_POST_OCD_AVG'
+    pad_para  = 'AMAT_PAD_3'           # RR_Para='PAD' + APC_Para='P3' 의 소모품 컬럼
+    post_mean = float(df[thk_para].mean())
+    pad_max   = float(df[pad_para].max())
 
     rows = []
     for rcp in recipes:
@@ -93,10 +104,11 @@ def payload_from_sample(family='DRAM', oper_desc='M1 CU CMP', days=30):
             'Family': family, 'Lot_Code': 'E2', 'Product': 'LC',
             'Oper_Code': oper, 'Oper_Desc': oper_desc, 'Channel_ID': '500019173',
             'Fab': 'M10', 'Maker': 'AMAT', 'Recipe_ID': rcp,
-            'APC_Para': 'P3', 'Thk_Para': 'AMAT_POST_OCD_AVG',
-            'Target': 1000, 'Post_Target': 1000, 'Pre_Target': 2000,
-            'Pre_Thk_Period': 3, 'RR_Para': '', 'Offset_Group': 'A',
-            'RR_Para_Max': 120, 'RR_Period': 7, 'Pad_Seperation': 1,
+            'APC_Para': 'P3', 'Thk_Para': thk_para,
+            'Target': round(post_mean), 'Post_Target': round(post_mean),
+            'Pre_Target': round(post_mean) + 100,
+            'Pre_Thk_Period': 3, 'RR_Para': 'PAD', 'Offset_Group': 'A',
+            'RR_Para_Max': round(pad_max) + 1, 'RR_Period': 7, 'Pad_Seperation': 1,
             'Pre_Thk_Para_ITM': '', 'Pre_Thk_VM_Source': 'AUTO',
             'RR_Weight': 1, 'RR_Count': 10, 'FB_Type': 'TIME',
             'RR_Alarm_Sigma': 10, 'Pol_Type': 3, 'Group_Name': None,

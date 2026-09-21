@@ -144,6 +144,127 @@ python3 -m nAPC.mico_train.run_sample --dry-run  # 데이터 경로만
 MongoDB 가 없어 **Offset 과 Alarm 은 끝까지 못 간다** — RR 학습 결과를 Mongo 에서
 다시 읽는 구조이기 때문이다. 데이터가 흘러 학습 모듈이 실제로 도는지 확인하는 용도다.
 
+## 주고받는 데이터 예시 (실제 실행값)
+
+### 보내는 것 — Set-up payload
+
+한 행 = **SubCategory × Detail 한 조합**. 컬럼 40개 전부 들어간다(빈 값도 키는 유지).
+
+```json
+{
+  "schema_version": 1,
+  "family": "DRAM",
+  "oper_desc": "M1 CU CMP",
+  "days": 30,
+  "rows": [
+    {
+      "Family": "DRAM", "Lot_Code": "E2", "Product": "LC",
+      "Oper_Code": "V5077000E", "Oper_Desc": "M1 CU CMP", "Channel_ID": "500019173",
+      "Fab": "M10", "Maker": "AMAT", "Recipe_ID": "E2_M1CU_R17_TSV.CAS",
+      "APC_Para": "P3", "Thk_Para": "AMAT_POST_OCD_AVG",
+      "Target": 1901, "Post_Target": 1901, "Pre_Target": 2001,
+      "Pre_Thk_Period": 3, "RR_Para": "PAD", "Offset_Group": "A",
+      "RR_Para_Max": 25, "RR_Period": 7, "Pad_Seperation": 1,
+      "Pre_Thk_Para_ITM": "", "Pre_Thk_VM_Source": "AUTO",
+      "Pre_Oper_Code": "", "Pre_Oper_Desc": "", "Pre_Oper_Para": "",
+      "Pre_Oper_Code2": "", "Pre_Oper_Desc2": "", "Pre_Oper_Para2": "",
+      "Pre_Oper_Code3": "", "Pre_Oper_Desc3": "", "Pre_Oper_Para3": "",
+      "Pre_Oper_Code4": "", "Pre_Oper_Desc4": "", "Pre_Oper_Para4": "",
+      "RR_Weight": 1, "RR_Count": 10, "FB_Type": "TIME",
+      "RR_Alarm_Sigma": 10, "Pol_Type": 3, "Group_Name": null
+    }
+  ]
+}
+```
+
+**merge_df 는 보내지 않는다.** 컨테이너가 DataLake+DataHub 에서 직접 읽는다
+(샘플 기준 20,000행 / 52컬럼 — HTTP 로 보낼 크기가 아니다).
+
+엔드포인트로 부를 때는 사내 엔벨로프로 한 번 감싼다 (`{"input": ...}`):
+
+```json
+{"input": [{"name": "mico_train", "shape": [1], "datatype": "ndarray",
+            "data": [{ ...위 payload... }]}]}
+```
+
+### 돌아오는 것 — 키별 요약
+
+`run_training()` 의 반환은 **학습값이 아니라 키마다 무슨 일이 있었는지**다.
+
+```json
+[{"key": "E2_V5077000E_M10", "status": "trained", "rows": 20000}]
+```
+
+| status | 뜻 |
+|---|---|
+| `trained` | 학습 실행됨 |
+| `no_data` | 조회 0행 또는 필터 후 0행 (사내 조회 함수가 비어 있을 때도 이것) |
+| `failed` | 학습 중 예외 |
+| `dry_run` | 데이터만 모으고 학습 안 함 |
+
+엔드포인트 응답은 여기에 `aiu_output` 이 씌워진다:
+
+```json
+{"output": {"aiu_output": [{"key": "E2_V5077000E_M10", "status": "trained", "rows": 20000}]}}
+```
+
+### 학습값 자체는 반환되지 않는다 — 컬렉션에 쌓인다
+
+실제 학습 결과는 return 이 아니라 결과 컬렉션으로 들어간다. 샘플 실행 실측:
+
+```
+MICO_PRE_THK_E2_M1 CU CMP_M10_Period :  0건   (Pre_Oper_Code 미설정이라 학습 없음)
+MICO_Removal_Rate_E2_M1 CU CMP_M10   : 10건
+MICO_OFFSET_E2_M1 CU CMP_M10         : 20건
+```
+
+**Removal Rate 한 건** — 장비×recipe 별 RR 기울기/절편:
+
+```json
+{
+  "Date": "2026-09-21 08:37:17.371774",
+  "Fab": "M10", "Lot_Code": "E2",
+  "Oper_Code": "V5077000E", "Oper_Desc": "M1 CU CMP",
+  "APC_Para": "P3", "EQ": "KCMP43", "Recipe_ID": "E2_M1CU_R17_TSV.CAS",
+  "Count": 1901,
+  "b1": -0.0891, "b0": 4.5078,
+  "b1_weighted": -0.0876, "b0_weighted": 4.472
+}
+```
+
+`b1`/`b0` 이 RR 회귀식 계수, `Count` 는 학습에 쓰인 표본 수,
+`*_weighted` 는 최근 구간 가중 적용분(조건을 만족한 장비에만 붙는다).
+
+**OFFSET 한 건** — 장비×recipe×직전공정(IDLE) 별 보정값:
+
+```json
+{
+  "eqp_id": "KCMP41", "recipe_id": "E2_M1CU_R12_TSV.CAS",
+  "IDLE": "LC_CMP_M2CU", "OFFSET": 0.0,
+  "APC_Para": "P3", "Date": "2026-09-21 08:37:17.884640"
+}
+```
+
+직접 보려면:
+
+```bash
+python3 -m nAPC.mico_train.run_sample --show-results
+```
+
+> 지금은 결과 저장이 MongoDB 경로 그대로다. 학습값을 **응답으로 돌려줄지**
+> (엔드포인트는 60초 제한이라 양이 문제) **컨테이너가 직접 적재할지**는 아직 미정 —
+> 남은 과제의 "학습 결과 저장 경로" 항목이다.
+
+### ⚠️ Set-up 값이 데이터와 안 맞으면 조용히 0건이 된다
+
+`RR_Para_Max` 를 실제 소모품 범위보다 크게 두면 RR 이 **에러 없이 0건**이 된다.
+`_process_models` 가 소모품 범위를 4분위로 나눠 각 구간에 25건 넘게 있어야
+저장하는데, 범위가 과도하면 데이터가 첫 구간에 몰려 조건을 못 넘기 때문이다.
+
+실제로 처음 시연할 때 `RR_Para_Max=120`(실제 PAD 범위 0~24.8)으로 두어
+"Removal Rate 완료" 가 찍히는데 저장은 0건이었다. `payload_from_sample()` 은
+이제 이 값들을 데이터에서 뽑아 맞춘다.
+
 ## algorithm_new import 조건
 
 `Get_Data.py` 가 import 시점에 `django.setup()` 을 불러서, Django 가 없으면
