@@ -205,6 +205,11 @@ python3 tools/flow_audit.py     # 문제 있으면 종료 코드 1
 ⚠️ `DEBUG=False` 라 **템플릿이 캐시된다** — 수정 후에는 서버를 재시작해야 화면에 반영된다.
 
 ### Jupyter 노트북
+- 교육 노트북 3종 `Pre_thickness_VM` / `Removal_Rate` / `Offset` (`notebooks/`)
+  - 실행 설정 셀엔 `FAMILY` / `OPER_DESC` 만. 번호(`KEY_INDEX`, `THK_INDEX` / `RR_ROW_INDEX` / `APC_INDEX`)는
+    **목록 표가 나온 바로 아래 셀**에서 정한다
+  - 실행 단위 = `Module.run` 과 같은 (실행 키, Group_Name). 그룹이면 그룹 전체 데이터 합산 + `*_group` 함수
+  - `merge_df_vm`(recipe 필터 전, Pre_Thk_VM 용) / `merge_df_rcp`(학습 recipe, RR·Offset 용) 분리도 운영과 동일
 - `notebooks/mico_setup_query.ipynb`: Set-up 전체 계층 DataFrame 조회
   - ⚠️ `sqlite3.connect('../db.sqlite3')` 로 되어 있어 **현재 DB(PostgreSQL)를 보지 않는다.**
     남아 있는 `db.sqlite3`(2026-03-24) 는 옛 스냅샷 — 최신 Set-up 을 보려면 연결부를 교체할 것
