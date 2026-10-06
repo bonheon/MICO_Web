@@ -240,6 +240,31 @@ def _filter_by_date(data, date_from, date_to):
     return result
 
 
+def _drop_nan_rows(data, value_field):
+    """value_field 가 NaN/Inf/None/비숫자인 행 제거 + 나머지 필드의 NaN/Inf 는 None 으로 치환.
+
+    MongoDB 의 NaN 이 그대로 JsonResponse 로 나가면 'NaN' 토큰이 되어
+    브라우저 JSON.parse 가 실패한다 (학습값 화면 에러 원인).
+    """
+    import math
+
+    def _finite(v):
+        try:
+            return v is not None and not isinstance(v, bool) and math.isfinite(float(v))
+        except (TypeError, ValueError):
+            return False
+
+    result = []
+    for row in data:
+        if not _finite(row.get(value_field)):
+            continue
+        result.append({
+            k: (None if isinstance(v, float) and not math.isfinite(v) else v)
+            for k, v in row.items()
+        })
+    return result
+
+
 def _mongo_date_filter(date_from, date_to, field='Date'):
     """MongoDB find() 용 날짜 범위 필터 dict 생성.
 
@@ -468,7 +493,8 @@ def learning_offset_data(request):
     # ════════════════════════════════════════════════════════════════════
 
     data = _filter_by_date(data, date_from, date_to)
-    recipe_ids = sorted(set(d['recipe_id'] for d in data if 'recipe_id' in d))
+    data = _drop_nan_rows(data, 'OFFSET')
+    recipe_ids = sorted(set(d['recipe_id'] for d in data if isinstance(d.get('recipe_id'), str)))
     return JsonResponse({'collection': collection_name, 'data': data, 'recipe_ids': recipe_ids})
 
 

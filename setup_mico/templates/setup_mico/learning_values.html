@@ -1134,8 +1134,8 @@ function renderOffsetChart(data) {
   // OFFSET scatter (IDLE별 색상)
   const datasets = idleValues.map(idle => {
     const pts = data
-      .filter(d => d.IDLE === idle && d.OFFSET != null)
-      .map(d => ({ x: new Date(d.Date).getTime(), y: d.OFFSET }))
+      .filter(d => d.IDLE === idle && Number.isFinite(Number(d.OFFSET)) && d.OFFSET !== null)
+      .map(d => ({ x: new Date(d.Date).getTime(), y: Number(d.OFFSET) }))
       .sort((a, b) => a.x - b.x);
     return {
       label: idle,

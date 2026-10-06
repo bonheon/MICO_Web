@@ -393,7 +393,7 @@
       </div>
       <form id="statusDetailForm" method="post">
         {% csrf_token %}
-        <input type="hidden" name="next" value="/setup/status/">
+        <input type="hidden" name="next" value="{{ request.get_full_path }}">
         <div class="modal-body" style="padding:1.5rem; max-height:75vh; overflow-y:auto;">
 
           <!-- SubCategory -->
@@ -638,6 +638,34 @@ document.addEventListener('click', function(e) {
     thkItmRow.style.display = 'none';
   }
 });
+
+// Detail 수정 저장 후에도 펼쳐둔 Category/SubCategory + 스크롤 위치 유지
+// 저장(submit) 직전에 상태를 sessionStorage 에 담고, 리다이렉트된 페이지에서 1회 복원
+const TREE_STATE_KEY = 'setupStatusTreeState';
+document.getElementById('statusDetailForm').addEventListener('submit', () => {
+  const openIds = [...document.querySelectorAll('.tree-category .collapse.show')].map(el => el.id);
+  try {
+    sessionStorage.setItem(TREE_STATE_KEY, JSON.stringify({ openIds, scrollY: window.scrollY }));
+  } catch (_) {}
+});
+(function restoreTreeState() {
+  let state = null;
+  try {
+    state = JSON.parse(sessionStorage.getItem(TREE_STATE_KEY) || 'null');
+    sessionStorage.removeItem(TREE_STATE_KEY);
+  } catch (_) {}
+  if (!state) return;
+  (state.openIds || []).forEach(id => {
+    const el = document.getElementById(id);
+    if (!el) return;
+    el.classList.add('show');   // 애니메이션 없이 바로 펼침
+    document.querySelectorAll(`[data-bs-target="#${id}"]`).forEach(t => {
+      t.setAttribute('aria-expanded', 'true');
+      t.classList.remove('collapsed');
+    });
+  });
+  window.scrollTo(0, state.scrollY || 0);
+})();
 
 // 검색 (Product/Oper ID/Oper Desc) — 서버사이드, Enter 입력 시에만 조회
 initColSearch();
